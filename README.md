@@ -18,10 +18,12 @@ demo_data_gen/
 ├── excel-schema-generator/   # 외부 Excel 생성 프로그램
 │   ├── src/
 │   └── output/               # 생성된 Excel 파일
-├── src/                      # 데이터 생성기 (Next.js)
-│   ├── app/
-│   ├── components/
-│   └── lib/
+├── data-generator/           # 데이터 생성 백엔드
+│   └── src/                  # 생성 로직 (TypeScript)
+├── frontend/                 # 웹 UI (Next.js)
+│   ├── src/app/
+│   ├── src/components/
+│   └── src/hooks/
 ├── output/
 │   ├── runs/                 # 실행 메타데이터
 │   └── data/                 # 생성된 JSONL (LogBus2용)

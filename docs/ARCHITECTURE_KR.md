@@ -644,48 +644,57 @@ demo_data_gen/
 │   │   └── ...
 │   └── package.json
 │
-├── src/                             # 우리 프로그램 - 데이터 생성기
-│   ├── app/
-│   │   ├── page.tsx                   # 메인 UI
-│   │   ├── layout.tsx
-│   │   └── api/
-│   │       ├── ai-ranges/route.ts     # AI 범위 생성
-│   │       └── logbus/route.ts        # LogBus2 제어
-│   ├── components/
-│   │   ├── ExcelReader.tsx            # Excel 파일 선택 UI (excel-schema-generator/output/)
-│   │   ├── SimulationConfig.tsx       # 시나리오, DAU, 날짜 등 설정
-│   │   ├── TESettings.tsx             # APP_ID, URL 설정
-│   │   ├── GenerationProgress.tsx     # 생성 진행 표시
-│   │   ├── DataPreview.tsx            # 통계 & 차트
-│   │   └── ExportControls.tsx         # 전송 컨트롤
-│   ├── lib/
-│   │   ├── client/                    # 브라우저 실행
-│   │   │   ├── excel-parser.ts        # Excel 파일 읽기 (xlsx, excel-schema-generator/output/)
-│   │   │   ├── cohort-generator.ts    # 유저 코호트 생성
-│   │   │   ├── event-generator.ts     # 이벤트 생성
-│   │   │   ├── dependency-manager.ts  # 이벤트 의존성 관리
-│   │   │   ├── te-formatter.ts        # TE 형식 변환
-│   │   │   ├── faker-utils.ts         # Faker.js 유틸리티
-│   │   │   └── file-writer.ts         # 일자별 JSONL 작성
-│   │   ├── server/                    # 서버 실행
-│   │   │   ├── ai-client.ts           # AI API 호출
-│   │   │   └── logbus-controller.ts   # LogBus2 제어
+├── data-generator/                  # 데이터 생성 백엔드
+│   ├── src/
+│   │   ├── excel/
+│   │   │   └── parser.ts            # Excel 파일 파싱
+│   │   ├── ai/
+│   │   │   └── client.ts            # AI API 호출 (OpenAI/Claude)
+│   │   ├── generators/
+│   │   │   ├── cohort-generator.ts  # 유저 코호트 생성
+│   │   │   ├── event-generator.ts   # 이벤트 생성
+│   │   │   ├── dependency-manager.ts # 이벤트 의존성 관리
+│   │   │   └── faker-utils.ts       # Faker.js 유틸리티
+│   │   ├── logbus/
+│   │   │   └── controller.ts        # LogBus2 제어
+│   │   ├── formatters/
+│   │   │   └── te-formatter.ts      # TE 형식 변환
 │   │   ├── types/
 │   │   │   ├── schema.ts
 │   │   │   ├── user.ts
 │   │   │   ├── event.ts
-│   │   │   ├── country.ts             # 국가별 설정
+│   │   │   ├── country.ts           # 국가별 설정
 │   │   │   └── te-format.ts
 │   │   └── utils/
-│   │       ├── date.ts                # 날짜 유틸
-│   │       ├── random.ts              # 랜덤 생성
-│   │       ├── distribution.ts        # 통계 분포
-│   │       └── lifecycle.ts           # 생명주기 로직
-│   └── hooks/
-│       ├── useExcelParser.ts          # Excel 파싱 훅
-│       ├── useCohortGenerator.ts
-│       ├── useEventGenerator.ts
-│       └── useLogBusUpload.ts
+│   │       ├── date.ts              # 날짜 유틸
+│   │       ├── random.ts            # 랜덤 생성
+│   │       ├── distribution.ts      # 통계 분포
+│   │       └── lifecycle.ts         # 생명주기 로직
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/                        # 프론트엔드 (Next.js)
+│   ├── src/
+│   │   ├── app/
+│   │   │   ├── page.tsx             # 메인 UI
+│   │   │   ├── layout.tsx
+│   │   │   └── api/
+│   │   │       ├── generate/route.ts # 데이터 생성 API
+│   │   │       └── upload/route.ts   # LogBus2 업로드 API
+│   │   ├── components/
+│   │   │   ├── ExcelSelector.tsx    # Excel 파일 선택
+│   │   │   ├── ConfigForm.tsx       # 시나리오, DAU, 날짜 등 설정
+│   │   │   ├── SettingsModal.tsx    # APP_ID, API Keys 설정
+│   │   │   ├── ProgressDisplay.tsx  # 생성 진행 표시
+│   │   │   ├── DataPreview.tsx      # 통계 & 차트
+│   │   │   └── UploadControls.tsx   # 전송 컨트롤
+│   │   └── hooks/
+│   │       ├── useDataGenerator.ts
+│   │       └── useLogBusUpload.ts
+│   ├── public/
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── next.config.js
 │
 ├── output/
 │   ├── runs/                         # 실행 메타데이터 (LogBus2 제외)
