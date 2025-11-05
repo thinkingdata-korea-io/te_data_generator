@@ -1,0 +1,55 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Testing
+coverage/
+
+# Next.js
+.next/
+out/
+
+# Production
+build/
+dist/
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local env files
+.env
+.env*.local
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Output files
+output/data/*.jsonl
+output/runs/*.json
+
+# Excel files (generated)
+excel-schema-generator/output/*.xlsx
+event_tracking/data/*.xlsx
+
+# LogBus2 data
+logbus\ 2/data/
+logbus\ 2/logs/
+logbus\ 2/conf/daemon.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

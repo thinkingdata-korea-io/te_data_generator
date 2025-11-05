@@ -1,0 +1,24 @@
+{"level":"info","time":"2025-10-23T14:58:04+09:00","message":"app_id [63565828675d4b9f88bbf908edf4bc1c] ok"}
+{"level":"info","time":"2025-10-23T14:58:04+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_generator/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-10-23T14:58:07+09:00","message":"[localhost:25220] start daemon success, pid[62282]"}
+{"level":"info","time":"2025-10-24T04:10:13+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-24T04:10:13+09:00","message":"daemon process pid[62282] is running"}
+{"level":"info","time":"2025-10-24T04:10:13+09:00","message":"logbus daemon process already exists, pid[62282]"}
+{"level":"info","time":"2025-10-24T04:12:00+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-24T04:12:00+09:00","message":"daemon process pid[62282] is running"}
+{"level":"info","time":"2025-10-24T04:12:00+09:00","message":"logbus daemon process already exists, pid[62282]"}
+{"level":"info","time":"2025-10-24T04:15:42+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-24T04:15:42+09:00","message":"daemon process pid[62282] is running"}
+{"level":"info","time":"2025-10-24T04:15:42+09:00","message":"logbus daemon process already exists, pid[62282]"}
+{"level":"info","time":"2025-10-24T05:03:14+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-24T05:03:14+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_generator/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-10-24T05:03:17+09:00","message":"[localhost:26452] start daemon success, pid[40214]"}
+{"level":"info","time":"2025-10-24T12:14:29+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-24T12:14:29+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_generator/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-10-24T12:14:32+09:00","message":"[localhost:27399] start daemon success, pid[44724]"}
+{"level":"info","time":"2025-10-26T21:15:08+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-26T21:15:08+09:00","message":"daemon process pid[44724] is running"}
+{"level":"info","time":"2025-10-26T21:15:08+09:00","message":"logbus daemon process already exists, pid[44724]"}
+{"level":"info","time":"2025-10-27T10:23:07+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
+{"level":"info","time":"2025-10-27T10:23:07+09:00","message":"daemon process pid[44724] is running"}
+{"level":"info","time":"2025-10-27T10:23:07+09:00","message":"logbus daemon process already exists, pid[44724]"}
