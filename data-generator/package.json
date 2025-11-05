@@ -1,0 +1,32 @@
+{
+  "name": "@te-data-generator/data-generator",
+  "version": "1.0.0",
+  "description": "ThinkingEngine event data generator backend",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "type-check": "tsc --noEmit"
+  },
+  "keywords": [
+    "thinkingengine",
+    "data-generator",
+    "event-tracking"
+  ],
+  "author": "ThinkingData Korea",
+  "license": "MIT",
+  "dependencies": {
+    "@faker-js/faker": "^8.4.1",
+    "dotenv": "^16.4.5",
+    "exceljs": "^4.4.0",
+    "openai": "^4.47.1",
+    "@anthropic-ai/sdk": "^0.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5"
+  }
+}
