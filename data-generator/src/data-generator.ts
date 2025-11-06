@@ -19,6 +19,16 @@ import { formatDateYYYYMMDD, addMilliseconds } from './utils/date';
 import { exponentialDistribution } from './utils/distribution';
 
 /**
+ * 진행 상황 콜백 타입
+ */
+export type ProgressCallback = (progress: {
+  status: string;
+  progress: number;
+  message: string;
+  step?: string;
+}) => void;
+
+/**
  * 데이터 생성기 설정
  */
 export interface DataGeneratorConfig {
@@ -44,6 +54,9 @@ export interface DataGeneratorConfig {
   // 출력 경로
   outputDataPath: string;
   outputMetadataPath: string;
+
+  // 진행 상황 콜백 (선택적)
+  onProgress?: ProgressCallback;
 }
 
 /**
@@ -78,21 +91,66 @@ export class DataGenerator {
     console.log(`Run ID: ${this.runId}`);
 
     // 1. Excel 파싱
+    this.config.onProgress?.({
+      status: 'parsing',
+      progress: 10,
+      message: `Excel 파일에서 ${path.basename(this.config.excelFilePath)} 로드 중...`,
+      step: '1/5'
+    });
     console.log('\n📋 Step 1: Parsing Excel schema...');
     const schema = await this.parseExcel();
     console.log(`✅ Parsed ${schema.events.length} events, ${schema.properties.length} properties`);
 
+    this.config.onProgress?.({
+      status: 'parsing',
+      progress: 15,
+      message: `${schema.events.length}개 이벤트, ${schema.properties.length}개 속성 파싱 완료`,
+      step: '1/5'
+    });
+
     // 2. AI 분석
+    this.config.onProgress?.({
+      status: 'analyzing',
+      progress: 25,
+      message: 'Claude AI를 통해 시나리오 분석 시작...',
+      step: '2/5'
+    });
     console.log('\n🤖 Step 2: AI analysis...');
     const aiAnalysis = await this.analyzeWithAI(schema);
     console.log(`✅ Generated ${aiAnalysis.userSegments.length} user segments`);
 
+    this.config.onProgress?.({
+      status: 'analyzing',
+      progress: 35,
+      message: `${aiAnalysis.userSegments.length}개 사용자 세그먼트 및 행동 패턴 생성 완료`,
+      step: '2/5'
+    });
+
     // 3. 코호트 생성
+    this.config.onProgress?.({
+      status: 'generating',
+      progress: 45,
+      message: '사용자 코호트 생성 중...',
+      step: '3/5'
+    });
     console.log('\n👥 Step 3: Generating user cohorts...');
     const cohorts = await this.generateCohorts(aiAnalysis);
     console.log(`✅ Generated cohorts for ${cohorts.size} days`);
 
+    this.config.onProgress?.({
+      status: 'generating',
+      progress: 55,
+      message: `${cohorts.size}일치 사용자 코호트 생성 완료`,
+      step: '3/5'
+    });
+
     // 4. 이벤트 생성
+    this.config.onProgress?.({
+      status: 'generating',
+      progress: 60,
+      message: '일별 이벤트 데이터 생성 시작...',
+      step: '4/5'
+    });
     console.log('\n📊 Step 4: Generating events...');
     const { filesGenerated, totalEvents } = await this.generateEvents(
       schema,
@@ -101,7 +159,20 @@ export class DataGenerator {
     );
     console.log(`✅ Generated ${totalEvents} events in ${filesGenerated.length} files`);
 
+    this.config.onProgress?.({
+      status: 'generating',
+      progress: 85,
+      message: `${totalEvents.toLocaleString()}개 이벤트 생성 완료`,
+      step: '4/5'
+    });
+
     // 5. 메타데이터 저장
+    this.config.onProgress?.({
+      status: 'saving',
+      progress: 90,
+      message: '메타데이터 및 파일 저장 중...',
+      step: '5/5'
+    });
     console.log('\n💾 Step 5: Saving metadata...');
     const metadata = this.saveMetadata(schema, aiAnalysis, filesGenerated, totalEvents);
 
@@ -113,6 +184,13 @@ export class DataGenerator {
       filesGenerated,
       metadata
     };
+
+    this.config.onProgress?.({
+      status: 'completed',
+      progress: 100,
+      message: '✅ 데이터 생성 완료!',
+      step: '5/5'
+    });
 
     console.log('\n✅ Data generation completed!');
     console.log(`📁 Output: ${this.config.outputDataPath}`);
@@ -184,8 +262,21 @@ export class DataGenerator {
     }
 
     // 날짜별로 이벤트 생성
+    const totalDays = cohorts.size;
+    let dayIndex = 0;
+
     for (const [dateKey, users] of cohorts.entries()) {
+      dayIndex++;
       console.log(`  📅 Processing ${dateKey} (${users.length} users)...`);
+
+      // 진행 상황 업데이트 (60% ~ 85% 구간을 일별로 분할)
+      const dayProgress = 60 + ((dayIndex - 1) / totalDays) * 25;
+      this.config.onProgress?.({
+        status: 'generating',
+        progress: Math.floor(dayProgress),
+        message: `${dateKey} 데이터 생성 중... (${dayIndex}/${totalDays}일)`,
+        step: '4/5'
+      });
 
       const dailyEvents: TEEvent[] = [];
 
@@ -230,6 +321,15 @@ export class DataGenerator {
         totalEvents += dailyEvents.length;
 
         console.log(`    ✅ ${dailyEvents.length} events → ${fileName}`);
+
+        // 파일 저장 후 진행 상황 업데이트
+        const completedProgress = 60 + (dayIndex / totalDays) * 25;
+        this.config.onProgress?.({
+          status: 'generating',
+          progress: Math.floor(completedProgress),
+          message: `${dateKey} 완료 (${dailyEvents.length.toLocaleString()}개 이벤트)`,
+          step: '4/5'
+        });
       }
     }
 

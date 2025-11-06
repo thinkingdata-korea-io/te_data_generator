@@ -37,6 +37,9 @@ next-env.d.ts
 # Output files (all generated data)
 output/
 
+# Uploaded files
+uploads/
+
 # Excel files (generated)
 excel-schema-generator/output/*.xlsx
 event_tracking/data/*.xlsx
