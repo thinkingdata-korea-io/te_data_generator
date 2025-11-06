@@ -3,9 +3,14 @@
 ## 프로젝트 개요
 
 **프로젝트명**: ThinkingEngine용 이벤트 트래킹 데이터 생성기
-**목적**: Excel 정의 스키마 기반으로 현실적인 이벤트 트래킹 데이터를 생성하고 LogBus2를 통해 ThinkingEngine으로 전송
+**목적**: AI 기반으로 Excel 스키마를 생성하거나 기존 Excel을 업로드하여 현실적인 이벤트 데이터를 생성하고 LogBus2로 ThinkingEngine에 전송
 **적용 분야**: 게임, 커머스, 교육, 헬스케어 등 모든 서비스
-**기술**: Next.js 14, TypeScript, OpenAI/Anthropic API
+**기술 스택**:
+- **프론트엔드**: Next.js 14 (App Router), TypeScript, Tailwind CSS
+- **백엔드**: Express.js, TypeScript
+- **AI**: Anthropic Claude API
+- **데이터 전송**: LogBus2 (Gzip 압축)
+- **더미 데이터**: Faker.js (국가별 로케일 지원)
 
 ## 시스템 요구사항
 
@@ -729,296 +734,360 @@ const parsedBatch = batch.map(line => {
 
 ## API 엔드포인트
 
-### POST `/api/excel/parse`
-**목적**: excel-schema-generator/output/ 폴더에서 Excel 파일 선택 및 파싱
+**API 서버 포트**: 3001
+**프론트엔드**: 3000 (Next.js가 API 요청을 3001로 프록시)
+
+### POST `/api/excel/generate`
+**목적**: AI 기반 Excel 스키마 생성 (새로 만들기 모드)
 
 **요청**:
 ```typescript
 {
-  // 자동으로 최신 Excel 읽기 또는
-  filePath?: string  // 특정 파일 경로
+  serviceName: string;        // 서비스명
+  serviceDescription: string; // 서비스 설명
+  industry: string;          // 산업 분야 (게임, 커머스, 교육 등)
+  locale?: string;           // 기본값: 'kr'
 }
 ```
 
 **응답**:
 ```typescript
 {
-  schema: ParsedExcelSchema,
-  summary: {
-    eventCount: number,
-    propertyCount: number,
-    funnelCount: number
-  }
+  success: boolean;
+  excelPath: string;         // 생성된 Excel 파일 경로
+  message: string;
 }
 ```
 
-### POST `/api/generate`
-**목적**: AI 분석 + 데이터 생성 (Step 2)
+### POST `/api/excel/upload`
+**목적**: 기존 Excel 파일 업로드 (기존 엑셀 사용하기 모드)
 
-**요청**:
+**요청**: multipart/form-data
 ```typescript
 {
-  excelSchema: ParsedExcelSchema,
-  userInputs: {
-    scenario: string,      // 시나리오 (자유 텍스트)
-    dau: number,           // DAU
-    industry: string,      // 서비스 산업
-    notes: string,         // 비고 (서비스 특징)
-    dateRange: {
-      start: string,  // ISO 날짜
-      end: string
-    }
-  },
-  config: {
-    appId: string,
-    apiKey: string  // Claude or OpenAI
-  }
-}
-```
-
-**응답** (스트리밍):
-```typescript
-{
-  progress: {
-    stage: 'ai_analysis' | 'user_cohort_generation' | 'event_generation' | 'file_writing',
-    percent: number,
-    message: string,
-    details?: {
-      // AI 분석 단계
-      aiSegments?: UserSegmentConfig,
-      aiDependencies?: DependencyGraph,
-      // 생성 단계
-      currentDate?: string,
-      eventsGenerated?: number
-    }
-  },
-  data?: {
-    aiConfig: AIGeneratedConfig,
-    outputPath: string,
-    metadata: {
-      totalUsers: number,
-      totalEvents: number,
-      segmentDistribution: Record<string, number>,
-      dateFiles: string[]  // YYYY-MM-DD.jsonl 파일 목록
-    }
-  }
-}
-```
-
-### POST `/api/logbus/start`
-**목적**: LogBus2 시작 및 전송 (Step 3)
-
-**요청**:
-```typescript
-{
-  dataFolderPath: string,  // output/data/run_XXX/
-  appId: string,
-  pushUrl: string,
-  logbusPath?: string
-}
-```
-
-**응답** (스트리밍):
-```typescript
-{
-  status: 'configuring' | 'starting' | 'uploading' | 'completed' | 'error',
-  progress: {
-    filesProcessed: number,
-    totalFiles: number,
-    bytesUploaded: number,
-    totalBytes: number,
-    currentFile?: string
-  },
-  message: string
-}
-```
-
-### POST `/api/logbus/stop`
-**목적**: LogBus2 종료 (Step 4)
-
-**요청**:
-```typescript
-{
-  logbusPath?: string
+  excelFile: File;  // .xlsx 파일
 }
 ```
 
 **응답**:
 ```typescript
 {
-  success: boolean,
-  message: string
+  success: boolean;
+  excelPath: string;         // 업로드된 Excel 파일 경로
+  message: string;
+}
+```
+
+### GET `/api/excel/download/:filename`
+**목적**: 생성된 Excel 파일 다운로드
+
+**응답**: Excel 파일 (application/vnd.openxmlformats-officedocument.spreadsheetml.sheet)
+
+### POST `/api/data/generate`
+**목적**: 이벤트 데이터 생성 (Excel 기반)
+
+**요청**:
+```typescript
+{
+  excelPath: string;         // Excel 파일 경로
+  scenario: string;          // 사용 시나리오
+  dau: number;              // DAU
+  industry: string;         // 산업 분야
+  notes: string;            // 비고
+  dateStart: string;        // 시작일 (YYYY-MM-DD)
+  dateEnd: string;          // 종료일 (YYYY-MM-DD)
+}
+```
+
+**응답**:
+```typescript
+{
+  success: boolean;
+  runId: string;            // run_YYYYMMDD_HHMMSS
+  message: string;
+}
+```
+
+### GET `/api/data/status/:runId`
+**목적**: 데이터 생성 진행 상태 조회 (2초 간격 폴링)
+
+**응답**:
+```typescript
+{
+  status: 'pending' | 'generating' | 'completed' | 'error';
+  progress: number;         // 0-100
+  message: string;
+  currentStage?: string;    // 현재 처리 중인 단계
+  totalUsers?: number;
+  totalEvents?: number;
+  error?: string;
+}
+```
+
+### POST `/api/logbus/send`
+**목적**: LogBus2를 통해 ThinkingEngine으로 데이터 전송
+
+**요청**:
+```typescript
+{
+  runId: string;            // 데이터 생성 시 받은 runId
+  appId: string;            // ThinkingEngine APP_ID
+  receiverUrl: string;      // ThinkingEngine Receiver URL
+}
+```
+
+**응답**:
+```typescript
+{
+  success: boolean;
+  message: string;
 }
 ```
 
 ### GET `/api/settings`
-**목적**: 현재 설정 조회
+**목적**: 현재 환경 설정 조회
 
 **응답**:
 ```typescript
 {
-  ANTHROPIC_API_KEY: string,
-  TE_APP_ID: string,
-  TE_RECEIVER_URL: string,
-  DATA_RETENTION_DAYS: string,      // 데이터 파일 보관 기간
-  EXCEL_RETENTION_DAYS: string,     // Excel 파일 보관 기간
-  AUTO_DELETE_AFTER_SEND: string    // 전송 후 즉시 삭제 (true/false)
+  ANTHROPIC_API_KEY: string;
+  TE_APP_ID: string;
+  TE_RECEIVER_URL: string;
+  LOGBUS_PATH: string;
+  DATA_RETENTION_DAYS: string;      // 데이터 파일 보관 기간
+  EXCEL_RETENTION_DAYS: string;     // Excel 파일 보관 기간
+  AUTO_DELETE_AFTER_SEND: string;   // 전송 후 즉시 삭제
 }
 ```
 
 ### POST `/api/settings`
-**목적**: 설정 저장
+**목적**: 환경 설정 저장 (.env 파일 업데이트)
 
 **요청**:
 ```typescript
 {
-  ANTHROPIC_API_KEY?: string,
-  TE_APP_ID?: string,
-  TE_RECEIVER_URL?: string,
-  DATA_RETENTION_DAYS?: string,
-  EXCEL_RETENTION_DAYS?: string,
-  AUTO_DELETE_AFTER_SEND?: string
+  ANTHROPIC_API_KEY?: string;
+  TE_APP_ID?: string;
+  TE_RECEIVER_URL?: string;
+  LOGBUS_PATH?: string;
+  DATA_RETENTION_DAYS?: string;
+  EXCEL_RETENTION_DAYS?: string;
+  AUTO_DELETE_AFTER_SEND?: string;
 }
 ```
 
 **응답**:
 ```typescript
 {
-  success: boolean,
-  message: string
+  success: boolean;
+  message: string;
 }
 ```
 
-## 프론트엔드 컴포넌트
+## 프론트엔드 아키텍처
 
-### 1. MainInputForm
-**경로**: `src/components/MainInputForm.tsx`
+### 단일 페이지 애플리케이션 (SPA)
+**경로**: `/frontend/src/app/page.tsx` (약 1000줄)
 
-**기능**:
-- **시나리오 입력** (자유 텍스트 textarea)
-- **DAU 슬라이더**
-- **서비스 산업 선택** (게임, 커머스, 교육, 헬스케어 등)
-- **비고 입력** (서비스 특징 등, 자유 텍스트)
-- **날짜 범위 선택기**
-- **[⚙️ 설정] 버튼** (모달):
-  - APP_ID
-  - Receiver URL
-  - Claude API Key
-  - OpenAI API Key
-  - **파일 보관 설정**:
-    - 데이터 파일 보관 기간 (일)
-    - Excel 파일 보관 기간 (일)
-    - 전송 후 즉시 삭제 (체크박스)
+**구조**: Next.js 14 App Router를 사용한 단일 파일 컴포넌트
+- React useState를 통한 화면 상태 관리
+- ProcessStep enum으로 12가지 화면 상태 관리
+- 조건부 렌더링으로 각 화면 표시
 
-### 2. DataPreview
-**경로**: `src/components/DataPreview.tsx`
+### 화면 상태 (ProcessStep)
+```typescript
+type ProcessStep =
+  | 'select-mode'           // 모드 선택 (새로 만들기 vs 기존 엑셀)
+  | 'input'                 // 신규: 서비스 정보 입력
+  | 'excel-generating'      // 신규: Excel 생성 중
+  | 'excel-completed'       // 신규: Excel 생성 완료 (다운로드 + 홈 버튼)
+  | 'upload'                // 업로드: Excel 파일 업로드
+  | 'upload-completed'      // 업로드: 업로드 완료 (홈 버튼)
+  | 'combined-config'       // 공통: 데이터 생성 설정 입력
+  | 'data-generating'       // 공통: 데이터 생성 중 (2초 폴링)
+  | 'data-completed'        // 공통: 데이터 생성 완료 (홈 버튼)
+  | 'send-config'           // 공통: ThinkingEngine 전송 설정
+  | 'sending'               // 공통: 전송 중
+  | 'upload-completed'      // 공통: 전송 완료 (홈 버튼)
+```
 
-**기능**:
-- 생성된 이벤트의 테이블 형태 표시
-- 페이지네이션 (페이지당 100개 이벤트)
-- 컬럼 필터링 및 정렬
-- JSON 뷰 토글
-- JSONL로 내보내기 버튼
+### 주요 기능별 화면
 
-### 3. WorkflowButtons
-**경로**: `src/components/WorkflowButtons.tsx`
+**1. select-mode (모드 선택)**
+- "새로 만들기" 버튼: AI로 Excel 스키마 생성
+- "기존 엑셀 사용하기" 버튼: Excel 파일 업로드
+- 설정 버튼 (⚙️)
 
-**기능**:
-- **[1단계: Excel 생성]** 버튼 (외부 프로그램 트리거)
-- **[2단계: 데이터 생성]** 버튼 (Excel 읽기 + AI 분석 + 생성)
-- **[3단계: 전송 시작]** 버튼 (LogBus2 시작)
-- **[4단계: 종료]** 버튼 (LogBus2 종료)
-- 각 단계별 활성화/비활성화 상태 관리
-- 진행 상태 표시
+**2. input (서비스 정보 입력) - 신규 모드**
+- 서비스명 입력
+- 서비스 설명 textarea
+- 산업 분야 선택 (게임, 커머스, 교육, 헬스케어, 기타)
+- 홈 버튼 + 생성 시작 버튼
 
-### 4. ProgressMonitor
-**경로**: `src/components/ProgressMonitor.tsx`
+**3. excel-completed (Excel 생성 완료) - 신규 모드**
+- Excel 다운로드 버튼 (📥): 생성된 Excel 파일 다운로드
+- 홈 버튼 (🏠): select-mode로 돌아가기
+- 다음 단계 버튼: combined-config로 이동
 
-**기능**:
-- Excel 파싱 진행 상태
-- AI 분석 진행 상태 (세그먼트 결정, 의존성 추론 등)
-- 데이터 생성 진행 상태
-- LogBus2 전송 진행 표시기
-- 로그 뷰어
-- 성공/오류 알림
+**4. upload (Excel 업로드) - 업로드 모드**
+- 파일 선택 UI (드래그 앤 드롭 지원)
+- .xlsx 파일만 허용
+- 홈 버튼
+
+**5. combined-config (데이터 생성 설정) - 공통**
+- 시나리오 입력 (textarea)
+- DAU 슬라이더 (10 ~ 10000)
+- 산업 분야 선택
+- 비고 입력
+- 날짜 범위 선택 (시작일, 종료일)
+- 홈 버튼 + 데이터 생성 시작 버튼
+
+**6. data-generating (데이터 생성 중) - 공통**
+- 진행률 표시 (0-100%)
+- 현재 처리 단계 메시지
+- 2초 간격 폴링 (/api/data/status/:runId)
+- 로딩 애니메이션
+
+**7. data-completed (데이터 생성 완료) - 공통**
+- 생성된 유저 수, 이벤트 수 표시
+- 홈 버튼
+- 다음 단계 버튼: send-config로 이동
+
+**8. send-config (ThinkingEngine 전송 설정) - 공통**
+- APP_ID 입력
+- Receiver URL 입력
+- LogBus2 경로 입력
+- 홈 버튼 + 전송 시작 버튼
+
+**9. sending (전송 중) - 공통**
+- 전송 진행 상태 표시
+- LogBus2 프로세스 모니터링
+
+**10. upload-completed (전송 완료) - 공통**
+- 성공 메시지
+- 홈 버튼: 처음으로 돌아가기
+
+### 설정 모달
+**트리거**: 설정 버튼 (⚙️) 클릭
+
+**설정 항목**:
+- ANTHROPIC_API_KEY
+- TE_APP_ID
+- TE_RECEIVER_URL
+- LOGBUS_PATH
+- DATA_RETENTION_DAYS (데이터 파일 보관 기간)
+- EXCEL_RETENTION_DAYS (Excel 파일 보관 기간)
+- AUTO_DELETE_AFTER_SEND (전송 후 즉시 삭제)
+
+**API**: POST /api/settings로 저장
 
 ## 상태 관리
 
-Context API와 함께 React hooks 사용:
+React useState를 사용한 로컬 상태 관리 (Context API 미사용):
 
 ```typescript
-interface AppState {
-  // 사용자 입력
-  userInputs: {
-    scenario: string;      // 시나리오 (자유 텍스트)
-    dau: number;           // DAU
-    industry: string;      // 서비스 산업
-    notes: string;         // 비고 (서비스 특징)
-    dateRange: DateRange;  // 날짜 범위
-  };
+// 프로세스 단계 관리
+const [processStep, setProcessStep] = useState<ProcessStep>('select-mode');
 
-  // 워크플로우 상태
-  workflow: {
-    currentStep: 1 | 2 | 3 | 4;
-    step1: { status: 'idle' | 'running' | 'completed' | 'error' };  // Excel 생성
-    step2: { status: 'idle' | 'running' | 'completed' | 'error' };  // 데이터 생성
-    step3: { status: 'idle' | 'running' | 'completed' | 'error' };  // 전송
-    step4: { status: 'idle' | 'running' | 'completed' | 'error' };  // 종료
-  };
+// 신규 모드 - 서비스 정보 입력
+const [serviceName, setServiceName] = useState<string>('');
+const [serviceDescription, setServiceDescription] = useState<string>('');
+const [industryNew, setIndustryNew] = useState<string>('게임');
 
-  // Excel & AI 분석
-  parsedExcel: ParsedExcelSchema | null;
-  aiGeneratedConfig: {
-    userSegments: UserSegmentConfig;
-    dependencies: DependencyGraph;
-    dataRanges: DataRanges;
-    timingPatterns: TimingPatterns;
-  } | null;
+// Excel 경로 저장
+const [generatedExcelPath, setGeneratedExcelPath] = useState<string>('');
+const [uploadedExcelPath, setUploadedExcelPath] = useState<string>('');
 
-  // 생성된 데이터
-  generatedData: {
-    events: TEEvent[];
-    filePath: string;
-    totalCount: number;
-    metadata: {
-      userCount: number;
-      segmentDistribution: Record<string, number>;
-      funnelConversions: Record<string, number>;
-    };
-  } | null;
+// 공통 - 데이터 생성 설정
+const [scenario, setScenario] = useState<string>('');
+const [dau, setDau] = useState<number>(1000);
+const [industry, setIndustry] = useState<string>('게임');
+const [notes, setNotes] = useState<string>('');
+const [dateStart, setDateStart] = useState<string>('');
+const [dateEnd, setDateEnd] = useState<string>('');
 
-  // LogBus2 상태
-  logbusStatus: {
-    isRunning: boolean;
-    progress: UploadProgress;
-    error: string | null;
-  };
+// 데이터 생성 진행 상태
+const [runId, setRunId] = useState<string>('');
+const [dataProgress, setDataProgress] = useState<number>(0);
+const [dataMessage, setDataMessage] = useState<string>('');
+const [totalUsers, setTotalUsers] = useState<number>(0);
+const [totalEvents, setTotalEvents] = useState<number>(0);
 
-  // 설정 (모달)
-  config: {
-    appId: string;
-    pushUrl: string;
-    claudeApiKey: string;
-    openaiApiKey: string;
-    logbusPath: string;
-    // 파일 보관 설정
-    dataRetentionDays: number;     // 데이터 파일 보관 기간
-    excelRetentionDays: number;    // Excel 파일 보관 기간
-    autoDeleteAfterSend: boolean;  // 전송 후 즉시 삭제
-  };
-}
+// ThinkingEngine 전송 설정
+const [appId, setAppId] = useState<string>('');
+const [receiverUrl, setReceiverUrl] = useState<string>('');
+const [logbusPath, setLogbusPath] = useState<string>('');
 
-const AppContext = createContext<{
-  state: AppState;
-  actions: {
-    updateUserInputs: (inputs: Partial<UserInputs>) => void;
-    triggerExcelGeneration: () => Promise<void>;      // Step 1
-    startDataGeneration: () => Promise<void>;         // Step 2
-    startTransmission: () => Promise<void>;           // Step 3
-    stopLogBus: () => Promise<void>;                  // Step 4
-    updateConfig: (config: Partial<AppConfig>) => void;
-  };
-}>(null);
+// 설정 모달
+const [showSettings, setShowSettings] = useState<boolean>(false);
+const [settings, setSettings] = useState({
+  ANTHROPIC_API_KEY: '',
+  TE_APP_ID: '',
+  TE_RECEIVER_URL: '',
+  LOGBUS_PATH: '',
+  DATA_RETENTION_DAYS: '',
+  EXCEL_RETENTION_DAYS: '',
+  AUTO_DELETE_AFTER_SEND: ''
+});
+```
+
+### 주요 상태 전환 흐름
+
+**신규 모드**:
+```
+select-mode → input → excel-generating → excel-completed →
+combined-config → data-generating → data-completed →
+send-config → sending → upload-completed
+```
+
+**업로드 모드**:
+```
+select-mode → upload → upload-completed →
+combined-config → data-generating → data-completed →
+send-config → sending → upload-completed
+```
+
+### 홈 버튼 (모든 상태 초기화)
+```typescript
+const handleComplete = () => {
+  setProcessStep('select-mode');
+  setServiceName('');
+  setServiceDescription('');
+  setGeneratedExcelPath('');
+  setUploadedExcelPath('');
+  setScenario('');
+  setDau(1000);
+  setNotes('');
+  setRunId('');
+  setDataProgress(0);
+  setDataMessage('');
+  setTotalUsers(0);
+  setTotalEvents(0);
+};
+```
+
+### 데이터 생성 진행 폴링
+```typescript
+useEffect(() => {
+  if (processStep === 'data-generating' && runId) {
+    const interval = setInterval(async () => {
+      const response = await fetch(`/api/data/status/${runId}`);
+      const data = await response.json();
+
+      setDataProgress(data.progress || 0);
+      setDataMessage(data.message || '');
+
+      if (data.status === 'completed') {
+        clearInterval(interval);
+        setTotalUsers(data.totalUsers || 0);
+        setTotalEvents(data.totalEvents || 0);
+        setProcessStep('data-completed');
+      }
+    }, 2000); // 2초 간격
+
+    return () => clearInterval(interval);
+  }
+}, [processStep, runId]);
 ```
 
 ## 에러 처리
