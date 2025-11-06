@@ -518,12 +518,20 @@ export default function Home() {
               </ol>
             </div>
 
-            <button
-              onClick={handleStartExcelGeneration}
-              className="w-full mt-8 py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
-            >
-              📊 Excel 스키마 생성 시작
-            </button>
+            <div className="grid grid-cols-2 gap-4 mt-8">
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              >
+                🏠 홈으로
+              </button>
+              <button
+                onClick={handleStartExcelGeneration}
+                className="py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+              >
+                📊 생성 시작
+              </button>
+            </div>
           </div>
         )}
 
@@ -604,9 +612,31 @@ export default function Home() {
               </div>
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  const filename = generatedExcelPath.split('/').pop() || '';
+                  if (filename) {
+                    window.open(`/api/excel/download/${encodeURIComponent(filename)}`, '_blank');
+                  } else {
+                    alert('Excel 파일 이름을 찾을 수 없습니다.');
+                  }
+                }}
+                className="py-4 rounded-xl text-green-700 font-semibold bg-green-50 border-2 border-green-200 hover:bg-green-100 transition-all flex items-center justify-center gap-2"
+              >
+                📥 Excel 다운로드
+              </button>
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              >
+                🏠 홈으로
+              </button>
+            </div>
+
             <button
               onClick={handleStartDataGeneration}
-              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+              className="w-full mt-4 py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
             >
               🤖 데이터 생성 시작
             </button>
@@ -714,12 +744,20 @@ export default function Home() {
               )}
             </div>
 
-            <button
-              onClick={() => setCurrentStep('combined-config')}
-              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
-            >
-              다음: 서비스 정보 입력 →
-            </button>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              >
+                🏠 홈으로
+              </button>
+              <button
+                onClick={() => setCurrentStep('combined-config')}
+                className="py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+              >
+                다음: 서비스 정보 입력 →
+              </button>
+            </div>
           </div>
         )}
 
@@ -816,12 +854,20 @@ export default function Home() {
               </p>
             </div>
 
-            <button
-              onClick={handleCombinedConfigGenerate}
-              className="w-full mt-8 py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
-            >
-              🤖 데이터 생성 시작
-            </button>
+            <div className="grid grid-cols-2 gap-4 mt-8">
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              >
+                🏠 홈으로
+              </button>
+              <button
+                onClick={handleCombinedConfigGenerate}
+                className="py-4 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+              >
+                🤖 생성 시작
+              </button>
+            </div>
           </div>
         )}
 
@@ -925,12 +971,20 @@ export default function Home() {
               </div>
               <p className="text-sm text-gray-600">ThinkingEngine으로 데이터를 전송하세요.</p>
             </div>
-            <button
-              onClick={handleSendData}
-              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
-            >
-              📤 ThinkingEngine으로 데이터 전송
-            </button>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all flex items-center justify-center gap-2"
+              >
+                🏠 홈으로
+              </button>
+              <button
+                onClick={handleSendData}
+                className="py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+              >
+                📤 데이터 전송
+              </button>
+            </div>
           </div>
         )}
 
