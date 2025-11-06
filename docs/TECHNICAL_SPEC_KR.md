@@ -607,6 +607,126 @@ class LogBusUploader {
 }
 ```
 
+### 7. 파일 보관 관리자
+
+**모듈**: `src/api/server.ts` (cleanupOldFiles 함수)
+
+**책임**:
+- 오래된 파일 자동 정리
+- 전송 후 파일 즉시 삭제
+- 예약된 정리 작업 스케줄링
+- 보관 기간 정책 적용
+
+**주요 기능**:
+```typescript
+interface FileRetentionConfig {
+  dataRetentionDays: number;      // 데이터 파일 보관 기간 (기본: 7일)
+  excelRetentionDays: number;     // Excel 파일 보관 기간 (기본: 30일)
+  autoDeleteAfterSend: boolean;   // 전송 후 즉시 삭제 (기본: false)
+}
+
+// 서버 시작 시 초기화
+app.listen(PORT, () => {
+  console.log(`🚀 API Server running on http://localhost:${PORT}`);
+
+  // 초기 정리 실행
+  console.log('\n🧹 Running initial cleanup...');
+  cleanupOldFiles();
+
+  // 24시간마다 예약 실행
+  setInterval(() => {
+    console.log('\n🧹 Running scheduled cleanup...');
+    cleanupOldFiles();
+  }, 24 * 60 * 60 * 1000);
+});
+
+// 오래된 파일 정리 함수
+function cleanupOldFiles() {
+  const dataRetentionDays = parseInt(process.env.DATA_RETENTION_DAYS || '7');
+  const excelRetentionDays = parseInt(process.env.EXCEL_RETENTION_DAYS || '30');
+  const now = Date.now();
+
+  // 1. 데이터 파일 정리 (output/data/)
+  const dataDir = path.join(__dirname, '../../output/data');
+  cleanupDirectory(dataDir, dataRetentionDays, now);
+
+  // 2. Excel 파일 정리 (excel-schema-generator/output/)
+  const excelDir = path.join(__dirname, '../../excel-schema-generator/output/generated-schemas');
+  cleanupDirectory(excelDir, excelRetentionDays, now);
+
+  // 3. 메타데이터 정리 (output/metadata/)
+  const metadataDir = path.join(__dirname, '../../output/metadata');
+  cleanupDirectory(metadataDir, dataRetentionDays, now);
+
+  console.log(`✅ Cleanup completed (Data: ${dataRetentionDays}d, Excel: ${excelRetentionDays}d)`);
+}
+
+// 디렉토리별 정리
+function cleanupDirectory(dirPath: string, retentionDays: number, currentTime: number) {
+  if (!fs.existsSync(dirPath)) return;
+
+  const entries = fs.readdirSync(dirPath, { withFileTypes: true });
+  const cutoffTime = currentTime - (retentionDays * 24 * 60 * 60 * 1000);
+
+  for (const entry of entries) {
+    const entryPath = path.join(dirPath, entry.name);
+    const stats = fs.statSync(entryPath);
+
+    // 보관 기간 초과 확인
+    if (stats.mtimeMs < cutoffTime) {
+      if (entry.isDirectory()) {
+        fs.rmSync(entryPath, { recursive: true, force: true });
+        console.log(`  🗑️  Deleted old directory: ${entry.name}`);
+      } else {
+        fs.unlinkSync(entryPath);
+        console.log(`  🗑️  Deleted old file: ${entry.name}`);
+      }
+    }
+  }
+}
+
+// 전송 완료 후 즉시 삭제
+async function sendDataAsync(runId: string, appId: string, receiverUrl: string) {
+  // ... 전송 로직 ...
+
+  // 전송 완료 후 자동 삭제
+  const autoDelete = process.env.AUTO_DELETE_AFTER_SEND === 'true';
+  if (autoDelete) {
+    try {
+      console.log(`🗑️  Auto-delete enabled, removing data files for ${runId}...`);
+      const dataDir = path.join(__dirname, '../../output/data', runId);
+      if (fs.existsSync(dataDir)) {
+        fs.rmSync(dataDir, { recursive: true, force: true });
+        console.log(`✅ Data files deleted: ${dataDir}`);
+      }
+    } catch (deleteError: any) {
+      console.error(`❌ Failed to delete data files: ${deleteError.message}`);
+    }
+  }
+}
+```
+
+**정리 정책**:
+- **데이터 파일** (output/data/run_XXX/): 기본 7일 보관
+- **Excel 파일** (excel-schema-generator/output/): 기본 30일 보관
+- **메타데이터** (output/metadata/run_XXX/): 기본 7일 보관
+- **전송 후 즉시 삭제**: 설정 시 전송 완료 즉시 데이터 파일만 삭제
+
+**실행 시점**:
+1. 서버 시작 시 초기 정리 1회 실행
+2. 24시간마다 예약 실행
+3. ThinkingEngine 전송 완료 시 (옵션)
+
+**ThinkingEngine 전송 수정사항**:
+- 각 이벤트에 `#app_id` 필드 자동 추가 (누락 시 500 에러 방지)
+```typescript
+const parsedBatch = batch.map(line => {
+  const event = JSON.parse(line);
+  event['#app_id'] = appId;  // 필수 필드 추가
+  return event;
+});
+```
+
 ## API 엔드포인트
 
 ### POST `/api/excel/parse`
@@ -731,6 +851,44 @@ class LogBusUploader {
 }
 ```
 
+### GET `/api/settings`
+**목적**: 현재 설정 조회
+
+**응답**:
+```typescript
+{
+  ANTHROPIC_API_KEY: string,
+  TE_APP_ID: string,
+  TE_RECEIVER_URL: string,
+  DATA_RETENTION_DAYS: string,      // 데이터 파일 보관 기간
+  EXCEL_RETENTION_DAYS: string,     // Excel 파일 보관 기간
+  AUTO_DELETE_AFTER_SEND: string    // 전송 후 즉시 삭제 (true/false)
+}
+```
+
+### POST `/api/settings`
+**목적**: 설정 저장
+
+**요청**:
+```typescript
+{
+  ANTHROPIC_API_KEY?: string,
+  TE_APP_ID?: string,
+  TE_RECEIVER_URL?: string,
+  DATA_RETENTION_DAYS?: string,
+  EXCEL_RETENTION_DAYS?: string,
+  AUTO_DELETE_AFTER_SEND?: string
+}
+```
+
+**응답**:
+```typescript
+{
+  success: boolean,
+  message: string
+}
+```
+
 ## 프론트엔드 컴포넌트
 
 ### 1. MainInputForm
@@ -747,6 +905,10 @@ class LogBusUploader {
   - Receiver URL
   - Claude API Key
   - OpenAI API Key
+  - **파일 보관 설정**:
+    - 데이터 파일 보관 기간 (일)
+    - Excel 파일 보관 기간 (일)
+    - 전송 후 즉시 삭제 (체크박스)
 
 ### 2. DataPreview
 **경로**: `src/components/DataPreview.tsx`
@@ -839,6 +1001,10 @@ interface AppState {
     claudeApiKey: string;
     openaiApiKey: string;
     logbusPath: string;
+    // 파일 보관 설정
+    dataRetentionDays: number;     // 데이터 파일 보관 기간
+    excelRetentionDays: number;    // Excel 파일 보관 기간
+    autoDeleteAfterSend: boolean;  // 전송 후 즉시 삭제
   };
 }
 
@@ -934,6 +1100,11 @@ TE_RECEIVER_URL=https://te-receiver-naver.thinkingdata.kr/
 
 LOGBUS_PATH=./logbus 2/logbus
 LOGBUS_CPU_LIMIT=4
+
+# 파일 보관 기간 설정 (일 단위)
+DATA_RETENTION_DAYS=7          # 데이터 파일 보관 기간 (기본: 7일)
+EXCEL_RETENTION_DAYS=30        # Excel 파일 보관 기간 (기본: 30일)
+AUTO_DELETE_AFTER_SEND=false   # 전송 후 즉시 삭제 (true/false)
 
 NODE_ENV=development
 NEXT_PUBLIC_MAX_USERS=10000
