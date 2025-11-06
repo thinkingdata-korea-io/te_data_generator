@@ -493,7 +493,7 @@ async function generateDataAsync(runId: string, config: DataGeneratorConfig) {
 }
 
 /**
- * 비동기 데이터 전송 함수
+ * 비동기 데이터 전송 함수 (LogBus2 사용)
  */
 async function sendDataAsync(runId: string) {
   try {
@@ -514,16 +514,21 @@ async function sendDataAsync(runId: string) {
     // ThinkingEngine 설정 확인
     const appId = process.env.TE_APP_ID;
     const receiverUrl = process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/';
+    const logbusPath = path.resolve(__dirname, '../../../logbus 2/logbus');
 
     if (!appId) {
       throw new Error('TE_APP_ID not configured');
+    }
+
+    if (!fs.existsSync(logbusPath)) {
+      throw new Error(`LogBus binary not found: ${logbusPath}`);
     }
 
     progressMap.set(runId, {
       ...progressMap.get(runId),
       status: 'sending',
       progress: 10,
-      message: `${files.length}개 데이터 파일 읽는 중...`
+      message: `${files.length}개 데이터 파일 준비 중...`
     });
 
     // 전체 파일 크기 계산
@@ -534,6 +539,28 @@ async function sendDataAsync(runId: string) {
     }
     const fileSizeMB = (totalSize / (1024 * 1024)).toFixed(2);
 
+    // LogBus2 컨트롤러 생성
+    const { LogBus2Controller } = await import('../logbus/controller');
+    const logbusController = new LogBus2Controller({
+      appId,
+      receiverUrl,
+      logbusPath,
+      dataPath: dataDir,
+      cpuLimit: 4,
+      compress: true
+    });
+
+    progressMap.set(runId, {
+      ...progressMap.get(runId),
+      status: 'sending',
+      progress: 20,
+      message: 'LogBus2 설정 생성 중...'
+    });
+
+    // daemon.json 생성
+    await logbusController.createDaemonConfig();
+    console.log(`✅ daemon.json created for ${runId}`);
+
     progressMap.set(runId, {
       ...progressMap.get(runId),
       status: 'sending',
@@ -541,70 +568,37 @@ async function sendDataAsync(runId: string) {
       message: `${fileSizeMB}MB 데이터를 ThinkingEngine으로 업로드 중...`
     });
 
-    // ThinkingEngine으로 실제 데이터 전송
-    let successCount = 0;
-    let totalEvents = 0;
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      const filePath = path.join(dataDir, file);
-
-      progressMap.set(runId, {
-        ...progressMap.get(runId),
-        status: 'sending',
-        progress: 30 + (i / files.length) * 50,
-        message: `파일 ${i + 1}/${files.length} 전송 중: ${file}...`
-      });
-
-      try {
-        // JSONL 파일 읽기
-        const fileContent = fs.readFileSync(filePath, 'utf-8');
-        const events = fileContent.trim().split('\n').filter(line => line.trim());
-
-        // 이벤트를 배치로 전송 (한 번에 최대 1000개)
-        const batchSize = 1000;
-        for (let j = 0; j < events.length; j += batchSize) {
-          const batch = events.slice(j, Math.min(j + batchSize, events.length));
-          const parsedBatch = batch.map(line => {
-            const event = JSON.parse(line);
-            // 각 이벤트에 #app_id 추가
-            event['#app_id'] = appId;
-            return event;
-          });
-
-          // ThinkingEngine API로 POST
-          const response = await fetch(receiverUrl, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(parsedBatch)
-          });
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`Failed to send batch to ThinkingEngine: ${response.status} ${errorText}`);
-            throw new Error(`ThinkingEngine API error: ${response.status}`);
-          }
-
-          totalEvents += parsedBatch.length;
-        }
-
-        successCount++;
-      } catch (error: any) {
-        console.error(`Error sending file ${file}:`, error);
-        throw error;
-      }
-    }
+    // LogBus2 시작
+    await logbusController.start();
+    console.log(`✅ LogBus2 started for ${runId}`);
 
     progressMap.set(runId, {
       ...progressMap.get(runId),
       status: 'sending',
-      progress: 90,
-      message: `${totalEvents.toLocaleString()}개 이벤트 전송 완료, 처리 확인 중...`
+      progress: 40,
+      message: 'LogBus2를 통해 데이터 전송 중...'
     });
 
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // 진행 상태 모니터링
+    let lastProgress = 40;
+    await logbusController.monitorProgress(3, (status) => {
+      const uploadProgress = status.progress || 0;
+      const currentProgress = 40 + (uploadProgress / 100) * 50; // 40% ~ 90%
+
+      if (currentProgress > lastProgress) {
+        lastProgress = currentProgress;
+        progressMap.set(runId, {
+          ...progressMap.get(runId),
+          status: 'sending',
+          progress: Math.floor(currentProgress),
+          message: `전송 중: ${status.uploadedFiles || 0}/${status.totalFiles || 0} 파일 (${uploadProgress.toFixed(1)}%)`
+        });
+      }
+    });
+
+    // LogBus2 중지
+    await logbusController.stop();
+    console.log(`✅ LogBus2 stopped for ${runId}`);
 
     // 전송 완료
     progressMap.set(runId, {
@@ -618,8 +612,8 @@ async function sendDataAsync(runId: string) {
         fileSizeMB,
         receiverUrl,
         fileCount: files.length,
-        totalEvents,
-        files: files
+        files: files,
+        method: 'LogBus2 (gzip compressed)'
       }
     });
 

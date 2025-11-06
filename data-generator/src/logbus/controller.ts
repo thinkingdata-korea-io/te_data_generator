@@ -47,25 +47,18 @@ export class LogBus2Controller {
    */
   async createDaemonConfig(): Promise<void> {
     const config = {
-      config_id: 1,
-      app_id: this.config.appId,
-      url: this.config.receiverUrl,
-      mode: 2, // 실시간 모드
-      compress: this.config.compress !== false ? 1 : 0,
-      batchs: [
+      push_url: this.config.receiverUrl,
+      datasource: [
         {
-          batch_id: 1,
-          token: this.config.appId,
-          dir: path.resolve(this.config.dataPath),
-          pattern: "*.jsonl",
-          auto_retry: true,
-          file_suffix: ".sending"
+          type: "file",
+          file_patterns: [
+            path.resolve(this.config.dataPath) + "/*.jsonl"
+          ],
+          app_id: this.config.appId,
+          http_compress: "gzip"
         }
       ],
-      max_file_size: 2048,
-      upload_interval: 1,
-      max_cache_lines: 10000,
-      max_sending_cnt: 3
+      cpu_limit: this.config.cpuLimit || 4
     };
 
     // conf 디렉토리 생성

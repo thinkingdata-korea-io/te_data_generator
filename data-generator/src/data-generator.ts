@@ -278,6 +278,9 @@ export class DataGenerator {
         step: '4/5'
       });
 
+      // 프론트엔드 폴링이 진행 상황을 확인할 시간을 주기 위한 짧은 지연
+      await new Promise(resolve => setTimeout(resolve, 500));
+
       const dailyEvents: TEEvent[] = [];
 
       // 각 유저별로 세션 및 이벤트 생성
@@ -330,6 +333,9 @@ export class DataGenerator {
           message: `${dateKey} 완료 (${dailyEvents.length.toLocaleString()}개 이벤트)`,
           step: '4/5'
         });
+
+        // 프론트엔드 폴링이 진행 상황을 확인할 시간을 주기 위한 짧은 지연
+        await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
