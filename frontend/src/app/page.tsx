@@ -1,0 +1,720 @@
+'use client';
+
+import { useState, useEffect } from 'react';
+
+type ProcessStep =
+  | 'input'
+  | 'generating-excel'
+  | 'excel-completed'
+  | 'generating-data'
+  | 'data-completed'
+  | 'sending-data'
+  | 'sent';
+
+interface Settings {
+  ANTHROPIC_API_KEY: string;
+  TE_APP_ID: string;
+  TE_RECEIVER_URL: string;
+}
+
+export default function Home() {
+  const [formData, setFormData] = useState({
+    scenario: '',
+    dau: '',
+    industry: '',
+    notes: '',
+    dateStart: '2025-01-01',
+    dateEnd: '2025-01-03',
+  });
+  const [currentStep, setCurrentStep] = useState<ProcessStep>('input');
+  const [generatedExcelPath, setGeneratedExcelPath] = useState<string>('');
+  const [runId, setRunId] = useState<string>('');
+  const [progress, setProgress] = useState<any>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [settings, setSettings] = useState<Settings>({
+    ANTHROPIC_API_KEY: '',
+    TE_APP_ID: '',
+    TE_RECEIVER_URL: 'https://te-receiver-naver.thinkingdata.kr/',
+  });
+
+  // 설정 로드
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(res => res.json())
+      .then(data => setSettings(data))
+      .catch(err => console.error('Failed to load settings:', err));
+  }, []);
+
+  // 진행 상태 폴링
+  useEffect(() => {
+    if (!runId || currentStep === 'input' || currentStep === 'excel-completed' || currentStep === 'data-completed') return;
+
+    const interval = setInterval(() => {
+      fetch(`/api/generate/status/${runId}`)
+        .then(res => res.json())
+        .then(data => {
+          setProgress(data);
+
+          // 상태에 따라 단계 변경
+          if (data.status === 'completed' && currentStep === 'generating-data') {
+            setCurrentStep('data-completed');
+            clearInterval(interval);
+          } else if (data.status === 'sent' && currentStep === 'sending-data') {
+            setCurrentStep('sent');
+            clearInterval(interval);
+          } else if (data.status === 'error' || data.status === 'send-error') {
+            clearInterval(interval);
+          }
+        })
+        .catch(err => console.error('Failed to fetch progress:', err));
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [runId, currentStep]);
+
+  const validateForm = () => {
+    if (!formData.scenario.trim()) {
+      alert('시나리오 설명을 입력해주세요');
+      return false;
+    }
+    if (!formData.industry.trim()) {
+      alert('산업을 입력해주세요');
+      return false;
+    }
+    if (!formData.notes.trim()) {
+      alert('서비스 특징을 입력해주세요');
+      return false;
+    }
+    if (!formData.dau || parseInt(formData.dau) <= 0) {
+      alert('DAU를 입력해주세요 (1 이상)');
+      return false;
+    }
+    return true;
+  };
+
+  const handleStartExcelGeneration = async () => {
+    if (!validateForm()) return;
+
+    setCurrentStep('generating-excel');
+    setProgress({ status: 'generating-excel', progress: 10, message: '산업 분야와 서비스 특징을 분석하여 Excel 스키마 생성 중...' });
+
+    try {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setProgress({ status: 'generating-excel', progress: 30, message: '이벤트 구조 설계 중...' });
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setProgress({ status: 'generating-excel', progress: 50, message: '속성 및 데이터 타입 정의 중...' });
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setProgress({ status: 'generating-excel', progress: 70, message: 'Excel 파일 생성 완료...' });
+
+      const excelListResponse = await fetch('/api/excel/list');
+      const excelListData = await excelListResponse.json();
+
+      if (!excelListData.files || excelListData.files.length === 0) {
+        alert('사용 가능한 Excel 파일이 없습니다');
+        setCurrentStep('input');
+        setProgress(null);
+        return;
+      }
+
+      const excelPath = excelListData.files[0].path;
+      setGeneratedExcelPath(excelPath);
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+      setProgress({ status: 'generating-excel', progress: 100, message: 'Excel 스키마 생성 완료!' });
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      setCurrentStep('excel-completed');
+
+    } catch (error) {
+      console.error('Excel generation failed:', error);
+      alert('Excel 생성 요청 실패');
+      setCurrentStep('input');
+      setProgress(null);
+    }
+  };
+
+  const handleStartDataGeneration = async () => {
+    setCurrentStep('generating-data');
+    setProgress({ status: 'starting', progress: 5, message: '생성된 Excel을 바탕으로 데이터 생성 준비 중...' });
+
+    try {
+      const response = await fetch('/api/generate/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          excelPath: generatedExcelPath,
+          scenario: formData.scenario,
+          dau: formData.dau,
+          industry: formData.industry,
+          notes: formData.notes,
+          dateStart: formData.dateStart,
+          dateEnd: formData.dateEnd,
+          aiProvider: 'anthropic',
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setRunId(data.runId);
+      } else {
+        alert(`에러: ${data.error}`);
+        setCurrentStep('excel-completed');
+        setProgress(null);
+      }
+    } catch (error) {
+      console.error('Data generation failed:', error);
+      alert('데이터 생성 요청 실패');
+      setCurrentStep('excel-completed');
+      setProgress(null);
+    }
+  };
+
+  const handleSendData = async () => {
+    setCurrentStep('sending-data');
+    setProgress({ status: 'sending', progress: 0, message: 'ThinkingEngine으로 데이터 전송 준비 중...' });
+
+    try {
+      const response = await fetch(`/api/send-data/${runId}`, {
+        method: 'POST',
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to send data');
+      }
+    } catch (error: any) {
+      console.error('Data sending failed:', error);
+      alert(`데이터 전송 실패: ${error.message}`);
+      setCurrentStep('data-completed');
+      setProgress(null);
+    }
+  };
+
+  const handleComplete = () => {
+    setCurrentStep('input');
+    setGeneratedExcelPath('');
+    setRunId('');
+    setProgress(null);
+    setFormData({
+      scenario: '',
+      dau: '',
+      industry: '',
+      notes: '',
+      dateStart: '2025-01-01',
+      dateEnd: '2025-01-03',
+    });
+  };
+
+  const handleSaveSettings = async () => {
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+
+      if (response.ok) {
+        alert('설정이 저장되었습니다');
+        setShowSettings(false);
+      } else {
+        alert('설정 저장 실패');
+      }
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      alert('설정 저장 실패');
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 p-8">
+      <div className="max-w-5xl mx-auto">
+        {/* Header with Settings Button */}
+        <div className="text-center mb-12 relative">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="absolute right-0 top-0 p-3 rounded-lg bg-white shadow hover:shadow-md transition-all"
+            title="설정"
+          >
+            ⚙️
+          </button>
+          <h1 className="text-5xl font-bold mb-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            ThinkingEngine
+          </h1>
+          <p className="text-xl text-gray-600">AI 기반 이벤트 데이터 생성 플랫폼</p>
+        </div>
+
+        {/* Progress Steps */}
+        <div className="mb-8">
+          <div className="flex items-center justify-between max-w-4xl mx-auto">
+            {[
+              { key: 'input', label: '정보 입력', icon: '📝' },
+              { key: 'excel', label: 'Excel 생성', icon: '📊' },
+              { key: 'data', label: '데이터 생성', icon: '🤖' },
+              { key: 'send', label: '데이터 전송', icon: '📤' },
+              { key: 'complete', label: '완료', icon: '✅' }
+            ].map((step, index) => {
+              const isActive =
+                (step.key === 'input' && currentStep === 'input') ||
+                (step.key === 'excel' && (currentStep === 'generating-excel' || currentStep === 'excel-completed')) ||
+                (step.key === 'data' && (currentStep === 'generating-data' || currentStep === 'data-completed')) ||
+                (step.key === 'send' && currentStep === 'sending-data') ||
+                (step.key === 'complete' && currentStep === 'sent');
+
+              const isCompleted =
+                (step.key === 'input' && currentStep !== 'input') ||
+                (step.key === 'excel' && ['generating-data', 'data-completed', 'sending-data', 'sent'].includes(currentStep)) ||
+                (step.key === 'data' && ['sending-data', 'sent'].includes(currentStep)) ||
+                (step.key === 'send' && currentStep === 'sent');
+
+              return (
+                <div key={step.key} className="flex items-center flex-1">
+                  <div className="flex flex-col items-center flex-1">
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center text-2xl mb-2 transition-all ${
+                      isActive
+                        ? 'bg-blue-600 text-white scale-110 shadow-lg'
+                        : isCompleted
+                        ? 'bg-green-500 text-white'
+                        : 'bg-gray-200 text-gray-500'
+                    }`}>
+                      {step.icon}
+                    </div>
+                    <span className={`text-sm font-medium ${
+                      isActive ? 'text-blue-600' : 'text-gray-600'
+                    }`}>
+                      {step.label}
+                    </span>
+                  </div>
+                  {index < 4 && (
+                    <div className={`h-1 flex-1 mx-2 rounded transition-all ${
+                      isCompleted ? 'bg-green-500' : 'bg-gray-200'
+                    }`} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Main Content */}
+        {currentStep === 'input' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8 mb-6">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>📋</span> 데이터 생성 설정
+            </h2>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                  시나리오 설명 <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  value={formData.scenario}
+                  onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
+                  className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                  rows={4}
+                  placeholder="예: D1 리텐션이 40%로 낮은 상황입니다. 튜토리얼 이탈률이 높고, 초반 보상이 부족하여 사용자들이 첫날 이후 재방문하지 않는 패턴을 만들고 싶습니다."
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    산업 분야 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                    placeholder="예: 게임, 커머스, 금융, 미디어..."
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    서비스 특징 <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                    placeholder="예: 실시간 PVP 매칭, 가챠 시스템, 길드 레이드 등의 기능 보유"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    DAU (일일 활성 사용자)
+                  </label>
+                  <input
+                    type="number"
+                    value={formData.dau}
+                    onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                    min="1"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    시작 날짜
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateStart}
+                    onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    종료 날짜
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.dateEnd}
+                    onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
+              <h3 className="font-semibold text-blue-900 mb-2">🔄 생성 프로세스</h3>
+              <ol className="text-sm text-blue-800 space-y-1">
+                <li><strong>1단계:</strong> 산업 + 서비스 특징 기반으로 Excel 스키마 자동 생성</li>
+                <li><strong>2단계:</strong> 생성된 Excel을 바탕으로 AI가 이벤트 데이터 생성</li>
+                <li><strong>3단계:</strong> ThinkingEngine으로 데이터 전송</li>
+              </ol>
+            </div>
+
+            <button
+              onClick={handleStartExcelGeneration}
+              className="w-full mt-8 py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+            >
+              📊 Excel 스키마 생성 시작
+            </button>
+          </div>
+        )}
+
+        {/* Excel Generation Progress */}
+        {currentStep === 'generating-excel' && progress && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>📊</span> Excel 스키마 생성 중
+            </h2>
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">진행률</span>
+                <span className="text-sm font-bold text-blue-600">{progress.progress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${progress.progress}%` }}
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-gray-700">{progress.message}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Excel Completed */}
+        {currentStep === 'excel-completed' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>✅</span> Excel 스키마 생성 완료
+            </h2>
+            <div className="p-6 bg-green-50 rounded-xl border-2 border-green-200 mb-6">
+              <p className="text-green-800 mb-4">Excel 스키마가 성공적으로 생성되었습니다!</p>
+              <p className="text-sm text-gray-600">다음 단계로 이동하여 데이터 생성을 시작하세요.</p>
+            </div>
+            <button
+              onClick={handleStartDataGeneration}
+              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+            >
+              🤖 데이터 생성 시작
+            </button>
+          </div>
+        )}
+
+        {/* Data Generation Progress */}
+        {currentStep === 'generating-data' && progress && progress.status !== 'error' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>🤖</span> 데이터 생성 중
+            </h2>
+            <div className="mb-6">
+              <span className={`inline-block px-4 py-2 rounded-full text-sm font-semibold mb-4 bg-blue-100 text-blue-700`}>
+                {progress.status === 'analyzing' ? '🤖 AI 분석 중' :
+                 progress.status === 'parsing' ? '📋 Excel 파싱 중' :
+                 progress.step || '⏳ 처리 중'}
+              </span>
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">진행률</span>
+                <span className="text-sm font-bold text-blue-600">{progress.progress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-blue-500 to-purple-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${progress.progress}%` }}
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-gray-700">{progress.message}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Data Generation Error */}
+        {currentStep === 'generating-data' && progress && progress.status === 'error' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-red-600 flex items-center gap-2">
+              <span>❌</span> 데이터 생성 오류
+            </h2>
+            <div className="p-6 bg-red-50 rounded-xl border-2 border-red-200 mb-6">
+              <p className="text-red-800 font-semibold mb-2">오류가 발생했습니다</p>
+              <p className="text-gray-700 mb-4">{progress.message}</p>
+              {progress.error && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800 font-medium">
+                    상세 오류 정보 보기
+                  </summary>
+                  <div className="mt-3 p-4 bg-gray-900 rounded-lg">
+                    <pre className="text-xs text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">{progress.error}</pre>
+                  </div>
+                </details>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setCurrentStep('excel-completed');
+                  setProgress(null);
+                  setRunId('');
+                }}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all"
+              >
+                이전 단계로
+              </button>
+              <button
+                onClick={handleStartDataGeneration}
+                className="py-4 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700 transition-all"
+              >
+                🔄 다시 시도
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Data Completed */}
+        {currentStep === 'data-completed' && progress && progress.result && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>✅</span> 데이터 생성 완료
+            </h2>
+            <div className="p-6 bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl border-2 border-green-200 mb-6">
+              <h3 className="font-bold text-green-800 mb-4 text-lg flex items-center gap-2">
+                <span>🎉</span> 데이터 생성 완료!
+              </h3>
+              <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className="bg-white p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">총 이벤트</p>
+                  <p className="text-2xl font-bold text-gray-800">{progress.result.totalEvents?.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">총 사용자</p>
+                  <p className="text-2xl font-bold text-gray-800">{progress.result.totalUsers?.toLocaleString()}</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">총 일수</p>
+                  <p className="text-2xl font-bold text-gray-800">{progress.result.totalDays}일</p>
+                </div>
+                <div className="bg-white p-4 rounded-lg">
+                  <p className="text-sm text-gray-600">Run ID</p>
+                  <p className="text-xs font-mono text-gray-800">{progress.result.runId}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">ThinkingEngine으로 데이터를 전송하세요.</p>
+            </div>
+            <button
+              onClick={handleSendData}
+              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+            >
+              📤 ThinkingEngine으로 데이터 전송
+            </button>
+          </div>
+        )}
+
+        {/* Data Sending Progress */}
+        {currentStep === 'sending-data' && progress && progress.status !== 'send-error' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>📤</span> 데이터 전송 중
+            </h2>
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-gray-700">진행률</span>
+                <span className="text-sm font-bold text-blue-600">{progress.progress}%</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-4 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-indigo-500 to-purple-500 h-4 rounded-full transition-all duration-500"
+                  style={{ width: `${progress.progress}%` }}
+                />
+              </div>
+            </div>
+            <div className="p-4 bg-gray-50 rounded-lg">
+              <p className="text-gray-700">{progress.message}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Data Sending Error */}
+        {currentStep === 'sending-data' && progress && progress.status === 'send-error' && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-red-600 flex items-center gap-2">
+              <span>❌</span> 데이터 전송 오류
+            </h2>
+            <div className="p-6 bg-red-50 rounded-xl border-2 border-red-200 mb-6">
+              <p className="text-red-800 font-semibold mb-2">전송 중 오류가 발생했습니다</p>
+              <p className="text-gray-700 mb-4">{progress.message}</p>
+              {progress.error && (
+                <details className="mt-4">
+                  <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-800 font-medium">
+                    상세 오류 정보 보기
+                  </summary>
+                  <div className="mt-3 p-4 bg-gray-900 rounded-lg">
+                    <pre className="text-xs text-green-400 font-mono overflow-x-auto whitespace-pre-wrap">{progress.error}</pre>
+                  </div>
+                </details>
+              )}
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setCurrentStep('data-completed');
+                  setProgress({
+                    ...progress,
+                    status: 'completed'
+                  });
+                }}
+                className="py-4 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all"
+              >
+                이전 단계로
+              </button>
+              <button
+                onClick={handleSendData}
+                className="py-4 rounded-xl text-white font-semibold bg-indigo-600 hover:bg-indigo-700 transition-all"
+              >
+                🔄 다시 전송
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Sent Complete */}
+        {currentStep === 'sent' && progress && (
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+              <span>🎉</span> 모든 프로세스 완료!
+            </h2>
+            <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 rounded-xl border-2 border-purple-200 mb-6">
+              <h3 className="font-bold text-purple-800 mb-4 text-lg">✨ 데이터가 성공적으로 전송되었습니다!</h3>
+              <p className="text-purple-700 mb-4">ThinkingEngine에서 데이터를 확인하실 수 있습니다.</p>
+              {progress.sentInfo && (
+                <div className="bg-white p-4 rounded-lg text-sm text-gray-600 space-y-1">
+                  <p><strong>App ID:</strong> {progress.sentInfo.appId}</p>
+                  <p><strong>파일 크기:</strong> {progress.sentInfo.fileSizeMB}MB</p>
+                  <p><strong>Receiver URL:</strong> {progress.sentInfo.receiverUrl}</p>
+                </div>
+              )}
+            </div>
+            <button
+              onClick={handleComplete}
+              className="w-full py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-gray-600 to-gray-700 hover:from-gray-700 hover:to-gray-800 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+            >
+              ✅ 종료 및 새로운 생성 시작
+            </button>
+          </div>
+        )}
+
+        {/* Settings Modal */}
+        {showSettings && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+              <h2 className="text-2xl font-bold mb-6 text-gray-800 flex items-center gap-2">
+                <span>⚙️</span> 설정
+              </h2>
+
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    Anthropic API Key
+                  </label>
+                  <input
+                    type="password"
+                    value={settings.ANTHROPIC_API_KEY}
+                    onChange={(e) => setSettings({ ...settings, ANTHROPIC_API_KEY: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm"
+                    placeholder="sk-ant-..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    TE App ID
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.TE_APP_ID}
+                    onChange={(e) => setSettings({ ...settings, TE_APP_ID: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm"
+                    placeholder="df6fff48a373418ca2da97d104df2188"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold mb-2 text-gray-700">
+                    TE Receiver URL
+                  </label>
+                  <input
+                    type="text"
+                    value={settings.TE_RECEIVER_URL}
+                    onChange={(e) => setSettings({ ...settings, TE_RECEIVER_URL: e.target.value })}
+                    className="w-full p-4 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all font-mono text-sm"
+                    placeholder="https://te-receiver-naver.thinkingdata.kr/"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-4 mt-8">
+                <button
+                  onClick={() => setShowSettings(false)}
+                  className="flex-1 py-3 rounded-xl text-gray-700 font-semibold bg-gray-100 hover:bg-gray-200 transition-all"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={handleSaveSettings}
+                  className="flex-1 py-3 rounded-xl text-white font-semibold bg-blue-600 hover:bg-blue-700 transition-all"
+                >
+                  저장
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

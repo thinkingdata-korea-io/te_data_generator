@@ -1,4 +1,4 @@
-import * as ExcelJS from 'exceljs';
+import * as XLSX from 'xlsx';
 import {
   ParsedSchema,
   EventDefinition,
@@ -14,11 +14,36 @@ export class ExcelParser {
    * Excel 파일 읽기 및 파싱
    */
   async parseExcelFile(filePath: string): Promise<ParsedSchema> {
-    const workbook = new ExcelJS.Workbook();
-    await workbook.xlsx.readFile(filePath);
+    // xlsx 라이브러리로 파일 읽기 (이미지 등은 자동으로 무시됨)
+    const workbook = XLSX.readFile(filePath, {
+      cellStyles: false,
+      cellHTML: false
+    });
 
     const events = this.parseEventsSheet(workbook);
-    const properties = this.parsePropertiesSheet(workbook);
+
+    // 속성은 Events 시트와 별도 Properties 시트 둘 다에서 파싱
+    const propertiesFromEvents = this.parsePropertiesFromEventsSheet(workbook);
+    const propertiesFromSheet = this.parsePropertiesSheet(workbook);
+
+    // 중복 제거하며 병합
+    const propertiesMap = new Map<string, PropertyDefinition>();
+
+    // Events 시트의 속성 우선
+    propertiesFromEvents.forEach(prop => {
+      const key = `${prop.event_name || 'global'}_${prop.property_name}`;
+      propertiesMap.set(key, prop);
+    });
+
+    // Properties 시트의 속성 추가 (중복되지 않으면)
+    propertiesFromSheet.forEach(prop => {
+      const key = `${prop.event_name || 'global'}_${prop.property_name}`;
+      if (!propertiesMap.has(key)) {
+        propertiesMap.set(key, prop);
+      }
+    });
+
+    const properties = Array.from(propertiesMap.values());
     const funnels = this.parseFunnelsSheet(workbook);
 
     return {
@@ -30,84 +55,163 @@ export class ExcelParser {
 
   /**
    * Events 시트 파싱
+   *
+   * 이미지의 구조:
+   * - Column A: 이벤트 이름 (병합될 수 있음)
+   * - Column B: 이벤트 설명
+   * - Column C: 이벤트 설명 (상세)
+   * - Column D: 이벤트 태그
+   * - Column E: 속성 이름
+   * - Column F: 속성 설명
+   * - Column G: 속성 유형
+   *
+   * 이 메서드는 이벤트만 파싱하고, 속성은 parsePropertiesFromEventsSheet에서 파싱
    */
-  private parseEventsSheet(workbook: ExcelJS.Workbook): EventDefinition[] {
-    const worksheet = workbook.getWorksheet('Events');
-    if (!worksheet) {
-      throw new Error('Events sheet not found in Excel file');
+  private parseEventsSheet(workbook: XLSX.WorkBook): EventDefinition[] {
+    // #Events, Events, #이벤트 데이터 등 여러 이름으로 찾기
+    const possibleNames = ['#Events', 'Events', '#이벤트 데이터', '이벤트 데이터', '#이벤트'];
+    let sheetName = possibleNames.find(name => workbook.Sheets[name]);
+
+    if (!sheetName) {
+      const available = Object.keys(workbook.Sheets).join(', ');
+      throw new Error(`Events sheet not found. Available sheets: ${available}`);
     }
 
-    const events: EventDefinition[] = [];
-    const headers = this.getHeaders(worksheet);
-
-    worksheet.eachRow((row, rowNumber) => {
-      // Skip header row
-      if (rowNumber === 1) return;
-
-      const rowData: any = {};
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1];
-        if (header) {
-          rowData[header] = cell.value;
-        }
-      });
-
-      // required_previous_events는 쉼표로 구분된 문자열
-      if (rowData.required_previous_events) {
-        rowData.required_previous_events = String(rowData.required_previous_events)
-          .split(',')
-          .map(e => e.trim())
-          .filter(e => e.length > 0);
-      }
-
-      // user_lifecycle_stage도 쉼표로 구분
-      if (rowData.user_lifecycle_stage) {
-        rowData.user_lifecycle_stage = String(rowData.user_lifecycle_stage)
-          .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
-      }
-
-      // trigger_probability는 숫자로 변환
-      if (rowData.trigger_probability) {
-        rowData.trigger_probability = parseFloat(String(rowData.trigger_probability));
-      }
-
-      if (rowData.event_name) {
-        events.push(rowData as EventDefinition);
-      }
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json<any>(worksheet, {
+      header: 1, // Array of arrays
+      defval: ''
     });
+
+    const events: EventDefinition[] = [];
+    const eventMap = new Map<string, EventDefinition>();
+    let currentEventName: string | null = null;
+
+    // Skip header row (index 0)
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+
+      try {
+        // 이벤트 이름 (Column A, index 0)
+        const eventName = this.getCellStringValue(row[0]);
+        if (eventName) {
+          currentEventName = eventName;
+        }
+
+        // 이벤트 설명 (Column B, index 1)
+        const eventDesc = this.getCellStringValue(row[1]);
+
+        // 이벤트 태그/카테고리 (Column D, index 3)
+        const eventTag = this.getCellStringValue(row[3]);
+
+        // 현재 이벤트가 있으면 추가/업데이트
+        if (currentEventName) {
+          if (!eventMap.has(currentEventName)) {
+            eventMap.set(currentEventName, {
+              event_name: currentEventName,
+              event_name_kr: eventDesc || currentEventName,
+              category: eventTag || 'general',
+              trigger_probability: 0.8
+            });
+          }
+        }
+      } catch (rowError: any) {
+        console.warn(`⚠️  Skipping row ${i + 1}:`, rowError.message);
+      }
+    }
+
+    // Map을 배열로 변환
+    eventMap.forEach(event => events.push(event));
 
     return events;
   }
 
   /**
-   * Properties 시트 파싱
+   * Events 시트에서 속성 파싱
+   * (이벤트와 속성이 같은 시트에 있는 경우)
    */
-  private parsePropertiesSheet(workbook: ExcelJS.Workbook): PropertyDefinition[] {
-    const worksheet = workbook.getWorksheet('Properties');
-    if (!worksheet) {
-      throw new Error('Properties sheet not found in Excel file');
+  private parsePropertiesFromEventsSheet(workbook: XLSX.WorkBook): PropertyDefinition[] {
+    // #Events, Events, #이벤트 데이터 등 여러 이름으로 찾기
+    const possibleNames = ['#Events', 'Events', '#이벤트 데이터', '이벤트 데이터', '#이벤트'];
+    const sheetName = possibleNames.find(name => workbook.Sheets[name]);
+
+    if (!sheetName) {
+      return [];
     }
 
-    const properties: PropertyDefinition[] = [];
-    const headers = this.getHeaders(worksheet);
-
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-
-      const rowData: any = {};
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1];
-        if (header) {
-          rowData[header] = cell.value;
-        }
-      });
-
-      if (rowData.property_name) {
-        properties.push(rowData as PropertyDefinition);
-      }
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json<any>(worksheet, {
+      header: 1,
+      defval: ''
     });
+
+    const properties: PropertyDefinition[] = [];
+    let currentEventName: string | null = null;
+
+    // Skip header row (index 0)
+    for (let i = 1; i < data.length; i++) {
+      const row = data[i];
+
+      // 이벤트 이름 (Column A, index 0) - 병합된 셀 추적
+      const eventName = this.getCellStringValue(row[0]);
+      if (eventName) {
+        currentEventName = eventName;
+      }
+
+      // 속성 이름 (Column E, index 4)
+      const propName = this.getCellStringValue(row[4]);
+
+      if (propName && currentEventName) {
+        // 속성 설명 (Column F, index 5)
+        const propDesc = this.getCellStringValue(row[5]);
+
+        // 속성 유형 (Column G, index 6)
+        const propType = this.getCellStringValue(row[6]);
+
+        properties.push({
+          property_name: propName,
+          property_name_kr: propDesc || propName,
+          data_type: propType ? propType.toLowerCase() : 'string',
+          event_name: currentEventName,
+          description: propDesc || undefined
+        });
+      }
+    }
+
+    return properties;
+  }
+
+  /**
+   * Properties 시트 파싱
+   */
+  private parsePropertiesSheet(workbook: XLSX.WorkBook): PropertyDefinition[] {
+    // #Properties, Properties, #공통 이벤트 속성 등 여러 이름으로 찾기
+    const possibleNames = ['#Properties', 'Properties', '#공통 이벤트 속성', '공통 이벤트 속성', '#속성'];
+    const sheetName = possibleNames.find(name => workbook.Sheets[name]);
+
+    if (!sheetName) {
+      // Properties 시트가 없을 수 있음 (Events 시트에 통합된 경우)
+      return [];
+    }
+
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json<any>(worksheet, {
+      defval: ''
+    });
+
+    const properties: PropertyDefinition[] = [];
+
+    for (const row of data) {
+      if (row.property_name) {
+        properties.push({
+          property_name: String(row.property_name).trim(),
+          property_name_kr: row.property_name_kr ? String(row.property_name_kr).trim() : String(row.property_name).trim(),
+          data_type: row.data_type ? String(row.data_type).trim().toLowerCase() : 'string',
+          event_name: row.event_name ? String(row.event_name).trim() : undefined,
+          description: row.description ? String(row.description).trim() : undefined
+        });
+      }
+    }
 
     return properties;
   }
@@ -115,58 +219,55 @@ export class ExcelParser {
   /**
    * Funnels 시트 파싱
    */
-  private parseFunnelsSheet(workbook: ExcelJS.Workbook): FunnelDefinition[] {
-    const worksheet = workbook.getWorksheet('Funnels');
-    if (!worksheet) {
+  private parseFunnelsSheet(workbook: XLSX.WorkBook): FunnelDefinition[] {
+    // #Funnels 또는 Funnels 시트 찾기
+    let sheetName = '#Funnels';
+    if (!workbook.Sheets[sheetName]) {
+      sheetName = 'Funnels';
+    }
+    if (!workbook.Sheets[sheetName]) {
       // Funnels는 선택사항
       return [];
     }
 
-    const funnels: FunnelDefinition[] = [];
-    const headers = this.getHeaders(worksheet);
-
-    worksheet.eachRow((row, rowNumber) => {
-      if (rowNumber === 1) return;
-
-      const rowData: any = {};
-      row.eachCell((cell, colNumber) => {
-        const header = headers[colNumber - 1];
-        if (header) {
-          rowData[header] = cell.value;
-        }
-      });
-
-      // steps는 쉼표로 구분된 이벤트명
-      if (rowData.steps) {
-        rowData.steps = String(rowData.steps)
-          .split(',')
-          .map(s => s.trim())
-          .filter(s => s.length > 0);
-      }
-
-      if (rowData.conversion_rate) {
-        rowData.conversion_rate = parseFloat(String(rowData.conversion_rate));
-      }
-
-      if (rowData.name) {
-        funnels.push(rowData as FunnelDefinition);
-      }
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json<any>(worksheet, {
+      defval: ''
     });
+
+    const funnels: FunnelDefinition[] = [];
+
+    for (const row of data) {
+      if (row.name) {
+        const funnel: FunnelDefinition = {
+          name: String(row.name).trim(),
+          description: row.description ? String(row.description).trim() : undefined,
+          steps: [],
+          conversion_rate: row.conversion_rate ? parseFloat(String(row.conversion_rate)) : undefined
+        };
+
+        // steps는 쉼표로 구분된 이벤트명
+        if (row.steps) {
+          funnel.steps = String(row.steps)
+            .split(',')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+        }
+
+        funnels.push(funnel);
+      }
+    }
 
     return funnels;
   }
 
   /**
-   * 시트의 헤더 추출
+   * 셀 값을 문자열로 변환
    */
-  private getHeaders(worksheet: ExcelJS.Worksheet): string[] {
-    const headers: string[] = [];
-    const firstRow = worksheet.getRow(1);
-
-    firstRow.eachCell((cell, colNumber) => {
-      headers[colNumber - 1] = String(cell.value || '').trim();
-    });
-
-    return headers;
+  private getCellStringValue(value: any): string {
+    if (value === null || value === undefined || value === '') {
+      return '';
+    }
+    return String(value).trim();
   }
 }

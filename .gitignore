@@ -34,9 +34,8 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Output files
-output/data/*.jsonl
-output/runs/*.json
+# Output files (all generated data)
+output/
 
 # Excel files (generated)
 excel-schema-generator/output/*.xlsx

@@ -187,7 +187,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       throw new Error('Anthropic client not initialized');
     }
 
-    const model = this.config.model || 'claude-3-5-sonnet-20241022';
+    const model = this.config.model || 'claude-sonnet-4-20250514';
     const message = await this.anthropic.messages.create({
       model,
       max_tokens: 4096,

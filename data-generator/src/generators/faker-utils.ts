@@ -1,5 +1,4 @@
 import { faker } from '@faker-js/faker';
-import { ja, ko, en, zh_CN, zh_TW } from '@faker-js/faker';
 import { CountryConfig, IP_RANGES, CARRIERS } from '../types';
 import { randomChoice } from '../utils/random';
 
@@ -8,21 +7,12 @@ import { randomChoice } from '../utils/random';
  */
 
 /**
- * 로케일별 Faker 인스턴스 캐시
- */
-const fakerInstances: Record<string, typeof faker> = {
-  ja,
-  ko,
-  en,
-  zh_CN,
-  zh_TW
-};
-
-/**
  * 로케일에 맞는 Faker 인스턴스 가져오기
+ * Faker v8에서는 단일 글로벌 인스턴스만 사용
  */
 export function getFakerInstance(locale: string): typeof faker {
-  return fakerInstances[locale] || en;
+  // Faker v8에서는 모든 로케일이 하나의 인스턴스에 포함됨
+  return faker;
 }
 
 /**

@@ -221,7 +221,10 @@ export class EventGenerator {
 
       case 'choice':
         const values = effectiveRange.values || ['A', 'B', 'C'];
-        const weights = effectiveRange.weights || values.map(() => 1 / values.length);
+        // weights가 없거나 values와 길이가 다르면 균등 가중치 생성
+        const weights = (effectiveRange.weights && effectiveRange.weights.length === values.length)
+          ? effectiveRange.weights
+          : values.map(() => 1 / values.length);
         return weightedRandom(values, weights);
 
       case 'boolean':
