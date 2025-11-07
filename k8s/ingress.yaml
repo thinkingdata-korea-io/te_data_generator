@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: te-data-generator
+  labels:
+    app: te-data-generator
+  annotations:
+    # Nginx Ingress Controller 설정
+    nginx.ingress.kubernetes.io/rewrite-target: /
+    # SSL 리다이렉트 (필요시 활성화)
+    # nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # 업로드 크기 제한 (엑셀 파일 업로드를 위해 증가)
+    nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+spec:
+  ingressClassName: nginx
+  rules:
+  - host: te-data-generator.your-domain.com  # 실제 도메인으로 변경
+    http:
+      paths:
+      # Frontend
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: te-data-generator-frontend
+            port:
+              number: 3000
+      # Backend API
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: te-data-generator-backend
+            port:
+              number: 3001
+  # TLS 설정 (필요시 활성화)
+  # tls:
+  # - hosts:
+  #   - te-data-generator.your-domain.com
+  #   secretName: te-data-generator-tls

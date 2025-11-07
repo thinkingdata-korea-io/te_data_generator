@@ -1,0 +1,12 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: te-data-generator-config
+  labels:
+    app: te-data-generator
+data:
+  # ThinkingEngine Receiver URL
+  te-receiver-url: "https://te-receiver-naver.thinkingdata.kr/"
+
+  # Default ThinkingEngine APP_ID (can be overridden by user input)
+  te-app-id: "your-app-id-here"

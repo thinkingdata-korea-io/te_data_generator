@@ -55,3 +55,6 @@ logbus\ 2/conf/daemon.json
 *.swp
 *.swo
 *~
+
+# Kubernetes secrets (never commit)
+k8s/secret.yaml

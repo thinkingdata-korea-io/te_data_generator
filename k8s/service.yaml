@@ -1,0 +1,35 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: te-data-generator-backend
+  labels:
+    app: te-data-generator
+    component: backend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3001
+    targetPort: 3001
+    protocol: TCP
+    name: http
+  selector:
+    app: te-data-generator
+    component: backend
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: te-data-generator-frontend
+  labels:
+    app: te-data-generator
+    component: frontend
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: te-data-generator
+    component: frontend
