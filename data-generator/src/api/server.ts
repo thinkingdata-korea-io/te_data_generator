@@ -119,6 +119,34 @@ app.post('/api/excel/parse', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/excel/download/:filename
+ * Excel 파일 다운로드
+ */
+app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const schemaDir = path.resolve(__dirname, '../../../excel-schema-generator/output/generated-schemas');
+    const filePath = path.join(schemaDir, filename);
+
+    // 파일 존재 확인
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // 파일 다운로드
+    res.download(filePath, filename, (err) => {
+      if (err) {
+        console.error('Error downloading file:', err);
+        res.status(500).json({ error: 'Failed to download file' });
+      }
+    });
+  } catch (error: any) {
+    console.error('Error in download:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * POST /api/excel/upload
  * Excel 파일 업로드 및 검증
  */
@@ -415,6 +443,12 @@ app.post('/api/settings', (req: Request, res: Response) => {
 app.post('/api/send-data/:runId', async (req: Request, res: Response) => {
   try {
     const { runId } = req.params;
+    const { appId } = req.body;
+
+    // appId 검증
+    if (!appId || !appId.trim()) {
+      return res.status(400).json({ error: 'appId is required' });
+    }
 
     // 전송 상태 초기화
     progressMap.set(runId, {
@@ -424,8 +458,8 @@ app.post('/api/send-data/:runId', async (req: Request, res: Response) => {
       message: 'Preparing to send data to ThinkingEngine...'
     });
 
-    // 비동기로 데이터 전송
-    sendDataAsync(runId);
+    // 비동기로 데이터 전송 (appId 전달)
+    sendDataAsync(runId, appId.trim());
 
     res.json({
       success: true,
@@ -495,9 +529,9 @@ async function generateDataAsync(runId: string, config: DataGeneratorConfig) {
 /**
  * 비동기 데이터 전송 함수 (LogBus2 사용)
  */
-async function sendDataAsync(runId: string) {
+async function sendDataAsync(runId: string, appId: string) {
   try {
-    console.log(`📤 Starting data transmission for ${runId}...`);
+    console.log(`📤 Starting data transmission for ${runId} with APP_ID: ${appId}...`);
 
     // 데이터 디렉토리 경로 확인
     const dataDir = path.resolve(__dirname, `../../../output/data/${runId}`);
@@ -512,7 +546,7 @@ async function sendDataAsync(runId: string) {
     }
 
     // ThinkingEngine 설정 확인
-    const appId = process.env.TE_APP_ID;
+    // appId를 파라미터로 사용 (더 이상 환경변수 사용 안 함)
     const receiverUrl = process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/';
     const logbusPath = path.resolve(__dirname, '../../../logbus 2/logbus');
 

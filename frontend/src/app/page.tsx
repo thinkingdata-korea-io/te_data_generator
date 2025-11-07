@@ -41,6 +41,7 @@ export default function Home() {
   const [generatedExcelPath, setGeneratedExcelPath] = useState<string>('');
   const [runId, setRunId] = useState<string>('');
   const [progress, setProgress] = useState<any>(null);
+  const [sendAppId, setSendAppId] = useState<string>('');
   const [showSettings, setShowSettings] = useState(false);
   const [settings, setSettings] = useState<Settings>({
     ANTHROPIC_API_KEY: '',
@@ -55,7 +56,10 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/settings')
       .then(res => res.json())
-      .then(data => setSettings(data))
+      .then(data => {
+        setSettings(data);
+        setSendAppId(data.TE_APP_ID || ''); // 기본값 설정
+      })
       .catch(err => console.error('Failed to load settings:', err));
   }, []);
 
@@ -220,12 +224,23 @@ export default function Home() {
   };
 
   const handleSendData = async () => {
+    if (!sendAppId.trim()) {
+      alert('APP_ID를 입력해주세요');
+      return;
+    }
+
     setCurrentStep('sending-data');
     setProgress({ status: 'sending', progress: 0, message: 'ThinkingEngine으로 데이터 전송 준비 중...' });
 
     try {
       const response = await fetch(`/api/send-data/${runId}`, {
         method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          appId: sendAppId.trim(),
+        }),
       });
 
       const data = await response.json();
@@ -969,7 +984,18 @@ export default function Home() {
                   <p className="text-xs font-mono text-gray-800">{progress.result.runId}</p>
                 </div>
               </div>
-              <p className="text-sm text-gray-600">ThinkingEngine으로 데이터를 전송하세요.</p>
+              <p className="text-sm text-gray-600 mb-4">ThinkingEngine으로 데이터를 전송하세요.</p>
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-700">ThinkingEngine APP_ID</label>
+                <input
+                  type="text"
+                  value={sendAppId}
+                  onChange={(e) => setSendAppId(e.target.value)}
+                  placeholder="예: df6fff48a373418ca2da97d104df2188"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                />
+                <p className="text-xs text-gray-500">전송할 프로젝트의 APP_ID를 입력하세요</p>
+              </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <button
@@ -980,7 +1006,8 @@ export default function Home() {
               </button>
               <button
                 onClick={handleSendData}
-                className="py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl"
+                disabled={!sendAppId.trim()}
+                className="py-5 rounded-xl text-white font-bold text-lg bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 transform hover:scale-[1.02] transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
                 📤 데이터 전송
               </button>
