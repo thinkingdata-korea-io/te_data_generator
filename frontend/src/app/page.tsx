@@ -15,6 +15,9 @@ type ProcessStep =
   | 'sending-data'
   | 'sent';
 
+const EVENT_COUNT_MIN = 6;
+const EVENT_COUNT_MAX = 100;
+
 interface Settings {
   ANTHROPIC_API_KEY: string;
   TE_APP_ID: string;
@@ -22,6 +25,17 @@ interface Settings {
   DATA_RETENTION_DAYS: string;
   EXCEL_RETENTION_DAYS: string;
   AUTO_DELETE_AFTER_SEND: string;
+}
+
+interface ExcelPreviewSummary {
+  events: number;
+  properties: number;
+  funnels?: number;
+  eventNames?: string[];
+  sampleProperties?: { name: string; type: string }[];
+  generatedAt?: string;
+  provider?: string;
+  requestedEventCount?: number;
 }
 
 export default function Home() {
@@ -32,11 +46,12 @@ export default function Home() {
     notes: '',
     dateStart: '2025-01-01',
     dateEnd: '2025-01-03',
+    eventCount: '12',
   });
   const [currentStep, setCurrentStep] = useState<ProcessStep>('select-mode');
   const [startMode, setStartMode] = useState<'new' | 'upload' | null>(null);
   const [uploadedExcelPath, setUploadedExcelPath] = useState<string>('');
-  const [excelPreview, setExcelPreview] = useState<any>(null);
+  const [excelPreview, setExcelPreview] = useState<ExcelPreviewSummary | null>(null);
   const [uploadError, setUploadError] = useState<string>('');
   const [generatedExcelPath, setGeneratedExcelPath] = useState<string>('');
   const [runId, setRunId] = useState<string>('');
@@ -104,6 +119,11 @@ export default function Home() {
       alert('서비스 특징을 입력해주세요');
       return false;
     }
+    const eventCount = parseInt(formData.eventCount, 10);
+    if (!eventCount || eventCount < EVENT_COUNT_MIN || eventCount > EVENT_COUNT_MAX) {
+      alert(`이벤트 수는 ${EVENT_COUNT_MIN}~${EVENT_COUNT_MAX} 사이로 선택해주세요`);
+      return false;
+    }
     return true;
   };
 
@@ -134,7 +154,9 @@ export default function Home() {
     if (!validateServiceInfo()) return;
 
     setCurrentStep('generating-excel');
-    setProgress({ status: 'generating-excel', progress: 5, message: 'Claude AI에게 Excel 스키마 생성 요청 중...' });
+    setGeneratedExcelPath('');
+    setExcelPreview(null);
+    setProgress({ status: 'generating-excel', progress: 5, message: 'Claude AI에게 Excel 스키마 생성 요청 준비 중...' });
 
     try {
       await new Promise(resolve => setTimeout(resolve, 800));
@@ -155,18 +177,39 @@ export default function Home() {
       await new Promise(resolve => setTimeout(resolve, 800));
       setProgress({ status: 'generating-excel', progress: 85, message: 'Excel 파일 생성 중...' });
 
-      const excelListResponse = await fetch('/api/excel/list');
-      const excelListData = await excelListResponse.json();
+      const response = await fetch('/api/excel/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          scenario: formData.scenario,
+          industry: formData.industry,
+          notes: formData.notes,
+          dau: formData.dau ? Number(formData.dau) : undefined,
+          dateStart: formData.dateStart,
+          dateEnd: formData.dateEnd,
+          eventCount: formData.eventCount ? Number(formData.eventCount) : undefined,
+        })
+      });
+      const data = await response.json();
 
-      if (!excelListData.files || excelListData.files.length === 0) {
-        alert('사용 가능한 Excel 파일이 없습니다');
-        setCurrentStep('input');
-        setProgress(null);
-        return;
+      if (!response.ok) {
+        throw new Error(data.error || 'Excel 생성에 실패했습니다');
       }
 
-      const excelPath = excelListData.files[0].path;
-      setGeneratedExcelPath(excelPath);
+      if (!data.file?.path) {
+        throw new Error('생성된 Excel 파일 경로를 찾을 수 없습니다');
+      }
+
+      setGeneratedExcelPath(data.file.path);
+      setExcelPreview({
+        events: data.preview?.events ?? 0,
+        properties: data.preview?.properties ?? 0,
+        funnels: data.preview?.funnels ?? 0,
+        eventNames: data.preview?.eventNames ?? [],
+        generatedAt: data.preview?.generatedAt,
+        provider: data.preview?.provider,
+        requestedEventCount: data.preview?.requestedEventCount ?? (formData.eventCount ? Number(formData.eventCount) : undefined)
+      });
 
       setProgress({ status: 'generating-excel', progress: 95, message: 'Excel 스키마 검증 중...' });
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -178,7 +221,8 @@ export default function Home() {
 
     } catch (error) {
       console.error('Excel generation failed:', error);
-      alert('Excel 생성 요청 실패');
+      const message = error instanceof Error ? error.message : 'Excel 생성 요청 실패';
+      alert(message);
       setCurrentStep('input');
       setProgress(null);
     }
@@ -329,6 +373,7 @@ export default function Home() {
       notes: '',
       dateStart: '2025-01-01',
       dateEnd: '2025-01-03',
+      eventCount: '12',
     });
   };
 
@@ -522,6 +567,38 @@ export default function Home() {
                   />
                 </div>
               </div>
+
+              <div>
+                <label className="block text-sm font-semibold mb-2 text-gray-700">
+                  최소 이벤트 수 <span className="text-red-500">*</span>
+                </label>
+                <div className="flex flex-col gap-3">
+                  <input
+                    type="range"
+                    min={EVENT_COUNT_MIN}
+                    max={EVENT_COUNT_MAX}
+                    value={formData.eventCount}
+                    onChange={(e) => setFormData({ ...formData, eventCount: e.target.value })}
+                    className="w-full accent-blue-600"
+                  />
+                  <div className="flex items-center gap-3">
+                    <input
+                      type="number"
+                      min={EVENT_COUNT_MIN}
+                      max={EVENT_COUNT_MAX}
+                      value={formData.eventCount}
+                      onChange={(e) => setFormData({ ...formData, eventCount: e.target.value })}
+                      className="w-24 p-3 border-2 border-gray-200 rounded-xl focus:border-blue-500 focus:ring-2 focus:ring-blue-200 transition-all text-center"
+                    />
+                    <span className="text-sm text-gray-600">
+                      최소 {EVENT_COUNT_MIN}개 · 최대 {EVENT_COUNT_MAX}개
+                    </span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  최소 확보해야 하는 이벤트 개수를 지정하세요. AI가 부족한 경우 자동 템플릿으로 채워집니다.
+                </p>
+              </div>
             </div>
 
             <div className="mt-6 p-4 bg-blue-50 border-l-4 border-blue-500 rounded-lg">
@@ -584,6 +661,47 @@ export default function Home() {
               <p className="text-green-800 mb-4">Excel 스키마가 성공적으로 생성되었습니다!</p>
               <p className="text-sm text-gray-600">이제 데이터 생성 설정을 입력해주세요.</p>
             </div>
+
+            {excelPreview && (
+              <div className="mb-6 space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">이벤트 수</p>
+                    <p className="text-2xl font-bold text-gray-800">{excelPreview.events ?? 0}</p>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">속성 수</p>
+                    <p className="text-2xl font-bold text-gray-800">{excelPreview.properties ?? 0}</p>
+                  </div>
+                  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-sm text-gray-500 mb-1">퍼널 수</p>
+                    <p className="text-2xl font-bold text-gray-800">{excelPreview.funnels ?? 0}</p>
+                  </div>
+                </div>
+                {excelPreview.requestedEventCount && (
+                  <p className="text-xs text-gray-500">
+                    요청한 최소 이벤트 수: {excelPreview.requestedEventCount}개 · 실제 생성: {excelPreview.events ?? 0}개
+                  </p>
+                )}
+                {excelPreview.eventNames && excelPreview.eventNames.length > 0 && (
+                  <div className="bg-white border border-gray-100 rounded-xl p-4 shadow-sm">
+                    <p className="text-sm text-gray-500 mb-2">주요 이벤트</p>
+                    <div className="flex flex-wrap gap-2">
+                      {excelPreview.eventNames.slice(0, 6).map((event, idx) => (
+                        <span key={idx} className="px-3 py-1 bg-blue-50 text-blue-700 text-xs font-semibold rounded-full">
+                          {event}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {excelPreview.provider && (
+                  <p className="text-xs text-gray-500">
+                    생성 방식: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
+                  </p>
+                )}
+              </div>
+            )}
 
             <div className="space-y-6 mb-6">
               <h3 className="text-lg font-bold text-gray-800">데이터 생성 설정</h3>

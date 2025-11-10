@@ -13,12 +13,15 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { DataGenerator, DataGeneratorConfig } from '../data-generator';
 import { ExcelParser } from '../excel/parser';
+import { ExcelSchemaGenerator } from '../excel/schema-generator';
 
 // 환경변수 로드
 dotenv.config();
 
 const app = express();
 const PORT = process.env.API_PORT || 3001;
+const EXCEL_OUTPUT_DIR = path.resolve(__dirname, '../../../excel-schema-generator/output/generated-schemas');
+const REFERENCE_DOCS_DIR = path.resolve(__dirname, '../../../reference-docs');
 
 // 미들웨어
 app.use(cors());
@@ -65,19 +68,17 @@ const progressMap = new Map<string, any>();
  */
 app.get('/api/excel/list', async (req: Request, res: Response) => {
   try {
-    const schemaDir = path.resolve(__dirname, '../../../excel-schema-generator/output/generated-schemas');
-
-    if (!fs.existsSync(schemaDir)) {
+    if (!fs.existsSync(EXCEL_OUTPUT_DIR)) {
       return res.json({ files: [] });
     }
 
-    const files = fs.readdirSync(schemaDir)
+    const files = fs.readdirSync(EXCEL_OUTPUT_DIR)
       .filter(f => f.endsWith('.xlsx'))
       .map(f => ({
         name: f,
-        path: path.join(schemaDir, f),
-        size: fs.statSync(path.join(schemaDir, f)).size,
-        modified: fs.statSync(path.join(schemaDir, f)).mtime
+        path: path.join(EXCEL_OUTPUT_DIR, f),
+        size: fs.statSync(path.join(EXCEL_OUTPUT_DIR, f)).size,
+        modified: fs.statSync(path.join(EXCEL_OUTPUT_DIR, f)).mtime
       }));
 
     res.json({ files });
@@ -119,30 +120,59 @@ app.post('/api/excel/parse', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/excel/download/:filename
- * Excel 파일 다운로드
+ * POST /api/excel/generate
+ * 사용자 입력 기반으로 Excel 텍소노미 생성
  */
-app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
+app.post('/api/excel/generate', async (req: Request, res: Response) => {
   try {
-    const { filename } = req.params;
-    const schemaDir = path.resolve(__dirname, '../../../excel-schema-generator/output/generated-schemas');
-    const filePath = path.join(schemaDir, filename);
+    const {
+      scenario,
+      industry,
+      notes,
+      dau,
+      dateStart,
+      dateEnd,
+      eventCount
+    } = req.body;
 
-    // 파일 존재 확인
-    if (!fs.existsSync(filePath)) {
-      return res.status(404).json({ error: 'File not found' });
+    if (!scenario || !industry || !notes) {
+      return res.status(400).json({ error: 'scenario, industry, and notes are required' });
     }
 
-    // 파일 다운로드
-    res.download(filePath, filename, (err) => {
-      if (err) {
-        console.error('Error downloading file:', err);
-        res.status(500).json({ error: 'Failed to download file' });
-      }
+    const generator = new ExcelSchemaGenerator({
+      outputDir: EXCEL_OUTPUT_DIR,
+      preferredProvider: (process.env.EXCEL_AI_PROVIDER as 'anthropic' | 'openai') || 'anthropic',
+      anthropicKey: process.env.ANTHROPIC_API_KEY,
+      openaiKey: process.env.OPENAI_API_KEY,
+      anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL,
+      openaiModel: process.env.EXCEL_OPENAI_MODEL,
+      referenceDocsDir: REFERENCE_DOCS_DIR
+    });
+
+    const result = await generator.generate({
+      scenario,
+      industry,
+      notes,
+      dau: parseOptionalNumber(dau),
+      dateStart,
+      dateEnd,
+      eventCount: parseOptionalNumber(eventCount)
+    });
+
+    res.json({
+      success: true,
+      file: {
+        name: result.fileName,
+        path: result.filePath,
+        size: result.size,
+        createdAt: result.generatedAt
+      },
+      preview: result.preview,
+      segments: result.taxonomy.segments
     });
   } catch (error: any) {
-    console.error('Error in download:', error);
-    res.status(500).json({ error: error.message });
+    console.error('Error generating Excel schema:', error);
+    res.status(500).json({ error: error.message || 'Failed to generate Excel schema' });
   }
 });
 
@@ -189,6 +219,56 @@ app.post('/api/excel/upload', upload.single('file'), async (req: Request, res: R
       fs.unlinkSync(req.file.path);
     }
 
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/excel/download/:filename
+ * 생성된 Excel 파일 다운로드
+ */
+app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    const safeFilename = path.basename(filename);
+    const filePath = path.join(EXCEL_OUTPUT_DIR, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.download(filePath, safeFilename);
+  } catch (error: any) {
+    console.error('Error downloading Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/excel/download/:filename
+ * 생성된 Excel 파일 다운로드
+ */
+app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    const safeFilename = path.basename(filename);
+    const filePath = path.join(EXCEL_OUTPUT_DIR, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.download(filePath, safeFilename);
+  } catch (error: any) {
+    console.error('Error downloading Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -680,6 +760,14 @@ async function sendDataAsync(runId: string, appId: string) {
       failedAt: new Date().toISOString()
     });
   }
+}
+
+function parseOptionalNumber(value: any): number | undefined {
+  if (value === null || value === undefined || value === '') {
+    return undefined;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? undefined : parsed;
 }
 
 /**
