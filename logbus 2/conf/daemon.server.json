@@ -1,0 +1,14 @@
+{
+  "push_url": "https://te-receiver-naver.thinkingdata.kr/",
+  "datasource": [
+    {
+      "type": "file",
+      "file_patterns": [
+        "/app/output/*.jsonl"
+      ],
+      "app_id": "1edbbf43c73d4b0ba513f0383714ba5d",
+      "http_compress": "gzip"
+    }
+  ],
+  "cpu_limit": 4
+}

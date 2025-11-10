@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: backend
-        image: your-registry/te-data-generator-backend:latest
+        image: tdenv-korea-01.idp.thinkingdata.cn/te-data-generator-backend:latest
         ports:
         - containerPort: 3001
           name: http
@@ -88,7 +88,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: your-registry/te-data-generator-frontend:latest
+        image: tdenv-korea-01.idp.thinkingdata.cn/te-data-generator-frontend:latest
         ports:
         - containerPort: 3000
           name: http

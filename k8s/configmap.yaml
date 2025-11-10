@@ -9,4 +9,4 @@ data:
   te-receiver-url: "https://te-receiver-naver.thinkingdata.kr/"
 
   # Default ThinkingEngine APP_ID (can be overridden by user input)
-  te-app-id: "your-app-id-here"
+  te-app-id: "1edbbf43c73d4b0ba513f0383714ba5d"
