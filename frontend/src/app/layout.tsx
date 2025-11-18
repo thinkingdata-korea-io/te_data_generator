@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AuthProvider } from "@/contexts/AuthContext";
 
 export const metadata: Metadata = {
-  title: "ThinkingEngine Data Generator",
-  description: "이벤트 데이터 생성 도구",
+  title: "ThinkingEngine Platform",
+  description: "AI-Powered Data Generation & Management Platform",
 };
 
 export default function RootLayout({
@@ -13,8 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="ko">
-      <body className="antialiased bg-gray-50">
-        {children}
+      <body className="antialiased">
+        <AuthProvider>
+          {children}
+        </AuthProvider>
       </body>
     </html>
   );

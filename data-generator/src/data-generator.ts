@@ -4,6 +4,7 @@ import { ExcelParser } from './excel/parser';
 import { AIClient, UserInput } from './ai/client';
 import { CohortGenerator } from './generators/cohort-generator';
 import { EventGenerator } from './generators/event-generator';
+import { MarketingGenerator } from './generators/marketing-generator';
 import { TEFormatter } from './formatters/te-formatter';
 import { LogBus2Controller } from './logbus/controller';
 import {
@@ -12,9 +13,10 @@ import {
   UserGenerationConfig,
   DEFAULT_COUNTRY_CONFIGS,
   Session,
-  TEEvent
+  TEEvent,
+  EventData
 } from './types';
-import { generateUUID, randomInt } from './utils/random';
+import { generateUUID, randomInt, probabilityCheck } from './utils/random';
 import { formatDateYYYYMMDD, addMilliseconds } from './utils/date';
 import { exponentialDistribution } from './utils/distribution';
 
@@ -26,6 +28,7 @@ export type ProgressCallback = (progress: {
   progress: number;
   message: string;
   step?: string;
+  details?: string[];  // 상세 로그 메시지
 }) => void;
 
 /**
@@ -77,10 +80,12 @@ export interface GenerationResult {
 export class DataGenerator {
   private config: DataGeneratorConfig;
   private runId: string;
+  private marketingGenerator: MarketingGenerator;
 
-  constructor(config: DataGeneratorConfig) {
+  constructor(config: DataGeneratorConfig, runId?: string) {
     this.config = config;
-    this.runId = `run_${Date.now()}`;
+    this.runId = runId || `run_${Date.now()}`;
+    this.marketingGenerator = new MarketingGenerator(this.config.userInput.industry);
   }
 
   /**
@@ -109,21 +114,92 @@ export class DataGenerator {
     });
 
     // 2. AI 분석
+    const aiDetails: string[] = [];
     this.config.onProgress?.({
       status: 'analyzing',
       progress: 25,
-      message: 'Claude AI를 통해 시나리오 분석 시작...',
-      step: '2/5'
+      message: `${this.config.aiProvider === 'anthropic' ? 'Claude' : 'GPT'} AI를 통해 시나리오 분석 시작...`,
+      step: '2/5',
+      details: ['🤖 AI 분석 시작', `📋 이벤트 수: ${schema.events.length}개`, `📋 속성 수: ${schema.properties.length}개`]
     });
     console.log('\n🤖 Step 2: AI analysis...');
+
+    // AI 분석 전에 어떤 모드인지 알림
+    if (schema.events.length > 15) {
+      aiDetails.push('📊 Multi-Phase Analysis 모드 (정확도 향상)');
+      aiDetails.push('Phase 1: 전략 분석 및 이벤트 그룹핑');
+      this.config.onProgress?.({
+        status: 'analyzing',
+        progress: 27,
+        message: 'Phase 1: 전략 분석 중...',
+        step: '2/5',
+        details: aiDetails
+      });
+    } else {
+      aiDetails.push('📊 Single-Phase Analysis 모드 (빠른 분석)');
+      this.config.onProgress?.({
+        status: 'analyzing',
+        progress: 27,
+        message: 'AI 스키마 분석 중...',
+        step: '2/5',
+        details: aiDetails
+      });
+    }
+
     const aiAnalysis = await this.analyzeWithAI(schema);
     console.log(`✅ Generated ${aiAnalysis.userSegments.length} user segments`);
+
+    // AI 분석 결과 상세 로깅
+    console.log('\n📊 AI Analysis Summary:');
+    console.log(`  - User Segments: ${aiAnalysis.userSegments.length}`);
+    console.log(`  - Event Ranges: ${aiAnalysis.eventRanges.length}`);
+    console.log(`  - Total Properties with Ranges: ${aiAnalysis.eventRanges.reduce((sum, e) => sum + e.properties.length, 0)}`);
+
+    // AI 분석 결과를 details에 추가
+    aiDetails.push(`✅ AI 분석 완료`);
+    aiDetails.push(`👥 사용자 세그먼트: ${aiAnalysis.userSegments.length}개`);
+    aiAnalysis.userSegments.forEach(seg => {
+      aiDetails.push(`  - ${seg.name} (${(seg.ratio * 100).toFixed(0)}%): ${seg.characteristics}`);
+    });
+
+    aiDetails.push(`📊 이벤트 범위: ${aiAnalysis.eventRanges.length}개`);
+    const totalProps = aiAnalysis.eventRanges.reduce((sum, e) => sum + e.properties.length, 0);
+    aiDetails.push(`🔢 AI 생성 속성: ${totalProps}개`);
+
+    if (aiAnalysis.eventRanges.length > 0) {
+      console.log('\n📋 Event Ranges Detail:');
+      aiDetails.push(`📋 주요 이벤트 범위:`);
+      aiAnalysis.eventRanges.slice(0, 5).forEach(er => {
+        console.log(`  - ${er.event_name}: ${er.properties.length} properties`);
+        aiDetails.push(`  - ${er.event_name}: ${er.properties.length} 속성`);
+        er.properties.slice(0, 2).forEach(p => {
+          console.log(`    • ${p.property_name} (${p.type})`);
+          aiDetails.push(`    • ${p.property_name} (${p.type})`);
+        });
+      });
+      if (aiAnalysis.eventRanges.length > 5) {
+        console.log(`  ... and ${aiAnalysis.eventRanges.length - 5} more events`);
+        aiDetails.push(`  ... 외 ${aiAnalysis.eventRanges.length - 5}개 이벤트`);
+      }
+    } else {
+      console.warn('⚠️  WARNING: No event ranges generated! All properties will use Faker.js fallback.');
+      aiDetails.push('⚠️ 경고: AI 범위 미생성, Faker.js 폴백 사용');
+    }
+
+    // 세션 패턴 정보 추가
+    aiDetails.push('📈 세션 패턴 분석:');
+    Object.entries(aiAnalysis.sessionPatterns.avgSessionsPerDay).forEach(([segment, sessions]) => {
+      const duration = (aiAnalysis.sessionPatterns.avgSessionDuration[segment] / 1000 / 60).toFixed(1);
+      const events = aiAnalysis.sessionPatterns.avgEventsPerSession[segment];
+      aiDetails.push(`  - ${segment}: ${sessions}회/일, ${duration}분/세션, ${events}이벤트/세션`);
+    });
 
     this.config.onProgress?.({
       status: 'analyzing',
       progress: 35,
-      message: `${aiAnalysis.userSegments.length}개 사용자 세그먼트 및 행동 패턴 생성 완료`,
-      step: '2/5'
+      message: `AI 분석 완료: ${aiAnalysis.userSegments.length}개 세그먼트, ${totalProps}개 속성 범위 생성`,
+      step: '2/5',
+      details: aiDetails
     });
 
     // 3. 코호트 생성
@@ -216,7 +292,14 @@ export class DataGenerator {
       model: this.config.aiModel
     });
 
-    return await aiClient.analyzeSchema(schema, this.config.userInput);
+    // 다단계 분석 사용 (이벤트가 많을 때 정확도 향상)
+    if (schema.events.length > 15) {
+      console.log('  📊 Using Multi-Phase Analysis (30+ events)');
+      return await aiClient.analyzeSchemaMultiPhase(schema, this.config.userInput);
+    } else {
+      console.log('  📊 Using Single-Phase Analysis (<15 events)');
+      return await aiClient.analyzeSchema(schema, this.config.userInput);
+    }
   }
 
   /**
@@ -250,7 +333,7 @@ export class DataGenerator {
     aiAnalysis: AIAnalysisResult,
     cohorts: Map<string, any[]>
   ): Promise<{ filesGenerated: string[]; totalEvents: number }> {
-    const eventGenerator = new EventGenerator(schema, aiAnalysis);
+    const eventGenerator = new EventGenerator(schema, aiAnalysis, this.config.userInput.industry);
     const teFormatter = new TEFormatter();
     const filesGenerated: string[] = [];
     let totalEvents = 0;
@@ -288,14 +371,41 @@ export class DataGenerator {
         const sessions = this.generateUserSessions(user, new Date(dateKey), aiAnalysis);
 
         for (const session of sessions) {
+          // 첫 세션인 경우: install 이벤트와 user_set 생성
+          if (user.total_sessions === 0) {
+            // 1. install 이벤트 (마케팅 어트리뷰션)
+            const installProperties = this.marketingGenerator.generateInstallEvent(user, session.start);
+            const installEvent: EventData = {
+              event_name: 'install',
+              timestamp: session.start,
+              user,
+              properties: installProperties
+            };
+            const teInstallEvent = teFormatter.formatTrackEvent(installEvent);
+            dailyEvents.push(teInstallEvent);
+
+            // 2. user_set 이벤트 (te_ads_object 유저 속성 포함)
+            const userAttribution = this.marketingGenerator.generateUserAttribution();
+            const userSet = teFormatter.formatUserSet(user, session.start, userAttribution);
+            dailyEvents.push(userSet);
+          }
+
+          // 일반 세션 이벤트 생성
           const sessionEvents = eventGenerator.generateSessionEvents(session);
           const teEvents = sessionEvents.map(e => teFormatter.formatTrackEvent(e));
           dailyEvents.push(...teEvents);
 
-          // user_set 이벤트 (첫 세션)
-          if (user.total_sessions === 0) {
-            const userSet = teFormatter.formatUserSet(user, session.start, {});
-            dailyEvents.push(userSet);
+          // adjust_ad_revenue 이벤트 (30% 확률)
+          if (probabilityCheck(0.3)) {
+            const adRevenueProperties = this.marketingGenerator.generateAdRevenueEvent(user, session.end);
+            const adRevenueEvent: EventData = {
+              event_name: 'adjust_ad_revenue',
+              timestamp: session.end,
+              user,
+              properties: adRevenueProperties
+            };
+            const teAdRevenueEvent = teFormatter.formatTrackEvent(adRevenueEvent);
+            dailyEvents.push(teAdRevenueEvent);
           }
 
           // user_add 이벤트 (통계 업데이트)
@@ -359,8 +469,12 @@ export class DataGenerator {
     // 세그먼트별 평균 세션 시간
     const avgDuration = aiAnalysis.sessionPatterns.avgSessionDuration[user.segment] || 300000;
 
+    // 산업 및 세그먼트별 접속 시간대 결정
+    const peakHours = this.getPeakHours(user.segment);
+
     let currentTime = new Date(date);
-    currentTime.setHours(8 + Math.floor(Math.random() * 12)); // 08:00 ~ 20:00
+    currentTime.setHours(peakHours.start + Math.floor(Math.random() * (peakHours.end - peakHours.start)));
+    currentTime.setMinutes(Math.floor(Math.random() * 60));
 
     for (let i = 0; i < sessionCount; i++) {
       const duration = Math.floor(avgDuration * (0.5 + Math.random()));
@@ -377,12 +491,76 @@ export class DataGenerator {
 
       sessions.push(session);
 
-      // 다음 세션까지 간격 (1-6시간)
-      const intervalHours = 1 + Math.random() * 5;
+      // 다음 세션까지 간격 (세그먼트별 조정)
+      const intervalHours = this.getSessionInterval(user.segment);
       currentTime = addMilliseconds(currentTime, intervalHours * 60 * 60 * 1000);
+
+      // 24시간 넘어가면 다음날 피크타임으로 리셋
+      if (currentTime.getDate() !== date.getDate()) {
+        currentTime = new Date(date);
+        currentTime.setDate(currentTime.getDate() + 1);
+        currentTime.setHours(peakHours.start + Math.floor(Math.random() * 3));
+        currentTime.setMinutes(Math.floor(Math.random() * 60));
+      }
     }
 
     return sessions;
+  }
+
+  /**
+   * 산업 및 세그먼트별 피크 시간대 반환
+   */
+  private getPeakHours(segment: string): { start: number; end: number } {
+    const industry = this.config.userInput.industry.toLowerCase();
+
+    // VIP/고급 사용자는 일반적으로 낮 시간대 사용
+    if (segment.toLowerCase().includes('vip') || segment.toLowerCase().includes('whale') || segment.toLowerCase().includes('프리미엄')) {
+      return { start: 10, end: 22 }; // 10:00 ~ 22:00
+    }
+
+    // 산업별 피크 시간
+    if (industry.includes('게임') || industry.includes('game')) {
+      // 게임: 저녁~밤
+      return { start: 19, end: 23 }; // 19:00 ~ 23:00
+    }
+
+    if (industry.includes('금융') || industry.includes('finance') || industry.includes('bank')) {
+      // 금융: 아침 출근, 점심
+      const random = Math.random();
+      if (random < 0.4) return { start: 9, end: 10 };   // 09:00 ~ 10:00
+      if (random < 0.7) return { start: 12, end: 13 };  // 12:00 ~ 13:00
+      return { start: 20, end: 22 };                     // 20:00 ~ 22:00
+    }
+
+    if (industry.includes('쇼핑') || industry.includes('commerce') || industry.includes('이커머스')) {
+      // 쇼핑: 점심, 저녁
+      const random = Math.random();
+      if (random < 0.4) return { start: 12, end: 14 };  // 12:00 ~ 14:00
+      return { start: 20, end: 22 };                     // 20:00 ~ 22:00
+    }
+
+    // 기본값: 업무 외 시간
+    return { start: 18, end: 22 }; // 18:00 ~ 22:00
+  }
+
+  /**
+   * 세그먼트별 세션 간격 (시간)
+   */
+  private getSessionInterval(segment: string): number {
+    const segmentLower = segment.toLowerCase();
+
+    // VIP/고급 사용자: 짧은 간격 (자주 접속)
+    if (segmentLower.includes('vip') || segmentLower.includes('whale') || segmentLower.includes('프리미엄')) {
+      return 2 + Math.random() * 3; // 2~5시간
+    }
+
+    // 활성 사용자: 중간 간격
+    if (segmentLower.includes('active') || segmentLower.includes('활성') || segmentLower.includes('engaged')) {
+      return 4 + Math.random() * 4; // 4~8시간
+    }
+
+    // 일반/신규 사용자: 긴 간격
+    return 6 + Math.random() * 6; // 6~12시간
   }
 
   /**

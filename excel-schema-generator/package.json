@@ -1,0 +1,30 @@
+{
+  "name": "@te-data-generator/excel-schema-generator",
+  "version": "1.0.0",
+  "description": "Excel taxonomy schema generator using AI",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "test": "tsx test-generator.ts",
+    "build": "tsc"
+  },
+  "keywords": [
+    "excel",
+    "taxonomy",
+    "schema-generator",
+    "thinkingengine"
+  ],
+  "author": "ThinkingData Korea",
+  "license": "MIT",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.24.0",
+    "exceljs": "^4.4.0",
+    "openai": "^4.47.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.12",
+    "tsx": "^4.11.0",
+    "typescript": "^5.4.5"
+  }
+}

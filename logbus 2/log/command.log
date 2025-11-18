@@ -22,3 +22,18 @@
 {"level":"info","time":"2025-10-27T10:23:07+09:00","message":"app_id [df6fff48a373418ca2da97d104df2188] ok"}
 {"level":"info","time":"2025-10-27T10:23:07+09:00","message":"daemon process pid[44724] is running"}
 {"level":"info","time":"2025-10-27T10:23:07+09:00","message":"logbus daemon process already exists, pid[44724]"}
+{"level":"info","time":"2025-11-14T03:28:45+09:00","message":"app_id [1edbbf43c73d4b0ba513f0383714ba5d] ok"}
+{"level":"error","time":"2025-11-14T03:28:45+09:00","message":"[localhost] create http request client liveness fail: Get \"http://localhost:27399/status\": dial tcp [::1]:27399: connect: connection refused"}
+{"level":"error","time":"2025-11-14T03:28:45+09:00","message":"[localhost] create http request client liveness fail: Get \"http://localhost:27399/status\": dial tcp [::1]:27399: connect: connection refused"}
+{"level":"error","time":"2025-11-14T03:28:45+09:00","message":"[localhost] create http request client liveness fail: Get \"http://localhost:27399/status\": dial tcp [::1]:27399: connect: connection refused"}
+{"level":"info","time":"2025-11-14T03:28:45+09:00","message":"remove out of date pid file /Users/jegaljin-u/workspace/demo_data_gen/logbus 2/runtime/logbus.pid"}
+{"level":"info","time":"2025-11-14T03:28:48+09:00","message":"[localhost:27177] start daemon success, pid[3715]"}
+{"level":"info","time":"2025-11-14T13:44:51+09:00","message":"app_id [1edbbf43c73d4b0ba513f0383714ba5d] ok"}
+{"level":"info","time":"2025-11-14T13:44:51+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_gen/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-11-14T13:44:54+09:00","message":"[localhost:28891] start daemon success, pid[65401]"}
+{"level":"info","time":"2025-11-14T18:53:19+09:00","message":"app_id [1edbbf43c73d4b0ba513f0383714ba5d] ok"}
+{"level":"info","time":"2025-11-14T18:53:19+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_gen/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-11-14T18:53:22+09:00","message":"[localhost:26763] start daemon success, pid[22329]"}
+{"level":"info","time":"2025-11-15T12:13:24+09:00","message":"app_id [29f0d22f756f40f08279b962cb790dc7] ok"}
+{"level":"info","time":"2025-11-15T12:13:24+09:00","message":"[daemon] read pid number fail: open /Users/jegaljin-u/workspace/demo_data_gen/logbus 2/runtime/logbus.pid: no such file or directory"}
+{"level":"info","time":"2025-11-15T12:13:27+09:00","message":"[localhost:28785] start daemon success, pid[98980]"}

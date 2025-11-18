@@ -125,28 +125,68 @@ export function generateNetworkType(): string {
 }
 
 /**
- * 속성명 기반 폴백 값 생성
+ * 산업별 가격 범위 정의
  */
-export function generateFallbackValue(propertyName: string, locale: string = 'en'): any {
+interface IndustryPriceRanges {
+  game: { item: [number, number]; currency: [number, number]; gacha: [number, number] };
+  commerce: { product: [number, number]; shipping: [number, number]; discount: [number, number] };
+  finance: { transfer: [number, number]; investment: [number, number]; fee: [number, number] };
+  default: { low: [number, number]; mid: [number, number]; high: [number, number] };
+}
+
+const INDUSTRY_PRICE_RANGES: IndustryPriceRanges = {
+  game: {
+    item: [100, 5000],      // 게임 아이템: 100~5,000원
+    currency: [1000, 50000], // 게임 재화: 1,000~50,000원
+    gacha: [500, 10000]      // 가챠: 500~10,000원
+  },
+  commerce: {
+    product: [5000, 200000],   // 상품: 5,000~200,000원
+    shipping: [0, 5000],        // 배송비: 0~5,000원
+    discount: [1000, 50000]     // 할인액: 1,000~50,000원
+  },
+  finance: {
+    transfer: [10000, 10000000],   // 송금: 10,000~10,000,000원
+    investment: [100000, 100000000], // 투자: 100,000~100,000,000원
+    fee: [0, 10000]                 // 수수료: 0~10,000원
+  },
+  default: {
+    low: [1000, 10000],
+    mid: [10000, 100000],
+    high: [100000, 1000000]
+  }
+};
+
+/**
+ * 속성명 기반 폴백 값 생성
+ * AI가 범위를 생성하지 못한 속성들을 위한 스마트 폴백
+ *
+ * @param propertyName 속성 이름
+ * @param locale 로케일
+ * @param industry 산업 분류 (game, commerce, finance 등)
+ */
+export function generateFallbackValue(
+  propertyName: string,
+  locale: string = 'en',
+  industry?: string
+): any {
   const fakerInstance = getFakerInstance(locale);
   const lowerName = propertyName.toLowerCase();
+  const industryLower = industry?.toLowerCase() || '';
 
-  // 이름 관련
-  if (lowerName.includes('name') || lowerName.includes('nickname')) {
+  // === 개인정보 관련 ===
+  if (lowerName.includes('name') && !lowerName.includes('campaign') && !lowerName.includes('event')) {
     return fakerInstance.person.fullName();
   }
 
-  // 이메일
   if (lowerName.includes('email')) {
     return fakerInstance.internet.email();
   }
 
-  // 전화번호
   if (lowerName.includes('phone')) {
     return fakerInstance.phone.number();
   }
 
-  // 주소
   if (lowerName.includes('address')) {
     return fakerInstance.location.streetAddress();
   }
@@ -155,25 +195,194 @@ export function generateFallbackValue(propertyName: string, locale: string = 'en
     return fakerInstance.location.city();
   }
 
-  if (lowerName.includes('country')) {
+  if (lowerName.includes('country') && !lowerName.includes('code')) {
     return fakerInstance.location.country();
   }
 
-  // 날짜
-  if (lowerName.includes('date') || lowerName.includes('time')) {
+  // === 날짜/시간 ===
+  if (lowerName.includes('date') || lowerName.includes('_at') || lowerName.includes('timestamp')) {
     return fakerInstance.date.recent().toISOString();
   }
 
-  // ID
-  if (lowerName.includes('id')) {
+  if (lowerName.includes('duration')) {
+    return fakerInstance.number.int({ min: 10, max: 600 }); // 10초 ~ 10분
+  }
+
+  // === ID 관련 ===
+  if (lowerName.includes('_id') || lowerName === 'id') {
     return fakerInstance.string.uuid();
   }
 
-  // 숫자
-  if (lowerName.includes('count') || lowerName.includes('number')) {
+  // === 게임 관련 ===
+  if (lowerName.includes('level') || lowerName.includes('레벨')) {
     return fakerInstance.number.int({ min: 1, max: 100 });
   }
 
-  // 기본값
-  return fakerInstance.string.alphanumeric(10);
+  if (lowerName.includes('score') || lowerName.includes('점수')) {
+    return fakerInstance.number.int({ min: 0, max: 99999 });
+  }
+
+  if (lowerName.includes('rank') || lowerName.includes('순위')) {
+    return fakerInstance.number.int({ min: 1, max: 1000 });
+  }
+
+  if (lowerName.includes('tier') || lowerName.includes('등급')) {
+    const tiers = ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Master'];
+    return fakerInstance.helpers.arrayElement(tiers);
+  }
+
+  if (lowerName.includes('character') || lowerName.includes('캐릭터')) {
+    const characters = ['Warrior', 'Mage', 'Archer', 'Assassin', 'Priest', 'Tank'];
+    return fakerInstance.helpers.arrayElement(characters);
+  }
+
+  if (lowerName.includes('mode') || lowerName.includes('모드')) {
+    const modes = ['Normal', 'Hard', 'Expert', 'PVP', 'PVE', 'Tutorial'];
+    return fakerInstance.helpers.arrayElement(modes);
+  }
+
+  if (lowerName.includes('stage') || lowerName.includes('스테이지')) {
+    return `Stage-${fakerInstance.number.int({ min: 1, max: 50 })}`;
+  }
+
+  // === 상거래 관련 (산업별 범위 적용) ===
+  if (lowerName.includes('price') || lowerName.includes('amount') || lowerName.includes('금액') || lowerName.includes('가격')) {
+    // 게임 산업
+    if (industryLower.includes('게임') || industryLower.includes('game')) {
+      if (lowerName.includes('item') || lowerName.includes('아이템')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.game.item;
+        return fakerInstance.number.int({ min, max });
+      }
+      if (lowerName.includes('currency') || lowerName.includes('재화') || lowerName.includes('골드') || lowerName.includes('gold')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.game.currency;
+        return fakerInstance.number.int({ min, max });
+      }
+      if (lowerName.includes('gacha') || lowerName.includes('가챠') || lowerName.includes('뽑기')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.game.gacha;
+        return fakerInstance.number.int({ min, max });
+      }
+      // 기본 게임 아이템 가격
+      const [min, max] = INDUSTRY_PRICE_RANGES.game.item;
+      return fakerInstance.number.int({ min, max });
+    }
+
+    // 쇼핑/커머스 산업
+    if (industryLower.includes('쇼핑') || industryLower.includes('commerce') || industryLower.includes('이커머스')) {
+      if (lowerName.includes('shipping') || lowerName.includes('배송')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.commerce.shipping;
+        return fakerInstance.number.int({ min, max });
+      }
+      if (lowerName.includes('discount') || lowerName.includes('할인')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.commerce.discount;
+        return fakerInstance.number.int({ min, max });
+      }
+      // 기본 상품 가격
+      const [min, max] = INDUSTRY_PRICE_RANGES.commerce.product;
+      return fakerInstance.number.int({ min, max });
+    }
+
+    // 금융 산업
+    if (industryLower.includes('금융') || industryLower.includes('finance') || industryLower.includes('bank')) {
+      if (lowerName.includes('transfer') || lowerName.includes('송금') || lowerName.includes('이체')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.finance.transfer;
+        return fakerInstance.number.int({ min, max });
+      }
+      if (lowerName.includes('invest') || lowerName.includes('투자')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.finance.investment;
+        return fakerInstance.number.int({ min, max });
+      }
+      if (lowerName.includes('fee') || lowerName.includes('수수료')) {
+        const [min, max] = INDUSTRY_PRICE_RANGES.finance.fee;
+        return fakerInstance.number.int({ min, max });
+      }
+      // 기본 금융 거래액
+      const [min, max] = INDUSTRY_PRICE_RANGES.finance.transfer;
+      return fakerInstance.number.int({ min, max });
+    }
+
+    // 기본값 (산업 미지정)
+    const [min, max] = INDUSTRY_PRICE_RANGES.default.mid;
+    return fakerInstance.number.int({ min, max });
+  }
+
+  if (lowerName.includes('quantity') || lowerName.includes('수량')) {
+    return fakerInstance.number.int({ min: 1, max: 10 });
+  }
+
+  if (lowerName.includes('discount') || lowerName.includes('할인')) {
+    return fakerInstance.number.int({ min: 5, max: 50 }); // 5% ~ 50%
+  }
+
+  if (lowerName.includes('currency') || lowerName.includes('통화')) {
+    const currencies = ['USD', 'KRW', 'JPY', 'EUR', 'CNY'];
+    return fakerInstance.helpers.arrayElement(currencies);
+  }
+
+  if (lowerName.includes('category') || lowerName.includes('카테고리')) {
+    const categories = ['Electronics', 'Fashion', 'Food', 'Sports', 'Books', 'Games'];
+    return fakerInstance.helpers.arrayElement(categories);
+  }
+
+  if (lowerName.includes('product') || lowerName.includes('item') || lowerName.includes('상품')) {
+    return fakerInstance.commerce.productName();
+  }
+
+  // === 통계/분석 관련 ===
+  if (lowerName.includes('count') || lowerName.includes('수')) {
+    return fakerInstance.number.int({ min: 0, max: 100 });
+  }
+
+  if (lowerName.includes('rate') || lowerName.includes('ratio') || lowerName.includes('비율')) {
+    return fakerInstance.number.float({ min: 0, max: 1, fractionDigits: 2 });
+  }
+
+  if (lowerName.includes('percent') || lowerName.includes('percentage')) {
+    return fakerInstance.number.int({ min: 0, max: 100 });
+  }
+
+  // === 상태/타입 ===
+  if (lowerName.includes('status') || lowerName.includes('상태')) {
+    const statuses = ['Active', 'Inactive', 'Pending', 'Completed', 'Failed'];
+    return fakerInstance.helpers.arrayElement(statuses);
+  }
+
+  if (lowerName.includes('type') || lowerName.includes('타입')) {
+    const types = ['Type-A', 'Type-B', 'Type-C', 'Special', 'Premium'];
+    return fakerInstance.helpers.arrayElement(types);
+  }
+
+  if (lowerName.includes('method') || lowerName.includes('방법')) {
+    const methods = ['Card', 'Cash', 'Mobile', 'Transfer', 'Coupon'];
+    return fakerInstance.helpers.arrayElement(methods);
+  }
+
+  // === Boolean ===
+  if (lowerName.startsWith('is_') || lowerName.startsWith('has_') || lowerName.includes('enabled')) {
+    return fakerInstance.datatype.boolean();
+  }
+
+  // === URL ===
+  if (lowerName.includes('url') || lowerName.includes('link')) {
+    return fakerInstance.internet.url();
+  }
+
+  // === 설명/메시지 ===
+  if (lowerName.includes('description') || lowerName.includes('message') || lowerName.includes('comment')) {
+    return fakerInstance.lorem.sentence();
+  }
+
+  // === 버전 ===
+  if (lowerName.includes('version')) {
+    return `${fakerInstance.number.int({ min: 1, max: 5 })}.${fakerInstance.number.int({ min: 0, max: 9 })}.${fakerInstance.number.int({ min: 0, max: 9 })}`;
+  }
+
+  // === 기본값: 문맥 기반 추론 ===
+  // 숫자로 끝나는 경우 (예: attempt_count, retry_count)
+  if (lowerName.endsWith('count') || lowerName.endsWith('number')) {
+    return fakerInstance.number.int({ min: 0, max: 10 });
+  }
+
+  // 마지막 폴백: 짧은 알파벳 코드 (10자 → 6자로 줄임)
+  console.warn(`⚠️  Using generic fallback for property: ${propertyName}`);
+  return fakerInstance.string.alpha(6).toUpperCase();
 }

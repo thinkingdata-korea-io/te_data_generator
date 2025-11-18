@@ -26,11 +26,13 @@ export class EventGenerator {
   private schema: ParsedSchema;
   private aiAnalysis: AIAnalysisResult;
   private dependencyManager: DependencyManager;
+  private industry: string;
 
-  constructor(schema: ParsedSchema, aiAnalysis: AIAnalysisResult) {
+  constructor(schema: ParsedSchema, aiAnalysis: AIAnalysisResult, industry: string = '') {
     this.schema = schema;
     this.aiAnalysis = aiAnalysis;
     this.dependencyManager = new DependencyManager(schema, aiAnalysis);
+    this.industry = industry;
   }
 
   /**
@@ -194,10 +196,11 @@ export class EventGenerator {
       if (range) {
         properties[propertyName] = this.generateValueFromRange(range, user);
       } else {
-        // AI 범위가 없으면 Faker.js 폴백
+        // AI 범위가 없으면 Faker.js 폴백 (산업 정보 전달)
         properties[propertyName] = generateFallbackValue(
           propertyName,
-          user.locale
+          user.locale,
+          this.industry
         );
       }
     });
@@ -232,8 +235,8 @@ export class EventGenerator {
 
       case 'string':
       default:
-        // 문자열은 Faker.js로 생성
-        return generateFallbackValue(range.property_name, user.locale);
+        // 문자열은 Faker.js로 생성 (산업 정보 전달)
+        return generateFallbackValue(range.property_name, user.locale, this.industry);
     }
   }
 

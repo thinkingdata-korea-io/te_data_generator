@@ -3,7 +3,8 @@ import {
   ParsedSchema,
   EventDefinition,
   PropertyDefinition,
-  FunnelDefinition
+  FunnelDefinition,
+  UserDataDefinition
 } from '../types';
 
 /**
@@ -45,11 +46,20 @@ export class ExcelParser {
 
     const properties = Array.from(propertiesMap.values());
     const funnels = this.parseFunnelsSheet(workbook);
+    const userData = this.parseUserDataSheet(workbook);
 
+    // 디버그: 속성 분류 확인
+    const eventProps = properties.filter(p => p.event_name);
+    const commonProps = properties.filter(p => !p.event_name);
+    console.log(`📊 Parsed from Excel: events=${events.length}, eventProps=${eventProps.length}, commonProps=${commonProps.length}, userData=${userData.length}`);
+
+    // 마케팅 스키마 병합은 데이터 생성 시점에만 수행
+    // Excel 파싱은 파일 내용만 반환
     return {
       events,
       properties,
-      funnels
+      funnels,
+      userData
     };
   }
 
@@ -202,13 +212,16 @@ export class ExcelParser {
     const properties: PropertyDefinition[] = [];
 
     for (const row of data) {
-      if (row.property_name) {
+      // 한글 및 영문 컬럼명 모두 지원
+      const propName = row['속성 이름'] || row.property_name;
+
+      if (propName) {
         properties.push({
-          property_name: String(row.property_name).trim(),
-          property_name_kr: row.property_name_kr ? String(row.property_name_kr).trim() : String(row.property_name).trim(),
-          data_type: row.data_type ? String(row.data_type).trim().toLowerCase() : 'string',
-          event_name: row.event_name ? String(row.event_name).trim() : undefined,
-          description: row.description ? String(row.description).trim() : undefined
+          property_name: String(propName).trim(),
+          property_name_kr: row['속성 별칭'] || row.property_name_kr || String(propName).trim(),
+          data_type: (row['속성 유형'] || row.data_type || 'string').toString().trim().toLowerCase(),
+          event_name: row['이벤트 이름'] || row.event_name ? String(row['이벤트 이름'] || row.event_name).trim() : undefined,
+          description: row['속성 설명'] || row.description ? String(row['속성 설명'] || row.description).trim() : undefined
         });
       }
     }
@@ -259,6 +272,50 @@ export class ExcelParser {
     }
 
     return funnels;
+  }
+
+  /**
+   * UserData 시트 파싱
+   */
+  private parseUserDataSheet(workbook: XLSX.WorkBook): UserDataDefinition[] {
+    // #유저 데이터, UserData, User Data 등 여러 이름으로 찾기
+    const possibleNames = ['#유저 데이터', '유저 데이터', '#UserData', 'UserData', '#User Data', 'User Data', '#유저속성', '유저속성'];
+    const sheetName = possibleNames.find(name => workbook.Sheets[name]);
+
+    if (!sheetName) {
+      // UserData 시트가 없을 수 있음 (선택사항)
+      return [];
+    }
+
+    const worksheet = workbook.Sheets[sheetName];
+    const data = XLSX.utils.sheet_to_json<any>(worksheet, {
+      defval: ''
+    });
+
+    const userData: UserDataDefinition[] = [];
+
+    for (const row of data) {
+      // 속성 이름이 있으면 추가
+      if (row['속성 이름'] || row.property_name) {
+        const propName = row['속성 이름'] || row.property_name;
+        const propNameKr = row['속성 별칭'] || row.property_name_kr || propName;
+        const dataType = row['속성 유형'] || row.data_type || row.type || 'string';
+        const updateMethod = row['업데이트 방식'] || row.update_method || 'userset';
+        const description = row['속성 설명'] || row.description || '';
+        const tag = row['속성 태그'] || row.tag || '';
+
+        userData.push({
+          property_name: String(propName).trim(),
+          property_name_kr: String(propNameKr).trim(),
+          data_type: String(dataType).trim().toLowerCase(),
+          update_method: String(updateMethod).trim().toLowerCase(),
+          description: description ? String(description).trim() : undefined,
+          tag: tag ? String(tag).trim() : undefined
+        });
+      }
+    }
+
+    return userData;
   }
 
   /**

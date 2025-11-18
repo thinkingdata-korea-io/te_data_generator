@@ -32,6 +32,15 @@ export interface UserSegment {
   characteristics?: string;  // AI가 분석한 특성
 }
 
+export interface UserDataDefinition {
+  property_name: string;
+  property_name_kr: string;
+  data_type: string;
+  update_method: string;  // userset, usersetonce, useradd, etc.
+  description?: string;
+  tag?: string;
+}
+
 /**
  * 파싱된 Excel 스키마
  */
@@ -39,5 +48,6 @@ export interface ParsedSchema {
   events: EventDefinition[];
   properties: PropertyDefinition[];
   funnels: FunnelDefinition[];
+  userData: UserDataDefinition[];
   userSegments?: UserSegment[];  // AI가 생성
 }

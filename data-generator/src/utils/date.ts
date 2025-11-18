@@ -35,6 +35,21 @@ export function toISO8601(date: Date): string {
 }
 
 /**
+ * ThinkingData 형식으로 변환 (yyyy-MM-dd HH:mm:ss.SSS)
+ */
+export function toTimestamp(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  const seconds = String(date.getSeconds()).padStart(2, '0');
+  const milliseconds = String(date.getMilliseconds()).padStart(3, '0');
+
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}.${milliseconds}`;
+}
+
+/**
  * 특정 날짜 범위 내의 랜덤 날짜 생성
  */
 export function randomDateBetween(start: Date, end: Date): Date {

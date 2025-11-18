@@ -101,7 +101,11 @@ export class LogBus2Controller {
         process.env.LOGBUS_CPU_LIMIT = String(this.config.cpuLimit);
       }
 
-      const { stdout, stderr } = await execAsync(`"${this.config.logbusPath}" start`);
+      // LogBus2 디렉토리에서 실행 (conf/daemon.json을 찾기 위해)
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const { stdout, stderr } = await execAsync(`"${this.config.logbusPath}" start`, {
+        cwd: logbusDir
+      });
 
       if (stderr && !stderr.includes('success')) {
         console.warn('LogBus2 start warning:', stderr);
@@ -120,7 +124,10 @@ export class LogBus2Controller {
    */
   async stop(): Promise<void> {
     try {
-      const { stdout } = await execAsync(`"${this.config.logbusPath}" stop`);
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const { stdout } = await execAsync(`"${this.config.logbusPath}" stop`, {
+        cwd: logbusDir
+      });
       console.log('✅ LogBus2 stopped');
       console.log(stdout);
     } catch (error: any) {
@@ -136,9 +143,31 @@ export class LogBus2Controller {
     try {
       await this.stop();
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2초 대기
+
+      // 이전 파일 offset 기록 초기화 (새로운 run 시작 시 필수)
+      console.log('🔄 Resetting LogBus2 offset records...');
+      await this.reset();
+
       await this.start();
     } catch (error) {
       console.error('❌ LogBus2 restart failed');
+      throw error;
+    }
+  }
+
+  /**
+   * LogBus2 설정 업데이트 (재시작 없이)
+   */
+  async update(): Promise<void> {
+    try {
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const { stdout } = await execAsync(`"${this.config.logbusPath}" update`, {
+        cwd: logbusDir
+      });
+      console.log('✅ LogBus2 configuration updated');
+      console.log(stdout);
+    } catch (error: any) {
+      console.error('❌ LogBus2 update failed:', error.message);
       throw error;
     }
   }
@@ -148,7 +177,10 @@ export class LogBus2Controller {
    */
   async getStatus(): Promise<LogBus2Status> {
     try {
-      const { stdout } = await execAsync(`"${this.config.logbusPath}" progress`);
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const { stdout } = await execAsync(`"${this.config.logbusPath}" progress`, {
+        cwd: logbusDir
+      });
 
       // progress 출력 파싱
       const isRunning = !stdout.includes('not running');
@@ -225,11 +257,64 @@ export class LogBus2Controller {
    */
   async reset(): Promise<void> {
     try {
-      const { stdout } = await execAsync(`"${this.config.logbusPath}" reset`);
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const { stdout } = await execAsync(`"${this.config.logbusPath}" reset`, {
+        cwd: logbusDir
+      });
       console.log('✅ LogBus2 reset completed');
       console.log(stdout);
     } catch (error: any) {
       console.error('❌ LogBus2 reset failed:', error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * 완전 초기화: 이전 실행 상태를 완전히 제거하고 새로운 실행 준비
+   * - LogBus2 중지
+   * - 이전 메타데이터 디렉토리 삭제
+   * - 새 app_id를 위한 메타 디렉토리 생성
+   * - daemon.json 재생성
+   */
+  async cleanAndPrepare(): Promise<void> {
+    try {
+      console.log('🧹 Starting complete LogBus2 cleanup...');
+
+      // 1. LogBus2 중지 (실행 중이지 않아도 에러 무시)
+      try {
+        await this.stop();
+      } catch (error: any) {
+        console.log('⚠️ LogBus2 was not running (OK)');
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      // 2. 기존 메타데이터 디렉토리 모두 삭제
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const metaDir = path.join(logbusDir, 'runtime', 'meta');
+
+      if (fs.existsSync(metaDir)) {
+        console.log(`🗑️ Removing old metadata: ${metaDir}`);
+        const oldDirs = fs.readdirSync(metaDir);
+        for (const dir of oldDirs) {
+          const dirPath = path.join(metaDir, dir);
+          fs.rmSync(dirPath, { recursive: true, force: true });
+          console.log(`   - Removed: ${dir}`);
+        }
+      }
+
+      // 3. 새 app_id를 위한 메타 디렉토리 생성
+      const newMetaDir = path.join(metaDir, this.config.appId);
+      fs.mkdirSync(newMetaDir, { recursive: true });
+      console.log(`✅ Created fresh metadata directory for app_id: ${this.config.appId}`);
+
+      // 4. daemon.json 재생성 (새로운 경로와 app_id로)
+      await this.createDaemonConfig();
+      console.log('✅ daemon.json updated with new configuration');
+
+      console.log('✅ LogBus2 cleanup and preparation completed');
+    } catch (error: any) {
+      console.error('❌ LogBus2 cleanup failed:', error.message);
       throw error;
     }
   }

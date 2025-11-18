@@ -7,11 +7,11 @@
   "batch": 1000,
   "capacity": 0,
   "cpu_limit": 4,
-  "daemon_port": 27399,
+  "daemon_port": 28785,
   "datasource": [
     {
       "add_uuid": false,
-      "app_id": "df6fff48a373418ca2da97d104df2188",
+      "app_id": "29f0d22f756f40f08279b962cb790dc7",
       "appid_in_data": false,
       "auto_reset_offset": "earliest",
       "batch": 1000,
@@ -42,7 +42,7 @@
       "fetch_time_out": 500,
       "file_identify_type": "",
       "file_patterns": [
-        "/Users/jegaljin-u/workspace/demo_data_generator/data_generator/output/*.jsonl"
+        "/Users/jegaljin-u/workspace/demo_data_gen/output/data/run_1763175247240/*.jsonl"
       ],
       "file_read_order": "",
       "file_read_order_by": "",

@@ -2,15 +2,22 @@
 
 ## 개요
 
-AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로드하여 현실적인 서비스 이벤트 데이터를 생성하고 LogBus2로 ThinkingEngine에 전송하는 통합 시스템입니다.
+AI 기반으로 Excel 텍소노미 스키마를 생성하거나 기존 Excel 파일을 업로드하여 현실적인 서비스 이벤트 데이터를 생성하고 LogBus2로 ThinkingEngine에 전송하는 통합 시스템입니다.
 
 **핵심 특징**:
 - **두 가지 시작 모드**: Excel 자동 생성 또는 기존 파일 업로드
-- **AI 기반 스키마 생성**: 서비스 정보만으로 Excel 스키마 자동 생성
-- **유저 생명주기 기반**: 현실적인 이벤트 생성
+- **AI 3단계 텍소노미 생성**: 서비스 정보만으로 4-sheet Excel 스키마 자동 생성
+  - Stage 1: 이벤트/속성 설계
+  - Stage 2: 데이터 구조 최적화
+  - Stage 3: 4-sheet Excel 생성 (#유저 ID 체계, #이벤트 데이터, #공통 속성, #유저 데이터)
+- **Multi-Provider AI 지원**: Anthropic Claude / OpenAI GPT 선택 가능
+  - Excel 생성과 데이터 생성에 각각 다른 Provider 사용 가능
+  - 설정 UI에서 간편하게 변경 가능
+- **유저 생명주기 기반**: 현실적인 이벤트 생성 (Faker.js 통합, 국가별 로케일 지원)
 - **일자별 JSONL 분리**: 날짜별 파일로 분리 저장
 - **LogBus2 통합**: Gzip 압축 전송으로 최적화
 - **Excel 다운로드**: 생성된 스키마 파일 다운로드 가능
+- **실시간 진행 상태**: 데이터 생성 및 전송 진행률 실시간 모니터링
 - **유연한 네비게이션**: 각 단계에서 홈으로 돌아가기 가능
 
 ## 시스템 아키텍처
@@ -45,12 +52,12 @@ AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로
 │                     http://localhost:3001                        │
 │                                                                  │
 │  API 엔드포인트:                                                 │
-│  • GET  /api/settings                  설정 조회                │
+│  • GET  /api/settings                  설정 조회 (AI Provider) │
 │  • POST /api/settings                  설정 저장                │
+│  • POST /api/excel/generate            AI Excel 스키마 생성    │
 │  • GET  /api/excel/list                Excel 목록               │
 │  • GET  /api/excel/download/:filename  Excel 다운로드          │
-│  • POST /api/excel/upload              Excel 업로드             │
-│  • POST /api/excel/parse               Excel 파싱               │
+│  • POST /api/excel/upload              Excel 업로드 및 파싱    │
 │  • POST /api/generate/start            데이터 생성 시작         │
 │  • GET  /api/generate/status/:runId    진행 상태 폴링          │
 │  • POST /api/send-data/:runId          ThinkingEngine 전송     │
@@ -60,12 +67,15 @@ AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로
 ┌─────────────────────────────────────────────────────────────────┐
 │                    데이터 생성 엔진                              │
 │                                                                  │
-│  1. Excel 파싱 → 스키마 추출                                    │
-│  2. AI 분석 → 이벤트 의존성, 데이터 범위 생성                   │
-│  3. 유저 코호트 생성 → 세그먼트별 유저 풀                       │
-│  4. 일자별 이벤트 생성 → JSONL 파일 저장                        │
+│  1. Excel 파싱 → 4-sheet 스키마 추출                            │
+│     (#유저 ID 체계, #이벤트 데이터, #공통 속성, #유저 데이터)   │
+│  2. AI 분석 (Anthropic/OpenAI) → 이벤트 의존성, 데이터 범위    │
+│  3. 유저 코호트 생성 → Faker.js 국가별 현실 데이터              │
+│  4. 일자별 이벤트 생성 → 의존성 검증 → JSONL 파일 저장         │
+│  5. 진행 상태 콜백 (onProgress) → API 서버 → 프론트엔드        │
 │                                                                  │
-│  출력: output/data/run_XXX/*.jsonl                              │
+│  출력: output/data/run_XXX/*.jsonl (날짜별 분리)                │
+│        output/runs/run_XXX/metadata.json (실행 정보)            │
 └─────────────────────────────────────────────────────────────────┘
                            │
                            ▼
@@ -96,24 +106,40 @@ AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로
 ```
 [홈] → [정보 입력]
          ↓
-      시나리오, DAU, 산업, 서비스 특징 입력
+      시나리오, 산업, 서비스 특징 입력
          ↓
     [Excel 생성 시작] ← 🏠 홈
          ↓
-    AI가 Excel 스키마 자동 생성
-    (excel-schema-generator/output/)
+    AI 3단계 프로세스 (TaxonomyBuilderV2)
+      Stage 1: 이벤트/속성 설계 (Claude/GPT)
+      Stage 2: 데이터 구조 최적화
+      Stage 3: 4-sheet Excel 생성
+    (excel-schema-generator/output/generated-schemas/)
          ↓
     [Excel 생성 완료] ← 🏠 홈
          ↓
-    [📥 Excel 다운로드] 또는 [데이터 생성 시작]
+    Excel 미리보기 표시:
+      - 이벤트 수, 이벤트 속성 수
+      - 공통 속성 수, 유저 데이터 수
          ↓
-      DAU, 날짜 범위 입력
+    [📥 Excel 다운로드 (옵션)]
+         ↓
+    DAU, 날짜 범위 입력
+         ↓
+    [데이터 생성 시작]
          ↓
     [데이터 생성 중]
+      - 진행률 실시간 표시 (0-100%)
+      - 단계별 메시지 (Excel 파싱 → AI 분석 → 유저 생성 → 이벤트 생성)
          ↓
     [데이터 생성 완료] ← 🏠 홈
+      - 총 이벤트, 총 사용자, Run ID 표시
+         ↓
+    APP_ID 입력
          ↓
     [ThinkingEngine 전송]
+      - LogBus2를 통한 gzip 압축 전송
+      - 진행률 모니터링
          ↓
     [전송 완료] → 🏠 새로운 생성 시작
 ```
@@ -123,23 +149,34 @@ AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로
 ```
 [홈] → [Excel 업로드]
          ↓
-      파일 선택 (드래그 앤 드롭)
+      파일 선택 (드래그 앤 드롭 또는 파일 선택)
+         ↓
+    서버로 업로드 + 자동 파싱
          ↓
     [업로드 완료] ← 🏠 홈
          ↓
-      파일 정보 확인 (이벤트/속성 수)
+    Excel 미리보기 표시:
+      - 이벤트 수, 이벤트 속성 수
+      - 공통 속성 수, 유저 데이터 수
          ↓
     [서비스 정보 및 설정 입력] ← 🏠 홈
          ↓
-      시나리오, DAU, 산업, 날짜 범위 입력
+      시나리오, DAU, 산업, 서비스 특징, 날짜 범위 입력
          ↓
     [데이터 생성 시작]
          ↓
     [데이터 생성 중]
+      - 진행률 실시간 표시 (0-100%)
+      - 단계별 메시지
          ↓
     [데이터 생성 완료] ← 🏠 홈
+      - 총 이벤트, 총 사용자, Run ID 표시
+         ↓
+    APP_ID 입력
          ↓
     [ThinkingEngine 전송]
+      - LogBus2를 통한 gzip 압축 전송
+      - 진행률 모니터링
          ↓
     [전송 완료] → 🏠 새로운 생성 시작
 ```
@@ -154,61 +191,92 @@ AI 기반으로 Excel 스키마를 생성하거나 기존 Excel 파일을 업로
 
 ## 핵심 컴포넌트
 
-### 1. Excel 파일 리더 (브라우저)
+### 1. Excel 텍소노미 파서 (ExcelParser)
 
-**목적**: 외부 프로그램이 생성한 Excel 파일 읽기
+**목적**: AI가 생성하거나 사용자가 업로드한 4-sheet Excel 텍소노미 파싱
 
 **입력**:
-- excel-schema-generator/output/ 폴더의 Excel 파일
-- 또는 파일 선택 UI를 통한 업로드
+- excel-schema-generator/output/generated-schemas/ 폴더의 AI 생성 Excel 파일
+- 또는 파일 업로드 UI를 통한 사용자 제공 Excel 파일
 
 **출력**:
-- ParsedSchema 객체 (이벤트, 속성, 퍼널, 유저 세그먼트)
+- ParsedSchema 객체 (이벤트, 속성, 퍼널, 유저 데이터)
 
-**Excel 구조 (읽기 전용 - 외부 프로그램이 생성):**
+**Excel 4-Sheet 구조 (TaxonomyBuilderV2 생성):**
 ```
-📋 Sheet 1: Events (이벤트 정의)
-- event_name: 이벤트 식별자
-- event_name_kr: 한국어명
-- category: system, transaction, interaction 등
-- required_previous_events: 선행 이벤트 (쉼표 구분)
-- user_lifecycle_stage: new, active, returning, churned
-- trigger_probability: 발생 확률 (0-1)
+📋 Sheet 1: #유저 ID 체계
+컬럼: 유형 | 속성 이름 | 속성 별칭 | 속성 설명 | 값 설명
+- 계정 ID, 디바이스 ID 등 유저 식별 체계 정의
+- ThinkingEngine의 #account_id, #distinct_id 매핑
 
-📋 Sheet 2: Properties (속성 정의)
-- property_name: 속성 키
-- data_type: string, number, boolean, time
-- applies_to_events: 적용 이벤트 목록
-- example_values: 예시 값
+📋 Sheet 2: #이벤트 데이터
+컬럼: 이벤트명 | 이벤트 별칭 | 이벤트 설명 | 속성 이름 | 속성 별칭 | 속성 설명 | 속성 타입 | 예시 값
+- 이벤트와 해당 이벤트 전용 속성을 함께 정의
+- event_name과 이벤트 전용 property를 한 시트에 표현
+- 예: app_start 이벤트 → app_version, platform 등의 속성
 
-📋 Sheet 3: User_Segments (유저 세그먼트)
-- segment_name: whale, regular, casual
-- percentage: 전체 유저 중 비율
-- avg_sessions_per_day: 일평균 세션 수
-- avg_session_duration_min: 평균 세션 길이
-- retention_rate_d1, d7, d30: 리텐션율
+📋 Sheet 3: #공통 속성
+컬럼: 속성 이름 | 속성 별칭 | 속성 설명 | 속성 타입 | 예시 값
+- 모든 이벤트에 공통으로 적용되는 속성
+- 예: user_id, session_id, device_model, os_version 등
+- event_name이 없는 순수 공통 속성
 
-📋 Sheet 4: Funnels (퍼널 정의)
-- funnel_name: 퍼널 식별자
-- step_order: 단계 순서
-- event_name: 단계별 이벤트
-- dropout_rate: 이탈률
-- avg_time_to_next_sec: 다음 단계까지 시간
-
-📋 Sheet 5: Event_Dependencies (이벤트 의존성)
-- event_name: 이벤트
-- must_happen_after: 반드시 이후에 발생해야 하는 이벤트 목록
-- cannot_happen_with: 동시 발생 불가 이벤트
+📋 Sheet 4: #유저 데이터
+컬럼: 속성 이름 | 속성 별칭 | 속성 설명 | 업데이트 방식 | 예시 값 | 태그
+- user_set, user_setonce, user_add 등의 유저 속성
+- 예: user_level (user_set), total_purchase_amount (user_add)
+- 태그: 기본 정보, 행동 데이터, 마케팅 등
 ```
 
-**출력**:
+**출력 (TypeScript 타입 정의):**
 ```typescript
-interface ParsedSchema {
-  events: Event[];
-  properties: Property[];
-  userSegments: UserSegment[];
-  funnels: Funnel[];
-  eventDependencyGraph: DependencyGraph; // 이벤트 순서 보장용
+// data-generator/src/types/schema.ts
+
+export interface EventDefinition {
+  event_name: string;              // 이벤트 식별자
+  event_name_kr: string;           // 한국어명
+  category: string;                // system, transaction, interaction 등
+  required_previous_events?: string[];  // 선행 이벤트 (AI가 추론)
+  user_lifecycle_stage?: string[]; // new, active, returning, churned
+  trigger_probability?: number;    // 발생 확률 (0-1)
+}
+
+export interface PropertyDefinition {
+  property_name: string;           // 속성 키
+  property_name_kr: string;        // 한국어명
+  data_type: string;               // string, number, boolean, date
+  event_name?: string;             // 특정 이벤트에만 속하는 경우 (Sheet 2)
+  description?: string;
+}
+
+export interface FunnelDefinition {
+  name: string;                    // 퍼널 식별자
+  description?: string;
+  steps: string[];                 // event_name 배열
+  conversion_rate?: number;        // 전체 퍼널 전환율
+}
+
+export interface UserDataDefinition {
+  property_name: string;           // 유저 속성 키
+  property_name_kr: string;
+  data_type: string;
+  update_method: string;           // user_set, user_setonce, user_add
+  description?: string;
+  tag?: string;                    // 기본 정보, 행동 데이터 등
+}
+
+export interface UserSegment {
+  name: string;                    // 세그먼트명 (AI가 생성)
+  ratio?: number;                  // AI가 결정한 비율
+  characteristics?: string;        // AI가 분석한 특성
+}
+
+export interface ParsedSchema {
+  events: EventDefinition[];       // Sheet 2에서 파싱
+  properties: PropertyDefinition[]; // Sheet 2 (이벤트 속성) + Sheet 3 (공통 속성)
+  funnels: FunnelDefinition[];     // AI가 추론
+  userData: UserDataDefinition[];  // Sheet 4에서 파싱
+  userSegments?: UserSegment[];    // AI가 자동 생성 (Excel에는 없음)
 }
 ```
 
@@ -219,7 +287,8 @@ interface ParsedSchema {
 **입력**:
 - 시뮬레이션 날짜 범위 (예: 2025-01-01 ~ 2025-01-30)
 - DAU (Daily Active Users)
-- AI가 결정한 유저 세그먼트 비율
+- **AI가 자동 생성한 유저 세그먼트 비율** (Excel에 없음, AI가 시나리오 기반 생성)
+  - 예: { new: 10%, core: 15%, regular: 50%, light: 25% }
 - **국가별 유저 분포** (기본값: JP 30%, KR 25%, US 20%, CN 15%, TW 10%)
 
 **코호트 생성 로직**:
@@ -713,38 +782,54 @@ demo_data_gen/
 │   ├── ARCHITECTURE_KR.md           # 이 파일
 │   └── TECHNICAL_SPEC_KR.md
 │
-├── excel-schema-generator/          # Excel 생성기 (통합)
+├── excel-schema-generator/          # Excel 텍소노미 생성기
 │   ├── src/
-│   │   └── generate.ts              # AI 기반 Excel 생성
-│   └── output/
-│       └── generated-schemas/       # AI 생성 Excel 저장소
-│           ├── 예시 - 방치형 게임.xlsx
-│           ├── KartRider_taxonomy.xlsx
-│           └── ...
+│   │   ├── schema-generator.ts      # ExcelSchemaGenerator 메인 클래스
+│   │   ├── taxonomy-builder-v2.ts   # TaxonomyBuilderV2 (3-stage AI)
+│   │   └── types.ts                 # 타입 정의
+│   ├── prompts/                     # AI 프롬프트
+│   │   ├── stage1-events.md         # Stage 1: 이벤트/속성 설계
+│   │   ├── stage2-optimize.md       # Stage 2: 데이터 구조 최적화
+│   │   └── stage3-excel.md          # Stage 3: 4-sheet Excel 생성
+│   ├── output/
+│   │   └── generated-schemas/       # AI 생성 Excel 저장소
+│   │       ├── game_taxonomy.xlsx
+│   │       ├── commerce_taxonomy.xlsx
+│   │       └── ...
+│   ├── package.json
+│   └── tsconfig.json
 │
 ├── data-generator/                  # 데이터 생성 백엔드 + API
 │   ├── src/
 │   │   ├── api/
 │   │   │   └── server.ts            # Express API 서버 (포트 3001)
-│   │   │                            # 엔드포인트: settings, excel, generate, send
+│   │   │                            # API: settings, excel/generate, excel/upload,
+│   │   │                            #      generate/start, generate/status, send-data
 │   │   ├── excel/
-│   │   │   └── parser.ts            # Excel 파일 파싱
+│   │   │   └── parser.ts            # ExcelParser (4-sheet 파싱)
 │   │   ├── ai/
-│   │   │   └── client.ts            # AI API 호출 (Claude)
+│   │   │   └── client.ts            # AI API 호출 (Anthropic/OpenAI)
 │   │   ├── generators/
-│   │   │   ├── cohort-generator.ts  # 유저 코호트 생성
-│   │   │   └── event-generator.ts   # 일자별 이벤트 생성
+│   │   │   ├── cohort-generator.ts  # 유저 코호트 생성 (Faker.js)
+│   │   │   ├── event-generator.ts   # 일자별 이벤트 생성
+│   │   │   ├── dependency-manager.ts # 이벤트 의존성 관리
+│   │   │   └── faker-utils.ts       # Faker.js 국가별 유틸
+│   │   ├── formatters/
+│   │   │   └── te-formatter.ts      # ThinkingEngine 포맷 변환
 │   │   ├── logbus/
-│   │   │   └── controller.ts        # LogBus2 제어 (daemon.json 생성)
-│   │   ├── data-generator.ts        # 메인 생성 로직
+│   │   │   └── controller.ts        # LogBus2Controller (daemon.json, 전송)
+│   │   ├── data-generator.ts        # DataGenerator 메인 클래스
 │   │   └── types/
-│   │       ├── schema.ts            # Excel 스키마 타입
-│   │       └── user.ts              # 유저 타입
+│   │       ├── schema.ts            # ParsedSchema, EventDefinition 등
+│   │       ├── user.ts              # User, UserSegment 타입
+│   │       ├── event.ts             # Event 타입
+│   │       └── country.ts           # 국가별 설정
 │   ├── output/                      # 생성 데이터 출력
-│   │   ├── metadata/                # 실행 메타데이터
+│   │   ├── runs/                    # 실행 메타데이터
 │   │   │   └── run_XXX/
-│   │   │       ├── metadata.json
-│   │   │       └── summary.json
+│   │   │       ├── metadata.json    # 실행 설정 정보
+│   │   │       ├── summary.json     # 통계 요약
+│   │   │       └── schema.xlsx      # 사용된 Excel 백업
 │   │   └── data/                    # LogBus2 전송용 JSONL
 │   │       └── run_XXX/
 │   │           ├── 2025-01-01.jsonl
@@ -776,9 +861,17 @@ demo_data_gen/
 │       └── daemon.json              # 런타임 생성 (controller.ts)
 │
 ├── .env                             # 환경 변수
+│   # AI Provider 설정
 │   # ANTHROPIC_API_KEY=sk-ant-...
+│   # OPENAI_API_KEY=sk-...
+│   # EXCEL_AI_PROVIDER=anthropic    # Excel 생성용 AI (anthropic|openai)
+│   # DATA_AI_PROVIDER=anthropic     # 데이터 생성용 AI (anthropic|openai)
+│   #
+│   # ThinkingEngine 설정
 │   # TE_APP_ID=...
 │   # TE_RECEIVER_URL=https://te-receiver-naver.thinkingdata.kr/
+│   #
+│   # 파일 보관 설정
 │   # DATA_RETENTION_DAYS=7
 │   # EXCEL_RETENTION_DAYS=30
 │   # AUTO_DELETE_AFTER_SEND=false
@@ -790,17 +883,34 @@ demo_data_gen/
 
 ### 주요 디렉토리 역할
 
-#### `/data-generator/output/`
-- **`metadata/`**: 실행 정보, 통계 (프론트엔드 표시용)
-- **`data/`**: 순수 JSONL 데이터 (LogBus2 전송용)
+#### `/excel-schema-generator/`
+- **`src/`**: Excel 텍소노미 생성 로직
+  - `schema-generator.ts`: 메인 생성기
+  - `taxonomy-builder-v2.ts`: 3-stage AI 프로세스
+- **`prompts/`**: AI 프롬프트 템플릿 (Stage 1/2/3)
+- **`output/generated-schemas/`**: AI 생성 Excel 저장
+  - 다운로드 및 재사용 가능
+  - 파일명 패턴: `{industry}_taxonomy.xlsx`
 
-#### `/excel-schema-generator/output/`
-- AI가 생성한 Excel 스키마 파일 저장
-- 다운로드 및 재사용 가능
+#### `/data-generator/output/`
+- **`runs/`**: 실행 메타데이터 (프론트엔드 표시용)
+  - `metadata.json`: 실행 설정, AI Provider, 날짜 범위 등
+  - `summary.json`: 통계 요약 (총 이벤트, 유저 수 등)
+  - `schema.xlsx`: 사용된 Excel 스키마 백업
+- **`data/`**: 순수 JSONL 데이터 (LogBus2 전송용)
+  - 날짜별 파일: `YYYY-MM-DD.jsonl`
+  - LogBus2만 읽음 (metadata 제외)
 
 #### `/uploads/`
 - 사용자가 업로드한 Excel 임시 저장소
-- 파싱 후 삭제 또는 보관
+- Multer로 저장 후 파싱
+- 파일명 패턴: `{timestamp}_{originalname}.xlsx`
+
+#### `/logbus 2/`
+- **`logbus`**: LogBus2 실행 바이너리
+- **`conf/daemon.json`**: 런타임 자동 생성
+  - LogBus2Controller가 생성
+  - appId, receiverUrl, gzip 설정 포함
 
 ## 시스템 통합 및 데이터 흐름
 
@@ -859,75 +969,110 @@ demo_data_gen/
 #### 새로 만들기 모드
 
 ```
-프론트엔드                API 서버                  데이터 생성 엔진
+프론트엔드                API 서버                  Excel 생성기/데이터 엔진
     │
-    │ POST /api/settings
-    │ (API Key, APP_ID 저장)
+    │ GET /api/settings
+    │ (초기 설정 로드: AI Provider, API Keys)
     │────────────────────>
-    │                     .env 파일 업데이트
     │<────────────────────
+    │ {ANTHROPIC_API_KEY, OPENAI_API_KEY, EXCEL_AI_PROVIDER, DATA_AI_PROVIDER...}
     │
-    │ [사용자: 정보 입력 완료]
+    │ [사용자: 시나리오, 산업, 특징 입력]
     │
-    │ 📊 Excel 생성 버튼 클릭
-    │ (시나리오, 산업, 특징)
-    │
-    │ GET /api/excel/list
+    │ 📊 Excel 생성 시작
+    │ POST /api/excel/generate
+    │ {scenario, industry, notes}
     │────────────────────>
-    │                     파일 시스템 스캔
+    │                     ExcelSchemaGenerator 호출
+    │                     │
+    │                     │ TaxonomyBuilderV2
+    │                     │   Stage 1: 이벤트/속성 설계 (Claude/GPT)
+    │                     │   Stage 2: 데이터 구조 최적화
+    │                     │   Stage 3: 4-sheet Excel 생성
+    │                     │
+    │                     │ output/generated-schemas/XXX.xlsx
+    │                     │ ExcelParser로 파싱 → 미리보기 생성
     │<────────────────────
-    │ 최신 Excel 경로 반환
+    │ {file: {path, name}, preview: {events, properties...}}
     │
-    │ [Excel 다운로드]
+    │ [Excel 미리보기 표시]
+    │
+    │ [Excel 다운로드 (옵션)]
     │ GET /api/excel/download/:filename
     │────────────────────>
     │                     res.download()
     │<────────────────────
-    │ 파일 다운로드
     │
-    │ [사용자: DAU, 날짜 입력]
+    │ [사용자: DAU, 날짜 범위 입력]
     │
     │ 🤖 데이터 생성 시작
     │ POST /api/generate/start
-    │ {excelPath, dau, dates...}
+    │ {excelPath, scenario, dau, industry, notes, dateStart, dateEnd, aiProvider}
     │────────────────────>
-    │                     DataGenerator.generate()
-    │                     │
-    │                     │ Excel 파싱
-    │                     │ AI 분석
-    │                     │ 유저 생성
-    │                     │ 이벤트 생성
-    │                     │   (500ms 딜레이)
-    │                     │ JSONL 저장
-    │ runId 반환
+    │                     runId 생성
+    │                     progressMap.set(runId, {status: 'starting'...})
+    │
+    │                     generateDataAsync(runId, config) 비동기 실행
     │<────────────────────
+    │ {runId, statusUrl}
     │
     │ [2초마다 폴링 시작]
     │ GET /api/generate/status/:runId
     │────────────────────>
     │                     progressMap.get(runId)
     │<────────────────────
-    │ {status, progress, message}
+    │ {status, progress: 45%, message: "유저 코호트 생성 중..."}
     │
-    │ [생성 완료]
+    │                     DataGenerator.generate()
+    │                     │ onProgress 콜백으로 progressMap 업데이트
+    │                     │ - Excel 파싱 (10%)
+    │                     │ - AI 분석 (30%)
+    │                     │ - 유저 생성 (50%)
+    │                     │ - 이벤트 생성 (70-95%)
+    │                     │ - JSONL 저장 (100%)
+    │
+    │ [폴링 계속...]
+    │ GET /api/generate/status/:runId
+    │────────────────────>
+    │<────────────────────
+    │ {status: 'completed', progress: 100, result: {totalEvents, totalUsers, runId}}
+    │
+    │ [생성 완료 화면 표시]
+    │ - 총 이벤트, 총 사용자, Run ID
+    │
+    │ [사용자: APP_ID 입력]
     │
     │ 📤 전송 시작
     │ POST /api/send-data/:runId
+    │ {appId}
     │────────────────────>
-    │                     LogBus2Controller
+    │                     sendDataAsync(runId, appId) 비동기 실행
     │                     │
-    │                     │ daemon.json 생성
-    │                     │ logbus start
-    │                     │ logbus progress (3초 폴링)
-    │                     │ logbus stop
-    │                     │
+    │                     │ LogBus2Controller
+    │                     │   - daemon.json 생성 (appId, gzip 설정)
+    │                     │   - logbus start
+    │                     │   - monitorProgress (3초 폴링)
+    │                     │     progressMap 업데이트
+    │                     │   - logbus stop
     │<────────────────────
-    │ 전송 완료
+    │ {success: true, statusUrl}
     │
-    │ [파일 정리 (자동)]
+    │ [폴링으로 전송 진행률 표시]
+    │ GET /api/generate/status/:runId
+    │────────────────────>
+    │<────────────────────
+    │ {status: 'sending', progress: 75%, message: "전송 중: 22/30 파일"}
+    │
+    │ [전송 완료]
+    │ GET /api/generate/status/:runId
+    │────────────────────>
+    │<────────────────────
+    │ {status: 'sent', progress: 100, sentInfo: {appId, fileSizeMB, receiverUrl}}
+    │
+    │ [파일 정리 (자동, 설정에 따라)]
     │                     FileRetentionManager
-    │                     - 즉시 삭제 또는
-    │                     - 보관 기간 적용
+    │                     - AUTO_DELETE_AFTER_SEND=true → 즉시 삭제
+    │                     - 또는 DATA_RETENTION_DAYS 기간 후 삭제
 ```
 
 #### 기존 엑셀 사용 모드
@@ -940,22 +1085,26 @@ demo_data_gen/
     │ POST /api/excel/upload
     │ multipart/form-data
     │────────────────────>
-    │                     Multer 파일 저장
-    │                     Excel 파싱
+    │                     Multer: uploads/ 디렉토리에 저장
+    │                     ExcelParser.parseExcelFile(path)
+    │                     │ - 4-sheet 파싱
+    │                     │ - ParsedSchema 객체 생성
+    │                     │ - 미리보기 데이터 추출
     │<────────────────────
-    │ {path, preview}
+    │ {file: {path, name, size}, preview: {events, eventProperties, commonProperties, userData}}
     │
     │ [업로드 완료 화면]
-    │ 이벤트/속성 수 표시
+    │ - 이벤트 수, 이벤트 속성 수, 공통 속성 수, 유저 데이터 수 표시
     │
-    │ [사용자: 설정 입력]
+    │ [사용자: 시나리오, DAU, 산업, 서비스 특징, 날짜 범위 입력]
     │
     │ 🤖 데이터 생성 시작
     │ POST /api/generate/start
-    │ {excelPath=uploaded, ...}
+    │ {excelPath=uploaded, scenario, dau, industry, notes, dateStart, dateEnd, aiProvider}
     │────────────────────>
     │
-    │ (이후 동일)
+    │ (이후 새로 만들기 모드와 동일)
+    │ - runId 반환 → 폴링 → 생성 완료 → 전송
 ```
 
 ## 데이터 생성 흐름 상세

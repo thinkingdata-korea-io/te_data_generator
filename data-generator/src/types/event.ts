@@ -56,6 +56,9 @@ export interface AIAnalysisResult {
   // 이벤트 의존성
   eventDependencies: Record<string, string[]>;  // event_name -> required events
 
+  // AI 기반 이벤트 그룹핑 (Phase 1에서 생성, Phase 2에서 사용)
+  eventGroups?: Record<string, string[]>;  // group_name -> event_names
+
   // 이벤트별 속성 범위
   eventRanges: EventRanges[];
 

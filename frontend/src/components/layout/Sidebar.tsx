@@ -1,0 +1,171 @@
+'use client';
+
+import { useState } from 'react';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthContext';
+import { motion, AnimatePresence } from 'framer-motion';
+
+/**
+ * Sidebar Component
+ * @brief: Terminal-style navigation sidebar with role-based menu items
+ */
+
+interface NavItem {
+  name: string;
+  path: string;
+  icon: string;
+  roles?: ('admin' | 'user' | 'viewer')[];
+}
+
+const navItems: NavItem[] = [
+  { name: 'Dashboard', path: '/dashboard', icon: '⌘', roles: ['admin', 'user', 'viewer'] },
+  { name: 'Data Generator', path: '/dashboard/generator', icon: '⚡', roles: ['admin', 'user'] },
+  { name: 'Settings', path: '/dashboard/settings', icon: '⚙', roles: ['admin', 'user', 'viewer'] },
+  { name: 'User Management', path: '/dashboard/users', icon: '👥', roles: ['admin'] },
+  { name: 'Audit Logs', path: '/dashboard/audit', icon: '📜', roles: ['admin'] },
+];
+
+export function Sidebar() {
+  const pathname = usePathname();
+  const { user, hasPermission } = useAuth();
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
+  const filteredNavItems = navItems.filter(
+    (item) => !item.roles || hasPermission(item.roles)
+  );
+
+  return (
+    <motion.div
+      initial={{ x: -300 }}
+      animate={{ x: 0, width: isCollapsed ? 80 : 280 }}
+      transition={{ duration: 0.3 }}
+      className="h-screen bg-[var(--bg-secondary)] border-r-2 border-[var(--border-bright)] flex flex-col relative terminal-scrollbar"
+    >
+      {/* Header */}
+      <div className="p-4 border-b border-[var(--border)]">
+        <div className="flex items-center justify-between">
+          {!isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1"
+            >
+              <div className="text-terminal-cyan font-bold text-lg mb-1">TE_Platform</div>
+              <div className="text-xs text-[var(--text-dimmed)]">v1.0.0</div>
+            </motion.div>
+          )}
+          <button
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            className="p-2 hover:bg-[var(--bg-tertiary)] rounded transition-colors text-terminal-cyan"
+            title={isCollapsed ? 'Expand' : 'Collapse'}
+          >
+            {isCollapsed ? '»' : '«'}
+          </button>
+        </div>
+      </div>
+
+      {/* User Info */}
+      <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)]">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] border-2 border-[var(--accent-cyan)] flex items-center justify-center text-terminal-cyan font-bold terminal-glow">
+            {user?.username?.[0]?.toUpperCase() || 'U'}
+          </div>
+          {!isCollapsed && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex-1 min-w-0"
+            >
+              <div className="text-sm font-semibold truncate text-[var(--text-primary)]">
+                {user?.username}
+              </div>
+              <div className="text-xs text-[var(--text-secondary)] flex items-center gap-1">
+                <span
+                  className={`inline-block w-2 h-2 rounded-full ${
+                    user?.role === 'admin'
+                      ? 'bg-[var(--error-red)]'
+                      : user?.role === 'user'
+                      ? 'bg-[var(--accent-green)]'
+                      : 'bg-[var(--accent-yellow)]'
+                  }`}
+                />
+                {user?.role?.toUpperCase()}
+              </div>
+            </motion.div>
+          )}
+        </div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
+        {filteredNavItems.map((item) => {
+          const isActive = pathname === item.path;
+          return (
+            <Link
+              key={item.path}
+              href={item.path}
+              className={`
+                flex items-center gap-3 px-4 py-3 rounded transition-all
+                ${
+                  isActive
+                    ? 'bg-[var(--bg-primary)] text-terminal-cyan border-l-2 border-[var(--accent-cyan)] terminal-glow'
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                }
+              `}
+            >
+              <span className="text-xl">{item.icon}</span>
+              {!isCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-sm font-medium"
+                >
+                  {item.name}
+                </motion.span>
+              )}
+              {isActive && !isCollapsed && (
+                <motion.span
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className="ml-auto text-terminal-green text-xs"
+                >
+                  &gt;_
+                </motion.span>
+              )}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Footer */}
+      <div className="p-4 border-t border-[var(--border)]">
+        {!isCollapsed && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="text-xs text-[var(--text-dimmed)] space-y-1"
+          >
+            <div className="flex justify-between">
+              <span>Uptime:</span>
+              <span className="text-terminal-green">99.9%</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Status:</span>
+              <span className="text-terminal-green">● Online</span>
+            </div>
+          </motion.div>
+        )}
+        {isCollapsed && (
+          <div className="text-center">
+            <div className="w-2 h-2 rounded-full bg-[var(--accent-green)] mx-auto cursor-blink" />
+          </div>
+        )}
+      </div>
+    </motion.div>
+  );
+}

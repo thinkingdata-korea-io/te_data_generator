@@ -1,5 +1,6 @@
 import { EventData, User, TEEvent, TEUserSet, TEUserAdd } from '../types';
-import { toISO8601 } from '../utils/date';
+import { toISO8601, toTimestamp } from '../utils/date';
+import { randomUUID } from 'crypto';
 
 /**
  * ThinkingEngine 형식 변환기
@@ -10,29 +11,30 @@ export class TEFormatter {
    */
   formatTrackEvent(event: EventData): TEEvent {
     const teEvent: TEEvent = {
+      // Root Level: 메타데이터 (7개 필드)
       "#account_id": event.user.account_id,
       "#distinct_id": event.user.distinct_id,
-      "#time": toISO8601(event.timestamp),
+      "#time": toTimestamp(event.timestamp),
       "#type": "track",
       "#event_name": event.event_name,
-
-      // IP 및 위치
       "#ip": event.user.ip,
-      "#country": event.user.country,
+      "#uuid": randomUUID(),
 
-      // Preset Properties
-      "#os": event.user.os,
-      "#os_version": event.user.os_version,
-      "#model": event.user.device_model,
-      "#device_id": event.user.device_id,
-      "#carrier": event.user.carrier,
-      "#network_type": event.user.network_type
+      // Properties: Preset Properties + Custom Properties
+      properties: {
+        // Preset Properties
+        "#country": event.user.country,
+        "#os": event.user.os,
+        "#os_version": event.user.os_version,
+        "#model": event.user.device_model,
+        "#device_id": event.user.device_id,
+        "#carrier": event.user.carrier,
+        "#network_type": event.user.network_type,
+
+        // Custom Properties
+        ...event.properties
+      }
     };
-
-    // 커스텀 속성 추가
-    Object.entries(event.properties).forEach(([key, value]) => {
-      teEvent[key] = value;
-    });
 
     return teEvent;
   }
@@ -42,20 +44,24 @@ export class TEFormatter {
    */
   formatUserSet(user: User, timestamp: Date, properties: Record<string, any>): TEUserSet {
     return {
+      // Root Level: 메타데이터 (5개 필드 - event_name, ip 제외)
       "#account_id": user.account_id,
       "#distinct_id": user.distinct_id,
-      "#time": toISO8601(timestamp),
+      "#time": toTimestamp(timestamp),
       "#type": "user_set",
-      "#ip": user.ip,
+      "#uuid": randomUUID(),
 
-      // User properties
-      user_name: user.name,
-      user_email: user.email,
-      user_phone: user.phone,
-      user_segment: user.segment,
-      user_lifecycle_stage: user.lifecycle_stage,
-      install_date: toISO8601(user.install_date),
-      ...properties
+      // Properties: #ip + 유저 속성들
+      properties: {
+        "#ip": user.ip,
+        user_name: user.name,
+        user_email: user.email,
+        user_phone: user.phone,
+        user_segment: user.segment,
+        user_lifecycle_stage: user.lifecycle_stage,
+        install_date: toISO8601(user.install_date),
+        ...properties
+      }
     };
   }
 
@@ -68,12 +74,19 @@ export class TEFormatter {
     additions: Record<string, number>
   ): TEUserAdd {
     return {
+      // Root Level: 메타데이터 (6개 필드 - event_name 제외)
+      // Note: user_add는 숫자만 properties에 포함하므로 #ip는 root에 유지
       "#account_id": user.account_id,
       "#distinct_id": user.distinct_id,
-      "#time": toISO8601(timestamp),
+      "#time": toTimestamp(timestamp),
       "#type": "user_add",
       "#ip": user.ip,
-      ...additions
+      "#uuid": randomUUID(),
+
+      // Properties: 증가시킬 숫자 속성들만
+      properties: {
+        ...additions
+      }
     };
   }
 
@@ -101,9 +114,10 @@ export class TEFormatter {
 
   /**
    * JSONL 형식으로 변환 (한 줄에 하나의 JSON)
+   * LogBus2 요구사항: 마지막 줄도 반드시 개행 문자로 끝나야 함
    */
   toJSONL(events: TEEvent[]): string {
-    return events.map(event => JSON.stringify(event)).join('\n');
+    return events.map(event => JSON.stringify(event)).join('\n') + '\n';
   }
 
   /**
