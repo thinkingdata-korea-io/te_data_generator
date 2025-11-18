@@ -6,7 +6,7 @@ FROM base AS deps
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install --production=false
 
 # 빌드 단계
 FROM base AS builder
