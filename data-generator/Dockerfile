@@ -20,13 +20,13 @@ FROM node:20-alpine
 WORKDIR /app
 
 # data-generator의 package.json 복사 및 프로덕션 의존성 설치
-COPY data-generator/package*.json ./
-RUN npm ci --omit=dev
+COPY --from=builder /workspace/data-generator/package*.json ./
+RUN npm install --production
 
 # excel-schema-generator 의존성 설치
 COPY --from=builder /workspace/excel-schema-generator/package*.json ../excel-schema-generator/
 WORKDIR /excel-schema-generator
-RUN npm ci --omit=dev
+RUN npm install --production
 
 WORKDIR /app
 

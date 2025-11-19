@@ -974,13 +974,13 @@ app.post('/api/auth/login', auditMiddleware.login, async (req: Request, res: Res
  * GET /api/auth/me
  * Get current user info
  */
-app.get('/api/auth/me', requireAuth, (req: Request, res: Response) => {
+app.get('/api/auth/me', requireAuth, async (req: Request, res: Response) => {
   try {
     if (!req.user) {
       return res.status(401).json({ error: 'Not authenticated' });
     }
 
-    const user = findUserById(req.user.userId);
+    const user = await findUserById(req.user.userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
