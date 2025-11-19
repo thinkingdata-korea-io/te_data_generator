@@ -89,8 +89,8 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: frontend:latest
-        imagePullPolicy: Never
+        image: docker-ta-inner.thinkingdata.cn/korea/data-generator-frontend:1.0
+        imagePullPolicy: Always
         ports:
         - containerPort: 3000
           name: http
