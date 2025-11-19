@@ -4,7 +4,7 @@ import multer from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import { ExcelParser } from '../../excel/parser';
-import { ExcelSchemaGenerator } from '../../../../excel-schema-generator/src/schema-generator';
+import { ExcelSchemaGenerator } from '@excel-schema-generator/schema-generator';
 
 const router = express.Router();
 
