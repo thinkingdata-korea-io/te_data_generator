@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 /**
  * Header Component
@@ -52,7 +53,7 @@ export function Header() {
         </div>
       </div>
 
-      {/* Right: Time, User Menu */}
+      {/* Right: Time, Language, User Menu */}
       <div className="flex items-center gap-6">
         {/* System Time */}
         <div className="flex items-center gap-2 text-sm">
@@ -60,6 +61,9 @@ export function Header() {
           <span className="text-terminal-cyan font-mono">{currentTime}</span>
           <span className="w-2 h-2 bg-[var(--accent-green)] rounded-full cursor-blink" />
         </div>
+
+        {/* Language Switcher */}
+        <LanguageSwitcher />
 
         {/* User Menu */}
         <div className="relative">

@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { motion, AnimatePresence } from 'framer-motion';
 
 /**
@@ -12,23 +13,24 @@ import { motion, AnimatePresence } from 'framer-motion';
  */
 
 interface NavItem {
-  name: string;
+  nameKey: keyof typeof import('@/i18n/locales/ko').ko.nav;
   path: string;
   icon: string;
   roles?: ('admin' | 'user' | 'viewer')[];
 }
 
 const navItems: NavItem[] = [
-  { name: 'Dashboard', path: '/dashboard', icon: '⌘', roles: ['admin', 'user', 'viewer'] },
-  { name: 'Data Generator', path: '/dashboard/generator', icon: '⚡', roles: ['admin', 'user'] },
-  { name: 'Settings', path: '/dashboard/settings', icon: '⚙', roles: ['admin', 'user', 'viewer'] },
-  { name: 'User Management', path: '/dashboard/users', icon: '👥', roles: ['admin'] },
-  { name: 'Audit Logs', path: '/dashboard/audit', icon: '📜', roles: ['admin'] },
+  { nameKey: 'dashboard', path: '/dashboard', icon: '⌘', roles: ['admin', 'user', 'viewer'] },
+  { nameKey: 'dataGenerator', path: '/dashboard/generator', icon: '⚡', roles: ['admin', 'user'] },
+  { nameKey: 'settings', path: '/dashboard/settings', icon: '⚙', roles: ['admin', 'user', 'viewer'] },
+  { nameKey: 'userManagement', path: '/dashboard/users', icon: '👥', roles: ['admin'] },
+  { nameKey: 'auditLogs', path: '/dashboard/audit', icon: '📜', roles: ['admin'] },
 ];
 
 export function Sidebar() {
   const pathname = usePathname();
   const { user, hasPermission } = useAuth();
+  const { t } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
   const filteredNavItems = navItems.filter(
@@ -124,7 +126,7 @@ export function Sidebar() {
                   exit={{ opacity: 0 }}
                   className="text-sm font-medium"
                 >
-                  {item.name}
+                  {t.nav[item.nameKey]}
                 </motion.span>
               )}
               {isActive && !isCollapsed && (
@@ -151,12 +153,12 @@ export function Sidebar() {
             className="text-xs text-[var(--text-dimmed)] space-y-1"
           >
             <div className="flex justify-between">
-              <span>Uptime:</span>
+              <span>{t.dashboard.uptime}:</span>
               <span className="text-terminal-green">99.9%</span>
             </div>
             <div className="flex justify-between">
-              <span>Status:</span>
-              <span className="text-terminal-green">● Online</span>
+              <span>{t.dashboard.status}:</span>
+              <span className="text-terminal-green">● {t.dashboard.online}</span>
             </div>
           </motion.div>
         )}

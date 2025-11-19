@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 // API URL 설정
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -43,6 +44,7 @@ interface ExcelPreviewSummary {
 }
 
 export default function Home() {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     scenario: '',
     dau: '',
@@ -385,7 +387,7 @@ export default function Home() {
             &gt; ThinkingEngine
           </h1>
           <p className="text-[var(--text-secondary)] font-mono text-sm">
-            // AI 기반 이벤트 데이터 생성 플랫폼
+            AI 기반 이벤트 데이터 생성 플랫폼
           </p>
         </div>
 
@@ -448,11 +450,11 @@ export default function Home() {
         {currentStep === 'select-mode' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8">
             <h2 className="text-2xl font-bold mb-8 text-terminal-cyan font-mono">
-              &gt; 데이터 생성 방법을 선택하세요
+              &gt; {t.generator.title}
             </h2>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* 새로 시작하기 */}
+              {/* New Start */}
               <button
                 onClick={() => {
                   setStartMode('new');
@@ -461,19 +463,18 @@ export default function Home() {
                 className="p-8 border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/5 transition-all text-left group"
               >
                 <div className="text-4xl mb-4 text-[var(--accent-cyan)]">▣</div>
-                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">새로 시작하기</h3>
-                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono">
-                  산업/서비스 정보를 입력하여<br />
-                  엑셀 스키마부터 자동으로 생성합니다
+                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">{t.generator.newStart}</h3>
+                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono whitespace-pre-line">
+                  {t.generator.newStartDesc}
                 </p>
                 <div className="text-xs text-[var(--text-dimmed)] font-mono space-y-1">
-                  <div>1. 서비스 정보 입력</div>
-                  <div>2. 엑셀 스키마 자동 생성</div>
-                  <div>3. 데이터 생성</div>
+                  <div>{t.generator.newStartStep1}</div>
+                  <div>{t.generator.newStartStep2}</div>
+                  <div>{t.generator.newStartStep3}</div>
                 </div>
               </button>
 
-              {/* 기존 엑셀 사용 */}
+              {/* Use Excel */}
               <button
                 onClick={() => {
                   setStartMode('upload');
@@ -482,15 +483,14 @@ export default function Home() {
                 className="p-8 border border-[var(--border)] rounded hover:border-[var(--accent-green)] hover:bg-[var(--accent-green)]/5 transition-all text-left group"
               >
                 <div className="text-4xl mb-4 text-[var(--accent-green)]">⇪</div>
-                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">기존 엑셀 사용하기</h3>
-                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono">
-                  이미 만들어진 엑셀 파일을 업로드하여<br />
-                  바로 데이터를 생성합니다
+                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">{t.generator.useExcel}</h3>
+                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono whitespace-pre-line">
+                  {t.generator.useExcelDesc}
                 </p>
                 <div className="text-xs text-[var(--text-dimmed)] font-mono space-y-1">
-                  <div>1. 엑셀 파일 업로드</div>
-                  <div>2. 서비스 정보 및 설정 입력</div>
-                  <div>3. 데이터 생성</div>
+                  <div>{t.generator.useExcelStep1}</div>
+                  <div>{t.generator.useExcelStep2}</div>
+                  <div>{t.generator.useExcelStep3}</div>
                 </div>
               </button>
             </div>
@@ -545,15 +545,6 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-[var(--accent-cyan)]/10 border-l-4 border-[var(--accent-cyan)] rounded">
-              <h3 className="font-semibold text-[var(--accent-cyan)] mb-2 font-mono">// 생성 프로세스</h3>
-              <ol className="text-sm text-[var(--text-secondary)] space-y-1 font-mono">
-                <li><strong className="text-[var(--accent-cyan)]">1단계:</strong> 산업 + 서비스 특징 기반으로 Excel 스키마 자동 생성</li>
-                <li><strong className="text-[var(--accent-cyan)]">2단계:</strong> 생성된 Excel을 바탕으로 AI가 이벤트 데이터 생성</li>
-                <li><strong className="text-[var(--accent-cyan)]">3단계:</strong> ThinkingEngine으로 데이터 전송</li>
-              </ol>
-            </div>
-
             <div className="grid grid-cols-2 gap-4 mt-8">
               <button
                 onClick={handleComplete}
@@ -605,32 +596,32 @@ export default function Home() {
             </h2>
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
               <p className="text-[var(--accent-green)] mb-4 font-mono">Excel 스키마가 성공적으로 생성되었습니다!</p>
-              <p className="text-sm text-[var(--text-secondary)] font-mono">// 이제 데이터 생성 설정을 입력해주세요.</p>
+              <p className="text-sm text-[var(--text-secondary)] font-mono">이제 데이터 생성 설정을 입력해주세요.</p>
             </div>
 
             {excelPreview && (
               <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">// 이벤트 수</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">이벤트 수</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">// 이벤트 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">이벤트 속성</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">// 공통 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">공통 속성</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">// 유저 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">유저 속성</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData ?? 0}</p>
                   </div>
                 </div>
                 {excelPreview.provider && (
                   <p className="text-xs text-[var(--text-dimmed)] font-mono">
-                    // 생성 방식: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
+                    생성 방식: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
                   </p>
                 )}
               </div>
@@ -753,7 +744,7 @@ export default function Home() {
                 />
               </label>
               <p className="text-sm text-[var(--text-dimmed)] mt-4 font-mono">
-                // .xlsx 또는 .xls 파일만 업로드 가능합니다
+                .xlsx 또는 .xls 파일만 업로드 가능합니다
               </p>
             </div>
 
@@ -784,7 +775,7 @@ export default function Home() {
             </h2>
 
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">// 파일 정보</h3>
+              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">파일 정보</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
                   <p className="text-xs text-[var(--text-dimmed)] font-mono">이벤트 수</p>
@@ -909,7 +900,7 @@ export default function Home() {
             </div>
 
             <div className="mt-6 p-4 bg-[var(--accent-green)]/10 border-l-4 border-[var(--accent-green)] rounded">
-              <h3 className="font-semibold text-[var(--accent-green)] mb-2 font-mono">// 업로드된 엑셀 정보</h3>
+              <h3 className="font-semibold text-[var(--accent-green)] mb-2 font-mono">업로드된 엑셀 정보</h3>
               <p className="text-sm text-[var(--text-secondary)] font-mono">
                 업로드된 엑셀 파일을 기반으로 데이터를 생성합니다.
               </p>
@@ -964,7 +955,7 @@ export default function Home() {
             {/* AI 분석 상세 로그 */}
             {progress.details && progress.details.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">// 상세 진행 정보</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">상세 진행 정보</h3>
                 <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
                   <div className="space-y-0.5">
                     {progress.details.map((detail: string, idx: number) => (
@@ -985,7 +976,7 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
-                  // {progress.details.length}개 항목 (자동 업데이트)
+                  {progress.details.length}개 항목 (자동 업데이트)
                 </p>
               </div>
             )}
@@ -1004,7 +995,7 @@ export default function Home() {
               {progress.error && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium font-mono">
-                    // 상세 오류 정보 보기
+                    상세 오류 정보 보기
                   </summary>
                   <div className="mt-3 p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
                     <pre className="text-xs text-[var(--accent-green)] font-mono overflow-x-auto whitespace-pre-wrap terminal-scrollbar">{progress.error}</pre>
@@ -1170,7 +1161,7 @@ export default function Home() {
               {progress.error && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium font-mono">
-                    // 상세 오류 정보 보기
+                    상세 오류 정보 보기
                   </summary>
                   <div className="mt-3 p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
                     <pre className="text-xs text-[var(--accent-green)] font-mono overflow-x-auto whitespace-pre-wrap terminal-scrollbar">{progress.error}</pre>

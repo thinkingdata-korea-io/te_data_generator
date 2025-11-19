@@ -260,23 +260,6 @@ export default function LoginPage() {
               </form>
             )}
 
-            {/* Help Text */}
-            {!isAuthenticating && !showWelcome && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 1 }}
-                className="mt-12 pt-6 border-t border-[var(--border)] text-xs text-[var(--text-dimmed)] space-y-1"
-              >
-                <div>Default credentials for testing:</div>
-                <div className="ml-4">
-                  <span className="text-terminal-green">admin</span> / <span className="text-terminal-green">admin</span> (Admin access)
-                </div>
-                <div className="ml-4">
-                  <span className="text-terminal-cyan">user</span> / <span className="text-terminal-cyan">user</span> (User access)
-                </div>
-              </motion.div>
-            )}
           </div>
         </div>
 

@@ -4,6 +4,8 @@ import { ParsedSchema, AIAnalysisResult, EventDefinition } from '../types';
 import {
   buildStrategyPrompt,
   buildEventGroupPrompt,
+  buildRetentionPrompt,
+  buildEventSequencingPrompt,
   convertAIGroupsToMap,
   splitLargeGroups
 } from './prompts';
@@ -346,6 +348,18 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     console.log(`  ✅ Event dependencies: ${Object.keys(strategy.eventDependencies || {}).length} rules`);
     console.log(`  ✅ Event groups: ${Object.keys(strategy.eventGroups || {}).length} categories (AI-based)`);
 
+    // Phase 1.5: 리텐션 커브 분석
+    console.log('\n📈 Phase 1.5: Retention Curve Analysis');
+    const retentionCurve = await this.analyzeRetention(userInput, strategy.userSegments);
+    console.log(`  ✅ Retention: Day1=${(retentionCurve.day1Retention * 100).toFixed(1)}%, Day7=${(retentionCurve.day7Retention * 100).toFixed(1)}%, Day30=${(retentionCurve.day30Retention * 100).toFixed(1)}%`);
+
+    // Phase 1.6: 이벤트 순서 분석
+    console.log('\n🔗 Phase 1.6: Event Sequencing Analysis');
+    const eventSequencing = await this.analyzeEventSequencing(schema, userInput);
+    console.log(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories.lifecycle.length}, onboarding=${eventSequencing.eventCategories.onboarding.length}, core=${eventSequencing.eventCategories.core.length}`);
+    console.log(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies).length} rules`);
+    console.log(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
+
     // Phase 2: 이벤트 그룹별 속성 범위 생성
     console.log(`\n📊 Phase 2: Event Group Analysis (${schema.events.length} events)`);
 
@@ -406,7 +420,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       userSegments: strategy.userSegments,
       eventDependencies: strategy.eventDependencies || {},
       eventRanges: allEventRanges,
-      sessionPatterns: strategy.sessionPatterns
+      sessionPatterns: strategy.sessionPatterns,
+      retentionCurve,
+      eventSequencing
     };
 
     console.log(`  ✅ Total event ranges: ${allEventRanges.length}`);
@@ -474,5 +490,45 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     return {
       eventRanges: result.eventRanges || []
     };
+  }
+
+  /**
+   * Phase 1.5: 리텐션 커브 분석
+   */
+  private async analyzeRetention(
+    userInput: UserInput,
+    userSegments: Array<{ name: string; ratio: number; characteristics: string }>
+  ): Promise<any> {
+    const prompt = buildRetentionPrompt(userInput, userSegments);
+    let response: string;
+
+    if (this.config.provider === 'openai') {
+      response = await this.callOpenAI(prompt);
+    } else {
+      response = await this.callAnthropic(prompt);
+    }
+
+    const result = this.parseAIResponse(response);
+    return result.retentionCurve;
+  }
+
+  /**
+   * Phase 1.6: 이벤트 순서 분석
+   */
+  private async analyzeEventSequencing(
+    schema: ParsedSchema,
+    userInput: UserInput
+  ): Promise<any> {
+    const prompt = buildEventSequencingPrompt(schema, userInput);
+    let response: string;
+
+    if (this.config.provider === 'openai') {
+      response = await this.callOpenAI(prompt);
+    } else {
+      response = await this.callAnthropic(prompt);
+    }
+
+    const result = this.parseAIResponse(response);
+    return result.eventSequencing;
   }
 }

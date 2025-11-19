@@ -190,11 +190,45 @@ export class CohortGenerator {
       daysSinceLastActive
     );
 
-    // 생명주기별 활동 확률
-    const probability = this.getActivityProbability(
+    // 기본 활동 확률 계산
+    let probability = this.getActivityProbability(
       user.lifecycle_stage,
       daysSinceInstall
     );
+
+    // AI 리텐션 커브가 있으면 추가 조정 적용
+    const retentionCurve = this.aiAnalysis.retentionCurve;
+    if (retentionCurve) {
+      // 1. Day-N 리텐션 커브 적용
+      const dayNRetention = this.calculateDayNRetention(daysSinceInstall, retentionCurve);
+      probability = probability * dayNRetention;
+
+      // 2. 세그먼트별 가중치 적용
+      const segmentMultiplier = retentionCurve.segmentMultipliers[user.segment] || 1.0;
+      probability = probability * segmentMultiplier;
+
+      // 3. 주말 부스트 적용
+      if (retentionCurve.weekendBoost) {
+        const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+        if (isWeekend) {
+          probability = probability * retentionCurve.weekendBoost;
+        }
+      }
+
+      // 4. 월간 복귀 패턴 (이커머스/금융)
+      if (retentionCurve.monthlyReturnPattern) {
+        const dayOfMonth = date.getDate();
+        // 급여일 (25~28일, 1~5일) 복귀 확률 증가
+        if ((dayOfMonth >= 25 && dayOfMonth <= 28) || (dayOfMonth >= 1 && dayOfMonth <= 5)) {
+          if (user.lifecycle_stage === 'dormant' || user.lifecycle_stage === 'returning') {
+            probability = probability * 1.5;
+          }
+        }
+      }
+
+      // 확률은 0~1 범위로 제한
+      probability = Math.max(0, Math.min(1, probability));
+    }
 
     const isActive = Math.random() < probability;
 
@@ -203,6 +237,23 @@ export class CohortGenerator {
     }
 
     return isActive;
+  }
+
+  /**
+   * Day-N 리텐션 계산 (exponential decay 모델)
+   * 공식: retention(day) = baseRetention * (retentionDecay ^ day)
+   */
+  private calculateDayNRetention(daysSinceInstall: number, retentionCurve: any): number {
+    if (daysSinceInstall === 0) {
+      return retentionCurve.dayZeroRetention;
+    }
+
+    // Exponential decay 모델
+    const baseRetention = retentionCurve.day1Retention;
+    const decay = retentionCurve.retentionDecay;
+    const retention = baseRetention * Math.pow(decay, daysSinceInstall - 1);
+
+    return Math.max(0, Math.min(1, retention));
   }
 
   /**
@@ -227,30 +278,32 @@ export class CohortGenerator {
   }
 
   /**
-   * 생명주기별 활동 확률
+   * 생명주기별 활동 확률 (AI 리텐션 커브 기반)
    */
   private getActivityProbability(
     stage: UserLifecycleStage,
     daysSinceInstall: number
   ): number {
+    // AI 리텐션 커브가 있으면 사용
+    const retentionCurve = this.aiAnalysis.retentionCurve;
+    if (retentionCurve) {
+      const lifeCycleProbability = retentionCurve.lifecycleProbabilities[stage] || 0.3;
+      return lifeCycleProbability;
+    }
+
+    // 폴백: 기존 하드코딩된 값
     switch (stage) {
       case 'new':
-        // 신규 유저는 첫 3일간 높은 활동
         if (daysSinceInstall <= 3) return 0.9;
         return 0.6;
-
       case 'active':
         return 0.8;
-
       case 'returning':
         return 0.5;
-
       case 'dormant':
         return 0.1;
-
       case 'churned':
         return 0.02;
-
       default:
         return 0.3;
     }

@@ -36,77 +36,89 @@ export class EventGenerator {
   }
 
   /**
-   * 세션별 이벤트 생성
+   * 세션별 이벤트 생성 (이벤트 순서 제약 적용)
    */
   generateSessionEvents(session: Session): EventData[] {
     const events: EventData[] = [];
     const executedEvents = new Set<string>();
-
     let currentTime = session.start;
 
-    // 1. app_start 이벤트 (필수)
-    const appStart = this.createEvent('app_start', session.user, currentTime);
-    events.push(appStart);
-    executedEvents.add('app_start');
-    currentTime = addMilliseconds(currentTime, this.getEventInterval());
+    // 세션 정보
+    const isFirstSession = session.user.total_sessions === 0;
+    const sessionNumber = session.user.total_sessions + 1;
 
-    // 2. 신규 유저인 경우 온보딩 퍼널 실행
-    if (session.user.lifecycle_stage === 'new') {
-      const onboardingFunnel = this.schema.funnels.find(f =>
-        f.name.toLowerCase().includes('onboarding') ||
-        f.name.toLowerCase().includes('튜토리얼')
-      );
+    // DependencyManager 세션 카운트 리셋
+    this.dependencyManager.resetSessionCounts();
 
-      if (onboardingFunnel) {
-        const funnelEvents = this.generateFunnelEvents(
-          onboardingFunnel,
-          session.user,
-          currentTime,
-          executedEvents
-        );
-
-        events.push(...funnelEvents);
-        funnelEvents.forEach(e => {
-          executedEvents.add(e.event_name);
-          currentTime = addMilliseconds(e.timestamp, this.getEventInterval());
-        });
+    // 1. session_start 이벤트 (AI가 정의한 카테고리)
+    const sessionStartEvents = this.dependencyManager.getEventsByCategory('session_start');
+    for (const eventName of sessionStartEvents) {
+      if (this.schema.events.find(e => e.event_name === eventName)) {
+        const event = this.createEvent(eventName, session.user, currentTime);
+        events.push(event);
+        executedEvents.add(eventName);
+        this.dependencyManager.recordEventExecution(eventName);
+        currentTime = addMilliseconds(currentTime, this.getEventInterval());
       }
     }
 
-    // 3. 일반 서비스 이벤트 생성
+    // 2. onboarding 이벤트 (첫 세션에만)
+    if (isFirstSession) {
+      const onboardingEvents = this.dependencyManager.getEventsByCategory('onboarding');
+      for (const eventName of onboardingEvents) {
+        if (!this.dependencyManager.canExecuteEvent(eventName, executedEvents, isFirstSession, sessionNumber)) {
+          continue;
+        }
+
+        // 확률적으로 실행 (온보딩 완료율 반영)
+        if (probabilityCheck(0.7)) {
+          const event = this.createEvent(eventName, session.user, currentTime);
+          events.push(event);
+          executedEvents.add(eventName);
+          this.dependencyManager.recordEventExecution(eventName);
+          currentTime = addMilliseconds(currentTime, this.getEventInterval());
+        }
+      }
+    }
+
+    // 3. core 이벤트 생성
     const avgEventsPerSession =
       this.aiAnalysis.sessionPatterns.avgEventsPerSession[session.user.segment] || 10;
     const targetEventCount = Math.floor(avgEventsPerSession * (0.8 + Math.random() * 0.4));
-
     const remainingEvents = targetEventCount - events.length;
 
     for (let i = 0; i < remainingEvents; i++) {
-      // 실행 가능한 이벤트 필터링
       const availableEvents = this.getAvailableEvents(
         session.user,
-        executedEvents
+        executedEvents,
+        isFirstSession,
+        sessionNumber
       );
 
       if (availableEvents.length === 0) break;
 
-      // 랜덤하게 이벤트 선택 (확률 고려)
       const selectedEvent = this.selectEvent(availableEvents);
       if (!selectedEvent) break;
 
       const event = this.createEvent(selectedEvent.event_name, session.user, currentTime);
       events.push(event);
       executedEvents.add(selectedEvent.event_name);
+      this.dependencyManager.recordEventExecution(selectedEvent.event_name);
 
       currentTime = addMilliseconds(currentTime, this.getEventInterval());
-
-      // 세션 종료 시간 초과 체크
       if (currentTime > session.end) break;
     }
 
-    // 4. app_end 이벤트 (필수)
-    const appEnd = this.createEvent('app_end', session.user, session.end);
-    events.push(appEnd);
-    executedEvents.add('app_end');
+    // 4. session_end 이벤트
+    const sessionEndEvents = this.dependencyManager.getEventsByCategory('session_end');
+    for (const eventName of sessionEndEvents) {
+      if (this.schema.events.find(e => e.event_name === eventName)) {
+        const event = this.createEvent(eventName, session.user, session.end);
+        events.push(event);
+        executedEvents.add(eventName);
+        this.dependencyManager.recordEventExecution(eventName);
+      }
+    }
 
     return events;
   }
@@ -241,18 +253,31 @@ export class EventGenerator {
   }
 
   /**
-   * 실행 가능한 이벤트 목록 가져오기
+   * 실행 가능한 이벤트 목록 가져오기 (이벤트 순서 제약 적용)
    */
   private getAvailableEvents(
     user: User,
-    executedEvents: Set<string>
+    executedEvents: Set<string>,
+    isFirstSession: boolean = false,
+    sessionNumber: number = 1
   ): typeof this.schema.events {
     return this.schema.events.filter(event => {
       // 이미 실행된 이벤트 제외
       if (executedEvents.has(event.event_name)) return false;
 
-      // 시스템 이벤트 제외 (app_start, app_end)
+      // 시스템 이벤트 제외
       if (event.category === 'system') return false;
+
+      // 세션 경계 이벤트 제외 (session_start, session_end, lifecycle)
+      const category = this.dependencyManager.getEventCategory(event.event_name);
+      if (category === 'session_start' || category === 'session_end' || category === 'lifecycle') {
+        return false;
+      }
+
+      // 온보딩 이벤트는 여기서 제외 (이미 처리됨)
+      if (category === 'onboarding') {
+        return false;
+      }
 
       // 생명주기 단계 체크
       if (
@@ -263,8 +288,8 @@ export class EventGenerator {
         return false;
       }
 
-      // 의존성 체크
-      if (!this.dependencyManager.canExecuteEvent(event.event_name, executedEvents)) {
+      // 의존성 및 실행 제약 체크
+      if (!this.dependencyManager.canExecuteEvent(event.event_name, executedEvents, isFirstSession, sessionNumber)) {
         return false;
       }
 

@@ -370,26 +370,30 @@ export class DataGenerator {
       for (const user of users) {
         const sessions = this.generateUserSessions(user, new Date(dateKey), aiAnalysis);
 
+        // 첫 세션 전에 install/user_set 이벤트 생성 (lifecycle 이벤트)
+        if (user.total_sessions === 0 && sessions.length > 0) {
+          const firstSession = sessions[0];
+          // install은 세션 시작 **직전**에 발생
+          const installTime = addMilliseconds(firstSession.start, -5000); // 5초 전
+
+          // 1. install 이벤트 (마케팅 어트리뷰션)
+          const installProperties = this.marketingGenerator.generateInstallEvent(user, installTime);
+          const installEvent: EventData = {
+            event_name: 'install',
+            timestamp: installTime,
+            user,
+            properties: installProperties
+          };
+          const teInstallEvent = teFormatter.formatTrackEvent(installEvent);
+          dailyEvents.push(teInstallEvent);
+
+          // 2. user_set 이벤트 (te_ads_object 유저 속성 포함)
+          const userAttribution = this.marketingGenerator.generateUserAttribution();
+          const userSet = teFormatter.formatUserSet(user, installTime, userAttribution);
+          dailyEvents.push(userSet);
+        }
+
         for (const session of sessions) {
-          // 첫 세션인 경우: install 이벤트와 user_set 생성
-          if (user.total_sessions === 0) {
-            // 1. install 이벤트 (마케팅 어트리뷰션)
-            const installProperties = this.marketingGenerator.generateInstallEvent(user, session.start);
-            const installEvent: EventData = {
-              event_name: 'install',
-              timestamp: session.start,
-              user,
-              properties: installProperties
-            };
-            const teInstallEvent = teFormatter.formatTrackEvent(installEvent);
-            dailyEvents.push(teInstallEvent);
-
-            // 2. user_set 이벤트 (te_ads_object 유저 속성 포함)
-            const userAttribution = this.marketingGenerator.generateUserAttribution();
-            const userSet = teFormatter.formatUserSet(user, session.start, userAttribution);
-            dailyEvents.push(userSet);
-          }
-
           // 일반 세션 이벤트 생성
           const sessionEvents = eventGenerator.generateSessionEvents(session);
           const teEvents = sessionEvents.map(e => teFormatter.formatTrackEvent(e));
@@ -423,8 +427,15 @@ export class DataGenerator {
         }
       }
 
-      // JSONL 파일 저장
+      // JSONL 파일 저장 (타임스탬프 순으로 정렬)
       if (dailyEvents.length > 0) {
+        // 타임스탬프 기준으로 이벤트 정렬 (중요!)
+        dailyEvents.sort((a, b) => {
+          const timeA = new Date(a['#time']).getTime();
+          const timeB = new Date(b['#time']).getTime();
+          return timeA - timeB;
+        });
+
         const fileName = `${dateKey}.jsonl`;
         const filePath = path.join(runDataPath, fileName);
         const jsonl = teFormatter.toJSONL(dailyEvents);

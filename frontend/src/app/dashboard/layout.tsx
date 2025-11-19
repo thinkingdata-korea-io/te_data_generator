@@ -4,6 +4,7 @@ import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { Header } from '@/components/layout/Header';
 import { ScanLines } from '@/components/effects/ScanLines';
+import { LanguageProvider } from '@/contexts/LanguageContext';
 
 /**
  * Dashboard Layout
@@ -16,24 +17,26 @@ export default function DashboardLayout({
 }) {
   return (
     <ProtectedRoute>
-      <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
-        {/* Scan Lines Effect */}
-        <ScanLines />
+      <LanguageProvider>
+        <div className="flex h-screen overflow-hidden bg-[var(--bg-primary)]">
+          {/* Scan Lines Effect */}
+          <ScanLines />
 
-        {/* Sidebar */}
-        <Sidebar />
+          {/* Sidebar */}
+          <Sidebar />
 
-        {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Header */}
-          <Header />
+          {/* Main Content Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Header */}
+            <Header />
 
-          {/* Page Content */}
-          <main className="flex-1 overflow-auto terminal-scrollbar p-6">
-            {children}
-          </main>
+            {/* Page Content */}
+            <main className="flex-1 overflow-auto terminal-scrollbar p-6">
+              {children}
+            </main>
+          </div>
         </div>
-      </div>
+      </LanguageProvider>
     </ProtectedRoute>
   );
 }
