@@ -13,7 +13,7 @@ import * as fs from 'fs';
 import * as dotenv from 'dotenv';
 import { DataGenerator, DataGeneratorConfig } from '../data-generator';
 import { ExcelParser } from '../excel/parser';
-import { ExcelSchemaGenerator } from '../../../excel-schema-generator/dist/schema-generator';
+import { ExcelSchemaGenerator } from '../../../excel-schema-generator/src/schema-generator';
 import { authenticateUser, findUserById, getAllUsers, createUser, updateUser, deleteUser } from './auth';
 import { requireAuth, requireAdmin } from './middleware';
 import { auditMiddleware } from './audit-middleware';
