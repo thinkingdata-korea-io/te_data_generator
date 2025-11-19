@@ -270,9 +270,37 @@ export class LogBus2Controller {
   }
 
   /**
+   * 로그 파일 정리
+   */
+  async cleanLogs(): Promise<void> {
+    try {
+      const logbusDir = path.dirname(this.config.logbusPath);
+      const logDir = path.join(logbusDir, 'log');
+
+      if (fs.existsSync(logDir)) {
+        console.log('🧹 Cleaning LogBus2 log files...');
+        const logFiles = fs.readdirSync(logDir);
+
+        for (const file of logFiles) {
+          const filePath = path.join(logDir, file);
+          // 로그 파일 내용 비우기 (파일은 유지)
+          fs.writeFileSync(filePath, '', 'utf-8');
+          console.log(`   - Cleared: ${file}`);
+        }
+
+        console.log('✅ Log files cleaned successfully');
+      }
+    } catch (error: any) {
+      console.error('❌ Log cleanup failed:', error.message);
+      throw error;
+    }
+  }
+
+  /**
    * 완전 초기화: 이전 실행 상태를 완전히 제거하고 새로운 실행 준비
    * - LogBus2 중지
    * - 이전 메타데이터 디렉토리 삭제
+   * - 로그 파일 정리
    * - 새 app_id를 위한 메타 디렉토리 생성
    * - daemon.json 재생성
    */
@@ -303,12 +331,15 @@ export class LogBus2Controller {
         }
       }
 
-      // 3. 새 app_id를 위한 메타 디렉토리 생성
+      // 3. 로그 파일 정리
+      await this.cleanLogs();
+
+      // 4. 새 app_id를 위한 메타 디렉토리 생성
       const newMetaDir = path.join(metaDir, this.config.appId);
       fs.mkdirSync(newMetaDir, { recursive: true });
       console.log(`✅ Created fresh metadata directory for app_id: ${this.config.appId}`);
 
-      // 4. daemon.json 재생성 (새로운 경로와 app_id로)
+      // 5. daemon.json 재생성 (새로운 경로와 app_id로)
       await this.createDaemonConfig();
       console.log('✅ daemon.json updated with new configuration');
 
