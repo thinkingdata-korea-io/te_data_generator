@@ -2,9 +2,13 @@ apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: te-data-generator
+  namespace: korea
   labels:
     app: te-data-generator
+    owner/name: korea
+    owner/purpose: develop
   annotations:
+    description: "This ingress is used for korea team"
     # Nginx Ingress Controller 설정
     nginx.ingress.kubernetes.io/rewrite-target: /
     # SSL 리다이렉트 (필요시 활성화)
@@ -12,9 +16,9 @@ metadata:
     # 업로드 크기 제한 (엑셀 파일 업로드를 위해 증가)
     nginx.ingress.kubernetes.io/proxy-body-size: "50m"
 spec:
-  ingressClassName: nginx
+  ingressClassName: pallas-nginx
   rules:
-  - host: te-data-generator.your-domain.com  # 실제 도메인으로 변경
+  - host: te-data-generator.tx-local.thinkingdata.cn  # 실제 도메인으로 변경
     http:
       paths:
       # Frontend
@@ -24,7 +28,7 @@ spec:
           service:
             name: te-data-generator-frontend
             port:
-              number: 3000
+              number: 8080
       # Backend API
       - path: /api
         pathType: Prefix

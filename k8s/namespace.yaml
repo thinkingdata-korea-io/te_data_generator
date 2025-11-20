@@ -1,0 +1,10 @@
+# namespace.yaml
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: korea
+  labels:
+    owner/name: korea
+    owner/purpose: develop
+  annotations:
+    description: "This namespace is used for korea team"
