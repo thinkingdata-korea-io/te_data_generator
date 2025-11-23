@@ -177,13 +177,24 @@ export class ExcelParser {
 
         // 속성 유형 (Column G, index 6)
         const propType = this.getCellStringValue(row[6]);
+        const normalizedType = propType ? propType.toLowerCase().trim() : 'string';
+
+        // Object group 및 중첩 속성 감지
+        const isObjectGroup = normalizedType === 'object group';
+        const isObject = normalizedType === 'object';
+        const isNestedProperty = propName.includes('.');
+        const parentProperty = isNestedProperty ? propName.split('.')[0] : undefined;
 
         properties.push({
           property_name: propName,
           property_name_kr: propDesc || propName,
-          data_type: propType ? propType.toLowerCase() : 'string',
+          data_type: normalizedType,
           event_name: currentEventName,
-          description: propDesc || undefined
+          description: propDesc || undefined,
+          is_object_group: isObjectGroup,
+          is_object: isObject,
+          is_nested_property: isNestedProperty,
+          parent_property: parentProperty
         });
       }
     }
@@ -216,12 +227,25 @@ export class ExcelParser {
       const propName = row['속성 이름'] || row.property_name;
 
       if (propName) {
+        const normalizedPropName = String(propName).trim();
+        const normalizedType = (row['속성 유형'] || row.data_type || 'string').toString().trim().toLowerCase();
+
+        // Object group 및 중첩 속성 감지
+        const isObjectGroup = normalizedType === 'object group';
+        const isObject = normalizedType === 'object';
+        const isNestedProperty = normalizedPropName.includes('.');
+        const parentProperty = isNestedProperty ? normalizedPropName.split('.')[0] : undefined;
+
         properties.push({
-          property_name: String(propName).trim(),
-          property_name_kr: row['속성 별칭'] || row.property_name_kr || String(propName).trim(),
-          data_type: (row['속성 유형'] || row.data_type || 'string').toString().trim().toLowerCase(),
+          property_name: normalizedPropName,
+          property_name_kr: row['속성 별칭'] || row.property_name_kr || normalizedPropName,
+          data_type: normalizedType,
           event_name: row['이벤트 이름'] || row.event_name ? String(row['이벤트 이름'] || row.event_name).trim() : undefined,
-          description: row['속성 설명'] || row.description ? String(row['속성 설명'] || row.description).trim() : undefined
+          description: row['속성 설명'] || row.description ? String(row['속성 설명'] || row.description).trim() : undefined,
+          is_object_group: isObjectGroup,
+          is_object: isObject,
+          is_nested_property: isNestedProperty,
+          parent_property: parentProperty
         });
       }
     }

@@ -168,7 +168,20 @@ ${userSegments.map(s => `- ${s}`).join('\n')}
    - 카테고리, 타입, 상태 (category, type, status)
    - 게임 관련 (character, stage, mode, tier)
 
-3. **Few-shot 예시:**
+3. **⭐ Object Group 및 Object 속성 처리 (매우 중요!):**
+   - **Object Group** (객체 배열): 부모 속성 자체는 범위를 정의하지 마세요!
+   - **Object** (단일 객체): 부모 속성 자체는 범위를 정의하지 마세요!
+   - 오직 **자식 속성들** (점(.) 표기법 사용)만 범위를 정의하세요
+
+   **예시:**
+   - ❌ "achievement_rewards" (부모) - 범위 정의 금지!
+   - ✅ "achievement_rewards.reward_type" (자식) - 범위 정의 필요
+   - ✅ "achievement_rewards.reward_id" (자식) - 범위 정의 필요
+   - ✅ "achievement_rewards.quantity" (자식) - 범위 정의 필요
+
+   **속성 목록에서 "object group" 또는 "object" 타입을 찾아서 그 자식들만 처리하세요!**
+
+4. **Few-shot 예시:**
 
 \`\`\`json
 {
@@ -418,6 +431,152 @@ ${userSegments.map(s => `- ${s.name} (${(s.ratio * 100).toFixed(0)}%): ${s.chara
 }
 
 /**
+ * AI Validator: 리텐션 커브 검증 프롬프트
+ */
+export function buildRetentionValidationPrompt(
+  proposedCurve: any,
+  industry: string,
+  ruleErrors: string[]
+): string {
+  return `You are a data validation expert. Validate this retention curve analysis.
+
+## Proposed Retention Curve
+${JSON.stringify(proposedCurve, null, 2)}
+
+## Industry: ${industry}
+
+## Rule-based Validation Errors
+${ruleErrors.length > 0 ? ruleErrors.map(e => `- ${e}`).join('\n') : 'None (all rules passed)'}
+
+## Your Task
+If rule-based errors exist, determine if they are:
+1. **Critical**: Must be fixed (e.g., Day1 < Day7)
+2. **Acceptable**: Within reasonable variance (e.g., 1-2% outside benchmark)
+
+Respond in JSON:
+
+\`\`\`json
+{
+  "valid": true | false,
+  "recommendation": "accept" | "revise",
+  "issues": [
+    {
+      "field": "day1Retention",
+      "severity": "critical" | "warning",
+      "message": "Value 0.52 is slightly above benchmark (0.50) but acceptable"
+    }
+  ]
+}
+\`\`\`
+
+Be lenient for minor variances (±5% from benchmark).`;
+}
+
+/**
+ * AI Fixer: 리텐션 커브 수정 프롬프트
+ */
+export function buildRetentionFixerPrompt(
+  proposedCurve: any,
+  industry: string,
+  errors: string[]
+): string {
+  return `You are a data correction expert. Fix this retention curve.
+
+## Original (has errors)
+${JSON.stringify(proposedCurve, null, 2)}
+
+## Industry: ${industry}
+
+## Errors to Fix
+${errors.map(e => `- ${e}`).join('\n')}
+
+## Your Task
+Fix ALL errors while keeping other fields unchanged.
+
+Respond in JSON:
+
+\`\`\`json
+{
+  "retentionCurve": {
+    // corrected full retention curve
+  }
+}
+\`\`\``;
+}
+
+/**
+ * AI Validator: 이벤트 순서 검증 프롬프트
+ */
+export function buildEventSequencingValidationPrompt(
+  proposedSequencing: any,
+  allEvents: string[],
+  ruleErrors: string[]
+): string {
+  return `You are an event sequencing validation expert.
+
+## Proposed Event Sequencing
+${JSON.stringify(proposedSequencing, null, 2)}
+
+## All Events in Schema
+${allEvents.join(', ')}
+
+## Rule-based Validation Errors
+${ruleErrors.length > 0 ? ruleErrors.map(e => `- ${e}`).join('\n') : 'None'}
+
+## Your Task
+Validate if the event categorization and constraints are logical.
+
+Respond in JSON:
+
+\`\`\`json
+{
+  "valid": true | false,
+  "recommendation": "accept" | "revise",
+  "issues": [
+    {
+      "field": "eventCategories.lifecycle",
+      "severity": "critical" | "warning",
+      "message": "No install-like event found"
+    }
+  ]
+}
+\`\`\``;
+}
+
+/**
+ * AI Fixer: 이벤트 순서 수정 프롬프트
+ */
+export function buildEventSequencingFixerPrompt(
+  proposedSequencing: any,
+  allEvents: string[],
+  errors: string[]
+): string {
+  return `You are an event sequencing correction expert.
+
+## Original (has errors)
+${JSON.stringify(proposedSequencing, null, 2)}
+
+## All Events
+${allEvents.join(', ')}
+
+## Errors to Fix
+${errors.map(e => `- ${e}`).join('\n')}
+
+## Your Task
+Fix ALL errors. Ensure every event is categorized.
+
+Respond in JSON:
+
+\`\`\`json
+{
+  "eventSequencing": {
+    // corrected full event sequencing
+  }
+}
+\`\`\``;
+}
+
+/**
  * Phase 1.6: 이벤트 순서 분석 프롬프트
  * 이벤트 간 논리적 순서 및 제약 조건 분석
  */
@@ -441,13 +600,74 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 
 ---
 
-**목표: 이벤트 간 논리적 순서 및 실행 제약 정의**
+**목표: 이벤트 간 논리적 순서 및 실행 제약을 정의하여 불가능한 이벤트 시퀀스 방지**
 
-### 1. 이벤트 카테고리 분류
+**🚨 핵심 원칙: "완료" 이벤트 후 해당 "트랜잭션 내부" 이벤트는 절대 발생 불가!**
 
-다음 카테고리로 이벤트를 분류하세요:
+---
 
-**lifecycle**: 앱 생명주기 (한 번만 발생)
+### STEP 1: 트랜잭션/라운드 자동 감지 ⭐
+
+**트랜잭션이란?**
+- **시작(start/begin)**과 **종료(end/complete)** 이벤트로 구성된 논리적 단위
+- 종료 후에는 해당 트랜잭션 내부 이벤트가 **절대 발생할 수 없음**
+
+**자동 감지 규칙:**
+1. 이벤트 이름에 \`start, begin, open\` 포함 → **트랜잭션 시작**
+2. 이벤트 이름에 \`end, complete, finish, close\` 포함 → **트랜잭션 종료**
+3. 동일한 접두사를 공유하는 이벤트들 → **트랜잭션 내부**
+   - 예: \`game_start\`, \`game_end\` → \`game_*\` 이벤트들은 내부
+
+**도메인별 Few-shot 예시:**
+
+**[게임 도메인]**
+\`\`\`
+트랜잭션: "게임 라운드"
+- 시작: game_start, battle_start, match_start
+- 내부: death, kill, score_update, item_use, level_up
+- 종료: game_end, battle_end, match_end
+❌ 차단: game_end 발생 후 death, kill 등 절대 불가!
+\`\`\`
+
+**[커머스 도메인]**
+\`\`\`
+트랜잭션: "구매 프로세스"
+- 시작: checkout_start, payment_start
+- 내부: add_payment_method, verify_address, apply_coupon
+- 종료: purchase_complete, payment_complete
+❌ 차단: purchase_complete 후 cart_add, checkout_start 절대 불가!
+\`\`\`
+
+**[금융 도메인]**
+\`\`\`
+트랜잭션: "거래"
+- 시작: transaction_start, transfer_start
+- 내부: verify_otp, check_balance, confirm_recipient
+- 종료: transaction_complete, transfer_complete
+❌ 차단: transaction_complete 후 verify_otp 절대 불가!
+\`\`\`
+
+**[콘텐츠/미디어 도메인]**
+\`\`\`
+트랜잭션: "콘텐츠 소비"
+- 시작: video_play_start, article_read_start
+- 내부: video_pause, video_seek, article_scroll
+- 종료: video_play_end, article_read_end
+❌ 차단: video_play_end 후 video_pause 절대 불가!
+\`\`\`
+
+**당신의 작업:**
+1. 위 패턴을 참고하여 주어진 이벤트 목록에서 **트랜잭션 그룹**을 식별하세요
+2. 각 트랜잭션의 시작/내부/종료 이벤트를 명확히 분류하세요
+3. **종료 이벤트 발생 후 차단할 내부 이벤트** 목록을 \`blockedAfterEvents\`에 정의하세요
+
+---
+
+### STEP 2: 이벤트 카테고리 분류
+
+다음 카테고리로 **모든 이벤트**를 분류하세요:
+
+**lifecycle**: 앱 생명주기 (유저당 한 번만 발생)
 - 예: \`app_install\`, \`signup\`, \`uninstall\`
 
 **session_start**: 세션 시작 (매 세션 첫 이벤트)
@@ -459,36 +679,73 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 **onboarding**: 온보딩/튜토리얼 (첫 세션에만)
 - 예: \`tutorial_start\`, \`tutorial_complete\`, \`profile_setup\`
 
-**core**: 일반 서비스 이벤트
+**core**: 일반 서비스 이벤트 (반복 가능)
 - 예: \`product_view\`, \`search\`, \`content_read\`
 
 **monetization**: 수익화 이벤트
 - 예: \`purchase\`, \`ad_view\`, \`subscription\`
 
-### 2. 필수 선행 이벤트 (strictDependencies)
+---
+
+### STEP 3: 필수 선행 이벤트 (strictDependencies)
 
 **반드시 지켜야 하는** 이벤트 순서를 정의하세요:
 - \`signup_complete\` → 먼저 \`signup_start\` 필요
 - \`checkout_complete\` → 먼저 \`cart_add\` 필요
+- \`game_end\` → 먼저 \`game_start\` 필요
 - \`tutorial_complete\` → 먼저 \`tutorial_start\` 필요
 
-### 3. 실행 제약 (executionConstraints)
+---
+
+### STEP 4: 실행 제약 (executionConstraints)
 
 각 이벤트의 실행 조건을 정의하세요:
 
 \`\`\`
-- maxOccurrencesPerSession: 세션당 최대 횟수 (예: app_start = 1)
+- maxOccurrencesPerSession: 세션당 최대 횟수 (예: app_start = 1, game_start = 5)
 - maxOccurrencesPerUser: 유저당 최대 횟수 (예: signup = 1)
 - requiresFirstSession: 첫 세션에만 발생 (예: tutorial_start = true)
 - minimumSessionNumber: 최소 N번째 세션부터 (예: advanced_feature = 3)
-- blockedAfterEvents: 특정 이벤트 후 차단 (예: uninstall 후 모든 이벤트 차단)
+- blockedAfterEvents: 특정 이벤트 후 **절대 차단** (⭐ 가장 중요!)
+  예:
+  {
+    "death": { "blockedAfterEvents": ["game_end", "battle_end"] }
+    "cart_add": { "blockedAfterEvents": ["purchase_complete"] }
+    "video_pause": { "blockedAfterEvents": ["video_play_end"] }
+  }
 \`\`\`
 
-### 4. 논리적 시퀀스 (logicalSequences)
+---
+
+### STEP 5: 트랜잭션 정의 (transactions) ⭐ 신규!
+
+STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
+
+\`\`\`json
+{
+  "transactions": [
+    {
+      "name": "게임 라운드",
+      "description": "게임 시작부터 종료까지의 한 라운드",
+      "startEvents": ["game_start", "battle_start"],
+      "endEvents": ["game_end", "battle_end"],
+      "innerEvents": ["death", "kill", "score_update", "item_use"],
+      "allowInnerAfterEnd": false
+    }
+  ]
+}
+\`\`\`
+
+**allowInnerAfterEnd**:
+- \`false\` (기본값): 종료 후 내부 이벤트 **절대 불가** (게임, 결제, 거래 등)
+- \`true\`: 종료 후에도 가능 (드문 경우, 예: 부활 시스템이 있는 게임)
+
+---
+
+### STEP 6: 논리적 시퀀스 (logicalSequences)
 
 주요 사용자 여정을 순서대로 정의하세요:
 
-**예시 (이커머스):**
 \`\`\`json
 {
   "name": "구매 퍼널",
@@ -498,23 +755,23 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 }
 \`\`\`
 
-**예시 (게임):**
-\`\`\`json
-{
-  "name": "게임 플레이",
-  "description": "배틀 시작부터 종료까지",
-  "sequence": ["battle_start", "battle_action", "battle_end", "reward_claim"],
-  "strictOrder": true
-}
-\`\`\`
-
 ---
 
-다음 JSON 형식으로 응답해주세요:
+다음 JSON 형식으로 **반드시** 응답해주세요:
 
 \`\`\`json
 {
   "eventSequencing": {
+    "transactions": [
+      {
+        "name": "트랜잭션명",
+        "description": "설명",
+        "startEvents": ["start_event"],
+        "endEvents": ["end_event"],
+        "innerEvents": ["inner1", "inner2"],
+        "allowInnerAfterEnd": false
+      }
+    ],
     "strictDependencies": {
       "이벤트명": ["선행이벤트1", "선행이벤트2"]
     },
@@ -530,11 +787,10 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
       "app_start": {
         "maxOccurrencesPerSession": 1
       },
-      "signup": {
-        "maxOccurrencesPerUser": 1
+      "death": {
+        "blockedAfterEvents": ["game_end", "battle_end"]
       },
-      "tutorial_start": {
-        "requiresFirstSession": true,
+      "signup": {
         "maxOccurrencesPerUser": 1
       }
     },
@@ -550,9 +806,11 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 }
 \`\`\`
 
-**중요**:
-1. 모든 이벤트를 적절한 카테고리에 배치하세요
-2. lifecycle 이벤트는 세션 외부에서 발생합니다
-3. session_start/session_end는 세션 경계를 명확히 합니다
-4. strictOrder=true일 때 순서를 엄격히 지킵니다`;
+**🚨 필수 체크리스트:**
+1. ✅ 모든 이벤트를 카테고리에 배치했는가?
+2. ✅ 트랜잭션(시작-종료 패턴)을 식별했는가?
+3. ✅ 종료 후 내부 이벤트 차단 규칙(\`blockedAfterEvents\`)을 정의했는가?
+4. ✅ \`game_end\` 후 \`death\` 같은 논리적으로 불가능한 시퀀스를 방지하는가?
+
+**도메인 특성을 깊이 이해하고, 현실적으로 불가능한 이벤트 순서를 철저히 차단하세요!**`;
 }

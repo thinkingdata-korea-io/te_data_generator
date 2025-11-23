@@ -14,9 +14,15 @@ export interface EventDefinition {
 export interface PropertyDefinition {
   property_name: string;
   property_name_kr: string;
-  data_type: string;  // string, number, boolean, date
+  data_type: string;  // string, number, boolean, date, object, object group
   event_name?: string;  // 특정 이벤트에만 속하는 경우
   description?: string;
+
+  // Object group 관련 메타데이터
+  is_object_group?: boolean;       // true면 object group (객체 배열)
+  is_object?: boolean;              // true면 object (단일 객체)
+  parent_property?: string;         // 부모 속성 이름 (예: "achievement_rewards")
+  is_nested_property?: boolean;     // true면 중첩 속성 (property_name에 "." 포함)
 }
 
 export interface FunnelDefinition {

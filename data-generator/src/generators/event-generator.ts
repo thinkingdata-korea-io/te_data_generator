@@ -5,7 +5,8 @@ import {
   ParsedSchema,
   AIAnalysisResult,
   PropertyRange,
-  FunnelDefinition
+  FunnelDefinition,
+  PropertyDefinition
 } from '../types';
 import { DependencyManager } from './dependency-manager';
 import { generateFallbackValue } from './faker-utils';
@@ -81,13 +82,32 @@ export class EventGenerator {
       }
     }
 
-    // 3. core 이벤트 생성
+    // 3. 🆕 트랜잭션 및 core 이벤트 생성
     const avgEventsPerSession =
       this.aiAnalysis.sessionPatterns.avgEventsPerSession[session.user.segment] || 10;
     const targetEventCount = Math.floor(avgEventsPerSession * (0.8 + Math.random() * 0.4));
     const remainingEvents = targetEventCount - events.length;
 
     for (let i = 0; i < remainingEvents; i++) {
+      if (currentTime > session.end) break;
+
+      // 🆕 트랜잭션 시작 시도 (확률적)
+      const transactionGenerated = this.tryGenerateTransaction(
+        session,
+        executedEvents,
+        isFirstSession,
+        sessionNumber,
+        currentTime,
+        events
+      );
+
+      if (transactionGenerated) {
+        currentTime = events[events.length - 1]?.timestamp || currentTime;
+        currentTime = addMilliseconds(currentTime, this.getEventInterval());
+        continue;
+      }
+
+      // 일반 core 이벤트 생성
       const availableEvents = this.getAvailableEvents(
         session.user,
         executedEvents,
@@ -106,7 +126,6 @@ export class EventGenerator {
       this.dependencyManager.recordEventExecution(selectedEvent.event_name);
 
       currentTime = addMilliseconds(currentTime, this.getEventInterval());
-      if (currentTime > session.end) break;
     }
 
     // 4. session_end 이벤트
@@ -121,6 +140,118 @@ export class EventGenerator {
     }
 
     return events;
+  }
+
+  /**
+   * 🆕 트랜잭션 생성 시도 (원자적 실행)
+   * 반환값: true면 트랜잭션 생성 성공, false면 생성 안 함
+   */
+  private tryGenerateTransaction(
+    session: Session,
+    executedEvents: Set<string>,
+    isFirstSession: boolean,
+    sessionNumber: number,
+    startTime: Date,
+    eventsArray: EventData[]
+  ): boolean {
+    const sequencing = this.aiAnalysis.eventSequencing;
+    if (!sequencing || !sequencing.transactions) return false;
+
+    // 랜덤으로 트랜잭션 선택 (30% 확률로 시도)
+    if (!probabilityCheck(0.3)) return false;
+
+    // 사용 가능한 트랜잭션 필터링
+    const availableTransactions = sequencing.transactions.filter(transaction => {
+      // 시작 이벤트가 실행 가능한가?
+      return transaction.startEvents.some(startEvent =>
+        this.dependencyManager.canExecuteEvent(startEvent, executedEvents, isFirstSession, sessionNumber)
+      );
+    });
+
+    if (availableTransactions.length === 0) return false;
+
+    // 랜덤 선택
+    const transaction = availableTransactions[Math.floor(Math.random() * availableTransactions.length)];
+
+    // 트랜잭션 생성
+    const transactionEvents = this.generateTransaction(
+      transaction.name,
+      session.user,
+      startTime,
+      executedEvents,
+      isFirstSession,
+      sessionNumber
+    );
+
+    if (transactionEvents.length === 0) return false;
+
+    // 성공: 이벤트 추가
+    eventsArray.push(...transactionEvents);
+    return true;
+  }
+
+  /**
+   * 🆕 단일 트랜잭션 생성 (시작 → 내부 → 종료)
+   */
+  private generateTransaction(
+    transactionName: string,
+    user: User,
+    startTime: Date,
+    executedEvents: Set<string>,
+    isFirstSession: boolean,
+    sessionNumber: number
+  ): EventData[] {
+    const sequencing = this.aiAnalysis.eventSequencing;
+    if (!sequencing || !sequencing.transactions) return [];
+
+    const transaction = sequencing.transactions.find(t => t.name === transactionName);
+    if (!transaction) return [];
+
+    const transactionEvents: EventData[] = [];
+    let currentTime = startTime;
+
+    // 1. 시작 이벤트 (첫 번째 사용 가능한 것)
+    const startEvent = transaction.startEvents.find(e =>
+      this.dependencyManager.canExecuteEvent(e, executedEvents, isFirstSession, sessionNumber)
+    );
+
+    if (!startEvent) return [];
+
+    const startEventData = this.createEvent(startEvent, user, currentTime);
+    transactionEvents.push(startEventData);
+    executedEvents.add(startEvent);
+    this.dependencyManager.recordEventExecution(startEvent);
+    currentTime = addMilliseconds(currentTime, this.getEventInterval());
+
+    // 2. 내부 이벤트 (랜덤하게 2~5개)
+    const innerEventCount = randomInt(2, Math.min(5, transaction.innerEvents.length + 1));
+    for (let i = 0; i < innerEventCount; i++) {
+      const availableInner = transaction.innerEvents.filter(e =>
+        !executedEvents.has(e) &&
+        this.dependencyManager.canExecuteEvent(e, executedEvents, isFirstSession, sessionNumber)
+      );
+
+      if (availableInner.length === 0) break;
+
+      const innerEvent = availableInner[Math.floor(Math.random() * availableInner.length)];
+      const innerEventData = this.createEvent(innerEvent, user, currentTime);
+      transactionEvents.push(innerEventData);
+      executedEvents.add(innerEvent);
+      this.dependencyManager.recordEventExecution(innerEvent);
+      currentTime = addMilliseconds(currentTime, this.getEventInterval());
+    }
+
+    // 3. 종료 이벤트
+    const endEvent = transaction.endEvents[0];  // 첫 번째 종료 이벤트 사용
+    if (endEvent && this.dependencyManager.canExecuteEvent(endEvent, executedEvents, isFirstSession, sessionNumber)) {
+      const endEventData = this.createEvent(endEvent, user, currentTime);
+      transactionEvents.push(endEventData);
+      executedEvents.add(endEvent);
+      this.dependencyManager.recordEventExecution(endEvent);
+    }
+
+    console.log(`✅ [Transaction Generated] "${transactionName}": ${transactionEvents.map(e => e.event_name).join(' → ')}`);
+    return transactionEvents;
   }
 
   /**
@@ -197,27 +328,116 @@ export class EventGenerator {
       r => r.event_name === eventName
     );
 
+    // Object group 및 Object 속성 분리
+    const objectGroupMap = new Map<string, PropertyDefinition[]>();  // object group의 자식들
+    const objectMap = new Map<string, PropertyDefinition[]>();        // object의 자식들
+    const flatProps: PropertyDefinition[] = [];
+
     eventProps.forEach(propDef => {
-      const propertyName = propDef.property_name;
+      // Object group/object 부모 자체는 건너뛰기
+      if (propDef.is_object_group || propDef.is_object) {
+        return;
+      }
 
-      // AI 범위가 있으면 사용
-      const range = eventRanges?.properties.find(
-        p => p.property_name === propertyName
-      );
+      // 중첩 속성이면 부모별로 그룹화
+      if (propDef.is_nested_property && propDef.parent_property) {
+        // 부모가 object group인지 object인지 확인
+        const parentDef = eventProps.find(p => p.property_name === propDef.parent_property);
 
-      if (range) {
-        properties[propertyName] = this.generateValueFromRange(range, user);
+        if (parentDef?.is_object_group) {
+          if (!objectGroupMap.has(propDef.parent_property)) {
+            objectGroupMap.set(propDef.parent_property, []);
+          }
+          objectGroupMap.get(propDef.parent_property)!.push(propDef);
+        } else if (parentDef?.is_object) {
+          if (!objectMap.has(propDef.parent_property)) {
+            objectMap.set(propDef.parent_property, []);
+          }
+          objectMap.get(propDef.parent_property)!.push(propDef);
+        }
       } else {
-        // AI 범위가 없으면 Faker.js 폴백 (산업 정보 전달)
-        properties[propertyName] = generateFallbackValue(
-          propertyName,
-          user.locale,
-          this.industry
-        );
+        // 일반 평면 속성
+        flatProps.push(propDef);
       }
     });
 
+    // 1. 평면 속성 생성
+    flatProps.forEach(propDef => {
+      properties[propDef.property_name] = this.generatePropertyValue(
+        propDef.property_name,
+        eventRanges,
+        user
+      );
+    });
+
+    // 2. Object 속성 생성 (단일 객체)
+    objectMap.forEach((childProps, parentName) => {
+      const nestedObject: Record<string, any> = {};
+
+      childProps.forEach(childProp => {
+        // "parent.child" -> "child" 추출
+        const childName = childProp.property_name.split('.')[1];
+        nestedObject[childName] = this.generatePropertyValue(
+          childProp.property_name,
+          eventRanges,
+          user
+        );
+      });
+
+      properties[parentName] = nestedObject;
+    });
+
+    // 3. Object group 속성 생성 (객체 배열)
+    objectGroupMap.forEach((childProps, parentName) => {
+      // 배열 크기 결정 (1~3개 랜덤)
+      const arraySize = Math.floor(Math.random() * 3) + 1;
+      const objectArray: Record<string, any>[] = [];
+
+      for (let i = 0; i < arraySize; i++) {
+        const nestedObject: Record<string, any> = {};
+
+        childProps.forEach(childProp => {
+          // "parent.child" -> "child" 추출
+          const childName = childProp.property_name.split('.')[1];
+          nestedObject[childName] = this.generatePropertyValue(
+            childProp.property_name,
+            eventRanges,
+            user
+          );
+        });
+
+        objectArray.push(nestedObject);
+      }
+
+      properties[parentName] = objectArray;
+    });
+
     return properties;
+  }
+
+  /**
+   * 속성 값 생성 헬퍼
+   */
+  private generatePropertyValue(
+    propertyName: string,
+    eventRanges: any,
+    user: User
+  ): any {
+    // AI 범위가 있으면 사용
+    const range = eventRanges?.properties.find(
+      (p: any) => p.property_name === propertyName
+    );
+
+    if (range) {
+      return this.generateValueFromRange(range, user);
+    } else {
+      // AI 범위가 없으면 Faker.js 폴백 (산업 정보 전달)
+      return generateFallbackValue(
+        propertyName,
+        user.locale,
+        this.industry
+      );
+    }
   }
 
   /**
