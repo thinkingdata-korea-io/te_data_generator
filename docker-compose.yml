@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    container_name: te_platform_postgres
+    restart: unless-stopped
+
+    # 시스템 시간 동기화 - 호스트의 시간과 실시간 동기화
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - /etc/localtime:/etc/localtime:ro  # 호스트 시간과 동기화
+      - /etc/timezone:/etc/timezone:ro    # 호스트 타임존과 동기화
+
+    environment:
+      POSTGRES_DB: te_platform
+      POSTGRES_USER: te_admin
+      POSTGRES_PASSWORD: te_password_2025
+      TZ: Asia/Seoul  # 한국 시간대
+      PGTZ: Asia/Seoul
+
+    ports:
+      - "5432:5432"
+
+    # 헬스체크
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U te_admin -d te_platform"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+    # 성능 최적화
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c work_mem=4MB
+
+volumes:
+  postgres_data:
+    driver: local
