@@ -3,47 +3,37 @@ FROM node:20-alpine AS builder
 
 WORKDIR /workspace
 
-# 전체 모노레포 복사
-COPY . .
+# 전체 모노레포 복사 (상위 디렉토리에서 실행하므로 컨텍스트 조정 필요)
+COPY excel-schema-generator ./excel-schema-generator
+COPY data-generator ./data-generator
 
 # excel-schema-generator 먼저 빌드
 WORKDIR /workspace/excel-schema-generator
 RUN npm install && npm run build
 
-# data-generator 빌드 (excel-schema-generator를 node_modules에 링크)
+# data-generator 빌드
 WORKDIR /workspace/data-generator
 RUN npm install
-# excel-schema-generator를 로컬 패키지로 링크
-RUN mkdir -p node_modules/@excel-schema-generator && \
-    cp -r ../excel-schema-generator/dist/* node_modules/@excel-schema-generator/ && \
-    cp ../excel-schema-generator/package.json node_modules/@excel-schema-generator/
+
+# TypeScript path alias를 위해 excel-schema-generator 소스를 참조 가능하게 설정
+# 빌드 시 TypeScript가 ../excel-schema-generator/src/* 경로를 찾을 수 있도록 함
 RUN npm run build
 
 # Production 이미지
 FROM node:20-alpine
 
-WORKDIR /app
+# 워크스페이스 구조 유지 (컴파일된 JS의 상대 경로가 작동하도록)
+WORKDIR /workspace/data-generator
 
 # data-generator의 package.json 복사 및 프로덕션 의존성 설치
 COPY --from=builder /workspace/data-generator/package*.json ./
 RUN npm install --production
 
-# excel-schema-generator를 node_modules에 설치
-RUN mkdir -p node_modules/@excel-schema-generator
-COPY --from=builder /workspace/excel-schema-generator/dist node_modules/@excel-schema-generator/
-COPY --from=builder /workspace/excel-schema-generator/package.json node_modules/@excel-schema-generator/
-
-# excel-schema-generator의 node_modules 복사 (런타임 의존성)
-COPY --from=builder /workspace/excel-schema-generator/node_modules node_modules/@excel-schema-generator/node_modules
-
 # 빌드된 파일들 복사
 COPY --from=builder /workspace/data-generator/dist ./dist
 
-# excel-schema-generator의 prompts 디렉토리 복사 (런타임 필수)
-COPY --from=builder /workspace/excel-schema-generator/prompts node_modules/@excel-schema-generator/prompts
-
-# LogBus2 실행 파일 권한 설정
-RUN chmod +x ../logbus\ 2/logbus || true
+# excel-schema-generator 전체 복사 (상대 경로 참조를 위해 필요)
+COPY --from=builder /workspace/excel-schema-generator /workspace/excel-schema-generator
 
 # 포트 노출
 EXPOSE 3001

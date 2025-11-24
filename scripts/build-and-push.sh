@@ -30,8 +30,8 @@ echo "=========================================="
 # Backend 빌드
 echo ""
 echo "[1/4] Building Backend Docker image..."
-cd data-generator
-docker build -t "${BACKEND_IMAGE}" .
+# 모노레포 루트에서 빌드 (excel-schema-generator 접근을 위해)
+docker build -f data-generator/Dockerfile -t "${BACKEND_IMAGE}" .
 docker tag "${BACKEND_IMAGE}" "${REGISTRY}/te-data-generator-backend:latest"
 echo "✅ Backend image built successfully"
 
@@ -45,8 +45,7 @@ echo "✅ Backend image pushed successfully"
 # Frontend 빌드
 echo ""
 echo "[3/4] Building Frontend Docker image..."
-cd ../frontend
-docker build -t "${FRONTEND_IMAGE}" .
+docker build -f frontend/Dockerfile -t "${FRONTEND_IMAGE}" .
 docker tag "${FRONTEND_IMAGE}" "${REGISTRY}/te-data-generator-frontend:latest"
 echo "✅ Frontend image built successfully"
 
