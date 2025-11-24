@@ -66,5 +66,5 @@ deploy-k8s:
     - echo "Waiting for rollout to complete..."
     - kubectl rollout status deployment/te-data-generator-backend -n ${NAMESPACE} --timeout=5m
     - kubectl rollout status deployment/te-data-generator-frontend -n ${NAMESPACE} --timeout=5m
-    - echo "✅ Deployment completed successfully"
-    - echo "🌐 Application URL: http://te-data-generator.tx-local.thinkingdata.cn"
+    - echo "Deployment completed successfully"
+    - echo "Application URL: http://te-data-generator.tx-local.thinkingdata.cn"
