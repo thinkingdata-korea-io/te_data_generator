@@ -58,3 +58,4 @@ logbus\ 2/conf/daemon.json
 
 # Kubernetes secrets (never commit)
 k8s/secret.yaml
+remove_attribution.py
