@@ -11,8 +11,6 @@ variables:
 
 build-backend:
   stage: build
-  tags:
-    - docker
   only:
     - main
   script:
@@ -28,8 +26,6 @@ build-backend:
 
 build-frontend:
   stage: build
-  tags:
-    - docker
   only:
     - main
   script:
@@ -45,8 +41,6 @@ build-frontend:
 
 deploy-k8s:
   stage: deploy
-  tags:
-    - kubectl
   only:
     - main
   dependencies:
