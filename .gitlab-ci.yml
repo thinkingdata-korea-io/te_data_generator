@@ -1,0 +1,70 @@
+stages:
+  - build
+  - deploy
+
+variables:
+  DOCKER_REGISTRY: docker-ta-inner.thinkingdata.cn
+  DOCKER_REGISTRY_USER: root
+  BACKEND_IMAGE: ${DOCKER_REGISTRY}/korea/data-generator-backend
+  FRONTEND_IMAGE: ${DOCKER_REGISTRY}/korea/data-generator-frontend
+  NAMESPACE: korea
+
+# Backend Build & Push
+build-backend:
+  stage: build
+  tags:
+    - docker
+  only:
+    - main
+  script:
+    - echo "Building backend Docker image..."
+    - docker build -f data-generator/Dockerfile -t ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} .
+    - docker tag ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} ${BACKEND_IMAGE}:latest
+    - echo "Logging in to Docker registry..."
+    - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_REGISTRY_USER} --password-stdin
+    - echo "Pushing backend image..."
+    - docker push ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${BACKEND_IMAGE}:latest
+    - echo "✅ Backend image pushed successfully"
+
+# Frontend Build & Push
+build-frontend:
+  stage: build
+  tags:
+    - docker
+  only:
+    - main
+  script:
+    - echo "Building frontend Docker image..."
+    - docker build -f frontend/Dockerfile -t ${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA} .
+    - docker tag ${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA} ${FRONTEND_IMAGE}:latest
+    - echo "Logging in to Docker registry..."
+    - echo ${DOCKER_REGISTRY_PASSWORD} | docker login ${DOCKER_REGISTRY} -u ${DOCKER_REGISTRY_USER} --password-stdin
+    - echo "Pushing frontend image..."
+    - docker push ${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}
+    - docker push ${FRONTEND_IMAGE}:latest
+    - echo "✅ Frontend image pushed successfully"
+
+# Deploy to Kubernetes
+deploy-k8s:
+  stage: deploy
+  tags:
+    - kubectl
+  only:
+    - main
+  dependencies:
+    - build-backend
+    - build-frontend
+  script:
+    - echo "Deploying to Kubernetes..."
+    - kubectl apply -f k8s/namespace.yaml
+    - kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}
+    - kubectl apply -f k8s/secret.yaml -n ${NAMESPACE}
+    - kubectl apply -f k8s/deployment.yaml -n ${NAMESPACE}
+    - kubectl apply -f k8s/service.yaml -n ${NAMESPACE}
+    - kubectl apply -f k8s/ingress.yaml -n ${NAMESPACE}
+    - echo "Waiting for rollout to complete..."
+    - kubectl rollout status deployment/te-data-generator-backend -n ${NAMESPACE} --timeout=5m
+    - kubectl rollout status deployment/te-data-generator-frontend -n ${NAMESPACE} --timeout=5m
+    - echo "✅ Deployment completed successfully"
+    - echo "🌐 Application URL: http://te-data-generator.tx-local.thinkingdata.cn"
