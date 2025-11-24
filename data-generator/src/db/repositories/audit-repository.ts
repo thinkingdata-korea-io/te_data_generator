@@ -35,11 +35,14 @@ export interface CreateAuditLogData {
 
 export interface AuditLogFilters {
   userId?: number;
+  username?: string;
   action?: string;
   startDate?: string;
   endDate?: string;
   page?: number;
   limit?: number;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
 }
 
 /**
@@ -96,7 +99,7 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<{
   }
 
   try {
-    const { userId, action, startDate, endDate, page = 1, limit = 50 } = filters;
+    const { userId, username, action, startDate, endDate, page = 1, limit = 50, sortBy = 'created_at', sortOrder = 'desc' } = filters;
 
     // Build WHERE clause
     const conditions: string[] = [];
@@ -106,6 +109,11 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<{
     if (userId) {
       conditions.push(`user_id = $${paramCount++}`);
       values.push(userId);
+    }
+
+    if (username) {
+      conditions.push(`username ILIKE $${paramCount++}`);
+      values.push(`%${username}%`);
     }
 
     if (action) {
@@ -124,6 +132,12 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<{
     }
 
     const whereClause = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+
+    // Validate and build ORDER BY clause
+    const allowedSortFields = ['created_at', 'username', 'action', 'status'];
+    const sortField = allowedSortFields.includes(sortBy) ? sortBy : 'created_at';
+    const orderDirection = sortOrder === 'asc' ? 'ASC' : 'DESC';
+    const orderClause = `ORDER BY ${sortField} ${orderDirection}`;
 
     // Get total count
     const countResult = await query(
@@ -145,7 +159,7 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<{
          created_at as "createdAt"
        FROM audit_logs
        ${whereClause}
-       ORDER BY created_at DESC
+       ${orderClause}
        LIMIT $${paramCount++} OFFSET $${paramCount++}`,
       values
     );

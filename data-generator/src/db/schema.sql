@@ -8,11 +8,40 @@ CREATE TABLE IF NOT EXISTS users (
   email VARCHAR(100) UNIQUE NOT NULL,
   password_hash VARCHAR(255) NOT NULL,
   full_name VARCHAR(100),
+  profile_image TEXT, -- Base64 or URL to profile image
   role VARCHAR(20) NOT NULL DEFAULT 'user', -- admin, user, viewer
   is_active BOOLEAN DEFAULT true,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   last_login_at TIMESTAMP
+);
+
+-- User settings table (per-user configuration)
+CREATE TABLE IF NOT EXISTS user_settings (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER UNIQUE REFERENCES users(id) ON DELETE CASCADE,
+
+  -- AI Provider Settings
+  anthropic_api_key TEXT,
+  openai_api_key TEXT,
+  gemini_api_key TEXT,
+  excel_ai_provider VARCHAR(20) DEFAULT 'anthropic',
+  data_ai_provider VARCHAR(20) DEFAULT 'anthropic',
+  data_ai_model VARCHAR(100),
+  validation_model_tier VARCHAR(20) DEFAULT 'fast',
+  custom_validation_model VARCHAR(100),
+
+  -- ThinkingEngine Settings
+  te_app_id VARCHAR(100),
+  te_receiver_url VARCHAR(255) DEFAULT 'https://te-receiver-naver.thinkingdata.kr/',
+
+  -- File Retention Settings
+  data_retention_days INTEGER DEFAULT 7,
+  excel_retention_days INTEGER DEFAULT 30,
+  auto_delete_after_send BOOLEAN DEFAULT false,
+
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Sessions table (optional - can use Redis instead)
@@ -77,6 +106,7 @@ CREATE INDEX IF NOT EXISTS idx_runs_user_id ON runs(user_id);
 CREATE INDEX IF NOT EXISTS idx_runs_status ON runs(status);
 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -87,8 +117,11 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger to auto-update updated_at
+-- Triggers to auto-update updated_at
 CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_user_settings_updated_at BEFORE UPDATE ON user_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Insert default admin user (password: admin)

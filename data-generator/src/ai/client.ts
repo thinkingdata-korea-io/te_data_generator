@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedSchema, AIAnalysisResult, EventDefinition } from '../types';
 import {
   buildStrategyPrompt,
@@ -9,14 +10,25 @@ import {
   convertAIGroupsToMap,
   splitLargeGroups
 } from './prompts';
+import { ValidationPipeline } from './validation-pipeline';
+
+export type AIProgressCallback = (progress: {
+  phase: string;
+  progress: number;
+  message: string;
+  detail?: string;
+}) => void;
 
 /**
  * AI 클라이언트 설정
  */
 export interface AIClientConfig {
-  provider: 'openai' | 'anthropic';
+  provider: 'openai' | 'anthropic' | 'gemini';
   apiKey: string;
   model?: string;
+  validationModelTier?: 'fast' | 'balanced';  // 검증 모델 등급 (기본: fast)
+  customValidationModel?: string;  // 사용자 지정 검증 모델 (선택사항)
+  onProgress?: AIProgressCallback;  // 진행 상황 콜백
 }
 
 /**
@@ -39,16 +51,28 @@ export interface UserInput {
 export class AIClient {
   private openai?: OpenAI;
   private anthropic?: Anthropic;
+  private gemini?: GoogleGenerativeAI;
   private config: AIClientConfig;
+  private validationPipeline: ValidationPipeline;
 
   constructor(config: AIClientConfig) {
     this.config = config;
 
     if (config.provider === 'openai') {
       this.openai = new OpenAI({ apiKey: config.apiKey });
-    } else {
+    } else if (config.provider === 'anthropic') {
       this.anthropic = new Anthropic({ apiKey: config.apiKey });
+    } else if (config.provider === 'gemini') {
+      this.gemini = new GoogleGenerativeAI(config.apiKey);
     }
+
+    // ValidationPipeline 초기화 (검증 모델 등급 + 커스텀 모델 전달)
+    const validationTier = config.validationModelTier || 'fast';
+    this.validationPipeline = new ValidationPipeline(
+      this,
+      validationTier,
+      config.customValidationModel
+    );
   }
 
   /**
@@ -71,6 +95,8 @@ export class AIClient {
 
         if (this.config.provider === 'openai') {
           response = await this.callOpenAI(prompt);
+        } else if (this.config.provider === 'gemini') {
+          response = await this.callGemini(prompt);
         } else {
           response = await this.callAnthropic(prompt, attempt);
         }
@@ -222,7 +248,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
    * Anthropic API 호출
    * 재시도 시 max_tokens를 자동으로 증가
    */
-  private async callAnthropic(prompt: string, attempt: number = 1): Promise<string> {
+  private async callAnthropic(prompt: string, attempt: number = 1, modelOverride?: string): Promise<string> {
     if (!this.anthropic) {
       throw new Error('Anthropic client not initialized');
     }
@@ -231,11 +257,16 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     const baseTokens = 8192;
     const maxTokens = Math.min(baseTokens * attempt, 16384);
 
-    console.log(`  📊 Claude API 호출 (max_tokens: ${maxTokens})...`);
+    // 모델 선택: override가 있으면 사용, 없으면 config
+    const model = modelOverride || this.config.model || 'claude-sonnet-4-20250514';
 
-    const model = this.config.model || 'claude-sonnet-4-20250514';
+    // Haiku 모델명 매핑
+    const modelName = model === 'haiku' ? 'claude-3-5-haiku-20241022' : model;
+
+    console.log(`  📊 Claude API 호출 (model: ${modelName}, max_tokens: ${maxTokens})...`);
+
     const message = await this.anthropic.messages.create({
-      model,
+      model: modelName,
       max_tokens: maxTokens,
       messages: [
         {
@@ -257,6 +288,39 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     }
 
     return '{}';
+  }
+
+  /**
+   * Gemini API 호출
+   */
+  private async callGemini(prompt: string, modelOverride?: string): Promise<string> {
+    if (!this.gemini) {
+      throw new Error('Gemini client not initialized');
+    }
+
+    // 모델 선택: override가 있으면 사용, 없으면 config
+    const model = modelOverride || this.config.model || 'gemini-2.5-pro-latest';
+
+    console.log(`  📊 Gemini API 호출 (model: ${model})...`);
+
+    const generativeModel = this.gemini.getGenerativeModel({
+      model,
+      generationConfig: {
+        temperature: 0.7,
+        maxOutputTokens: 8192,
+        responseMimeType: 'application/json'
+      }
+    });
+
+    const result = await generativeModel.generateContent(prompt);
+    const response = result.response;
+    const text = response.text();
+
+    if (!text) {
+      throw new Error('Empty response from Gemini');
+    }
+
+    return text;
   }
 
   /**
@@ -340,6 +404,12 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     console.log('\n🎯 Starting Multi-Phase AI Analysis...');
 
     // Phase 1: 전략 분석
+    this.config.onProgress?.({
+      phase: 'phase1',
+      progress: 30,
+      message: 'Phase 1/3: 사용자 전략 분석 중...',
+      detail: '🤖 AI가 사용자 세그먼트 및 이벤트 구조 분석 중'
+    });
     console.log('\n📋 Phase 1: Strategy Analysis');
     const strategy = await this.analyzeStrategy(schema, userInput);
 
@@ -348,19 +418,58 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     console.log(`  ✅ Event dependencies: ${Object.keys(strategy.eventDependencies || {}).length} rules`);
     console.log(`  ✅ Event groups: ${Object.keys(strategy.eventGroups || {}).length} categories (AI-based)`);
 
+    this.config.onProgress?.({
+      phase: 'phase1',
+      progress: 35,
+      message: `Phase 1/3 완료: ${strategy.userSegments.length}개 사용자 세그먼트 생성됨`,
+      detail: `✅ 세그먼트: ${strategy.userSegments.map(s => `${s.name}(${(s.ratio*100).toFixed(0)}%)`).join(', ')}`
+    });
+
     // Phase 1.5: 리텐션 커브 분석
+    this.config.onProgress?.({
+      phase: 'phase1.5',
+      progress: 40,
+      message: 'Phase 1/3: 리텐션 패턴 분석 중...',
+      detail: '📈 사용자 유지율 및 재방문 패턴 생성'
+    });
     console.log('\n📈 Phase 1.5: Retention Curve Analysis');
-    const retentionCurve = await this.analyzeRetention(userInput, strategy.userSegments);
+    const { retentionCurve, validationSummary: retentionSummary } = await this.analyzeRetention(userInput, strategy.userSegments);
     console.log(`  ✅ Retention: Day1=${(retentionCurve.day1Retention * 100).toFixed(1)}%, Day7=${(retentionCurve.day7Retention * 100).toFixed(1)}%, Day30=${(retentionCurve.day30Retention * 100).toFixed(1)}%`);
 
+    this.config.onProgress?.({
+      phase: 'phase1.5',
+      progress: 45,
+      message: 'Phase 1/3: 리텐션 분석 완료',
+      detail: `✅ 유지율: D1=${(retentionCurve.day1Retention*100).toFixed(1)}%, D7=${(retentionCurve.day7Retention*100).toFixed(1)}%, D30=${(retentionCurve.day30Retention*100).toFixed(1)}%`
+    });
+
     // Phase 1.6: 이벤트 순서 분석
+    this.config.onProgress?.({
+      phase: 'phase1.6',
+      progress: 50,
+      message: 'Phase 1/3: 이벤트 시퀀스 분석 중...',
+      detail: '🔗 이벤트 의존성 및 사용자 퍼널 구조 분석'
+    });
     console.log('\n🔗 Phase 1.6: Event Sequencing Analysis');
-    const eventSequencing = await this.analyzeEventSequencing(schema, userInput);
+    const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput);
     console.log(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories.lifecycle.length}, onboarding=${eventSequencing.eventCategories.onboarding.length}, core=${eventSequencing.eventCategories.core.length}`);
     console.log(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies).length} rules`);
     console.log(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
 
+    this.config.onProgress?.({
+      phase: 'phase1.6',
+      progress: 55,
+      message: 'Phase 1/3 완료: 이벤트 시퀀싱 분석 완료',
+      detail: `✅ ${eventSequencing.logicalSequences.length}개 퍼널, ${Object.keys(eventSequencing.strictDependencies).length}개 의존성 규칙`
+    });
+
     // Phase 2: 이벤트 그룹별 속성 범위 생성
+    this.config.onProgress?.({
+      phase: 'phase2',
+      progress: 60,
+      message: `Phase 2/3: 이벤트 속성 범위 생성 준비 중...`,
+      detail: `📊 ${schema.events.length}개 이벤트를 카테고리별로 그룹화`
+    });
     console.log(`\n📊 Phase 2: Event Group Analysis (${schema.events.length} events)`);
 
     // AI가 반환한 eventGroups 사용
@@ -384,12 +493,29 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     groups = splitLargeGroups(groups, 10);
     console.log(`  📁 Final groups: ${groups.size} (max 10 events per group)`);
 
+    this.config.onProgress?.({
+      phase: 'phase2',
+      progress: 62,
+      message: `Phase 2/3: ${groups.size}개 그룹 분석 시작`,
+      detail: `✅ 그룹화 완료 (최대 10개 이벤트/그룹)`
+    });
+
     // 각 그룹별로 AI 분석
     const allEventRanges: any[] = [];
     let groupIndex = 0;
 
     for (const [groupName, events] of groups.entries()) {
       groupIndex++;
+
+      // Calculate progress for Phase 2 groups (62-80%)
+      const groupProgress = 62 + Math.floor((groupIndex / groups.size) * 18);
+      this.config.onProgress?.({
+        phase: 'phase2',
+        progress: groupProgress,
+        message: `Phase 2/3: 그룹 ${groupIndex}/${groups.size} 분석 중 - ${groupName}`,
+        detail: `🔍 ${events.length}개 이벤트의 속성 범위 AI 생성 중`
+      });
+
       console.log(`\n  📦 Group ${groupIndex}/${groups.size}: ${groupName} (${events.length} events)`);
 
       try {
@@ -422,7 +548,11 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       eventRanges: allEventRanges,
       sessionPatterns: strategy.sessionPatterns,
       retentionCurve,
-      eventSequencing
+      eventSequencing,
+      validationSummary: {
+        retention: retentionSummary,
+        sequencing: sequencingSummary
+      }
     };
 
     console.log(`  ✅ Total event ranges: ${allEventRanges.length}`);
@@ -447,6 +577,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
 
     if (this.config.provider === 'openai') {
       response = await this.callOpenAI(prompt);
+    } else if (this.config.provider === 'gemini') {
+      response = await this.callGemini(prompt);
     } else {
       response = await this.callAnthropic(prompt);
     }
@@ -482,6 +614,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
 
     if (this.config.provider === 'openai') {
       response = await this.callOpenAI(prompt);
+    } else if (this.config.provider === 'gemini') {
+      response = await this.callGemini(prompt);
     } else {
       response = await this.callAnthropic(prompt);
     }
@@ -493,42 +627,205 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
   }
 
   /**
-   * Phase 1.5: 리텐션 커브 분석
+   * Phase 1.5: 리텐션 커브 분석 (검증 포함)
    */
   private async analyzeRetention(
     userInput: UserInput,
     userSegments: Array<{ name: string; ratio: number; characteristics: string }>
   ): Promise<any> {
+    // 1. Generator: 초안 생성
     const prompt = buildRetentionPrompt(userInput, userSegments);
     let response: string;
 
     if (this.config.provider === 'openai') {
       response = await this.callOpenAI(prompt);
+    } else if (this.config.provider === 'gemini') {
+      response = await this.callGemini(prompt);
     } else {
       response = await this.callAnthropic(prompt);
     }
 
     const result = this.parseAIResponse(response);
-    return result.retentionCurve;
+    const proposedCurve = result.retentionCurve;
+
+    // 2. Validation Pipeline (규칙 + AI 검증)
+    try {
+      const { curve, summary } = await this.validationPipeline.validateAndFixRetention(
+        proposedCurve,
+        userInput
+      );
+
+      // 검증 결과 로깅
+      if (summary.ruleBasedPassed) {
+        console.log('  💚 Passed rule-based validation (no AI validation needed)');
+      } else if (summary.aiValidationUsed) {
+        console.log(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
+      }
+
+      if (summary.warnings.length > 0) {
+        console.log('  ⚠️  Warnings:', summary.warnings.join(', '));
+      }
+
+      return { retentionCurve: curve, validationSummary: summary };
+
+    } catch (error) {
+      console.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
+      console.warn('  🔄 Using fallback retention curve');
+
+      const fallbackCurve = this.generateFallbackRetentionCurve(userInput.industry);
+      const fallbackSummary = {
+        passed: false,
+        ruleBasedPassed: false,
+        aiValidationUsed: true,
+        fixAttempts: 3,
+        errors: [error instanceof Error ? error.message : 'Unknown validation error'],
+        warnings: ['Using fallback retention curve due to validation failure']
+      };
+
+      return { retentionCurve: fallbackCurve, validationSummary: fallbackSummary };
+    }
   }
 
   /**
-   * Phase 1.6: 이벤트 순서 분석
+   * Phase 1.6: 이벤트 순서 분석 (검증 포함)
    */
   private async analyzeEventSequencing(
     schema: ParsedSchema,
     userInput: UserInput
   ): Promise<any> {
+    // 1. Generator: 초안 생성
     const prompt = buildEventSequencingPrompt(schema, userInput);
     let response: string;
 
     if (this.config.provider === 'openai') {
       response = await this.callOpenAI(prompt);
+    } else if (this.config.provider === 'gemini') {
+      response = await this.callGemini(prompt);
     } else {
       response = await this.callAnthropic(prompt);
     }
 
     const result = this.parseAIResponse(response);
-    return result.eventSequencing;
+    const proposedSequencing = result.eventSequencing;
+
+    // 2. Validation Pipeline
+    try {
+      const { sequencing, summary } = await this.validationPipeline.validateAndFixEventSequencing(
+        proposedSequencing,
+        schema,
+        userInput
+      );
+
+      // 검증 결과 로깅
+      if (summary.ruleBasedPassed) {
+        console.log('  💚 Passed rule-based validation (no AI validation needed)');
+      } else if (summary.aiValidationUsed) {
+        console.log(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
+      }
+
+      if (summary.warnings.length > 0) {
+        console.log('  ⚠️  Warnings:', summary.warnings.join(', '));
+      }
+
+      return { eventSequencing: sequencing, validationSummary: summary };
+
+    } catch (error) {
+      console.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
+      console.warn('  🔄 Using fallback event sequencing');
+
+      const fallbackSequencing = this.generateFallbackEventSequencing(schema);
+      const fallbackSummary = {
+        passed: false,
+        ruleBasedPassed: false,
+        aiValidationUsed: true,
+        fixAttempts: 3,
+        errors: [error instanceof Error ? error.message : 'Unknown validation error'],
+        warnings: ['Using fallback event sequencing due to validation failure']
+      };
+
+      return { eventSequencing: fallbackSequencing, validationSummary: fallbackSummary };
+    }
+  }
+
+  /**
+   * 폴백: 안전한 리텐션 커브
+   */
+  private generateFallbackRetentionCurve(industry: string): any {
+    const benchmarks: Record<string, any> = {
+      '게임': { day1: 0.40, day7: 0.20, day30: 0.05, decay: 0.93 },
+      'Mobile Game': { day1: 0.40, day7: 0.20, day30: 0.05, decay: 0.93 },
+      '금융': { day1: 0.62, day7: 0.42, day30: 0.28, decay: 0.96 },
+      'Finance': { day1: 0.62, day7: 0.42, day30: 0.28, decay: 0.96 },
+      '이커머스': { day1: 0.48, day7: 0.28, day30: 0.15, decay: 0.94 },
+      'E-Commerce': { day1: 0.48, day7: 0.28, day30: 0.15, decay: 0.94 },
+      '소셜': { day1: 0.55, day7: 0.38, day30: 0.20, decay: 0.95 },
+      'Social': { day1: 0.55, day7: 0.38, day30: 0.20, decay: 0.95 },
+      'default': { day1: 0.45, day7: 0.25, day30: 0.10, decay: 0.94 }
+    };
+
+    const b = benchmarks[industry] || benchmarks['default'];
+
+    return {
+      industry,
+      dayZeroRetention: 1.0,
+      day1Retention: b.day1,
+      day7Retention: b.day7,
+      day30Retention: b.day30,
+      retentionDecay: b.decay,
+      segmentMultipliers: {
+        'default': 1.0
+      },
+      lifecycleProbabilities: {
+        new: 0.8,
+        active: 0.7,
+        returning: 0.5,
+        dormant: 0.1,
+        churned: 0.03
+      },
+      weekendBoost: 1.2,
+      monthlyReturnPattern: false
+    };
+  }
+
+  /**
+   * 폴백: 안전한 이벤트 순서
+   */
+  private generateFallbackEventSequencing(schema: ParsedSchema): any {
+    // 이벤트명 기반 휴리스틱 분류
+    const lifecycle: string[] = [];
+    const sessionStart: string[] = [];
+    const sessionEnd: string[] = [];
+    const onboarding: string[] = [];
+    const core: string[] = [];
+
+    schema.events.forEach(event => {
+      const name = event.event_name.toLowerCase();
+
+      if (name.includes('install') || name.includes('signup') || name.includes('register')) {
+        lifecycle.push(event.event_name);
+      } else if (name.includes('start') || name.includes('open') || name.includes('launch')) {
+        sessionStart.push(event.event_name);
+      } else if (name.includes('end') || name.includes('close') || name.includes('exit')) {
+        sessionEnd.push(event.event_name);
+      } else if (name.includes('tutorial') || name.includes('onboarding') || name.includes('welcome')) {
+        onboarding.push(event.event_name);
+      } else {
+        core.push(event.event_name);
+      }
+    });
+
+    return {
+      strictDependencies: {},
+      eventCategories: {
+        lifecycle,
+        session_start: sessionStart,
+        session_end: sessionEnd,
+        onboarding,
+        core,
+        monetization: []
+      },
+      executionConstraints: {},
+      logicalSequences: []
+    };
   }
 }

@@ -1,50 +1,37 @@
 'use client';
 
 import { useAuth } from '@/contexts/AuthContext';
-import { TypingAnimation } from '@/components/effects/TypingAnimation';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { FileManager } from '@/components/dashboard/FileManager';
 
 /**
  * Dashboard Home Page
- * @brief: Main dashboard landing page with system stats and quick actions
+ * @brief: Main dashboard with quick launch, announcements, and file management
  */
 export default function DashboardPage() {
   const { user } = useAuth();
-  const [stats, setStats] = useState({
-    totalRuns: 0,
-    totalEvents: 0,
-    activeUsers: 0,
-    systemLoad: 0,
+  const { t } = useLanguage();
+  const router = useRouter();
+  const [retentionDays, setRetentionDays] = useState({
+    data: 7,
+    excel: 30,
   });
 
-  // Simulate loading stats
+  // 설정에서 보관 기간 가져오기
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setStats({
-        totalRuns: 247,
-        totalEvents: 1_234_567,
-        activeUsers: 12,
-        systemLoad: 34,
-      });
-    }, 500);
-    return () => clearTimeout(timer);
+    fetch('http://localhost:3001/api/settings')
+      .then((res) => res.json())
+      .then((settings) => {
+        setRetentionDays({
+          data: parseInt(settings.DATA_RETENTION_DAYS || '7'),
+          excel: parseInt(settings.EXCEL_RETENTION_DAYS || '30'),
+        });
+      })
+      .catch((error) => console.error('Failed to fetch settings:', error));
   }, []);
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-      },
-    },
-  };
-
-  const itemVariants = {
-    hidden: { opacity: 0, y: 20 },
-    visible: { opacity: 1, y: 0 },
-  };
 
   return (
     <div className="space-y-6">
@@ -57,165 +44,139 @@ export default function DashboardPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-terminal-cyan mb-2">
-              <TypingAnimation
-                text={`Welcome back, ${user?.username || 'User'}`}
-                speed={50}
-                showCursor={false}
-              />
+              {t.dashboard.welcomeBack}, {user?.username || 'User'}
             </h1>
             <p className="text-[var(--text-secondary)] text-sm">
-              ThinkingEngine Data Generator Platform • Terminal Interface v1.0
+              {t.dashboard.platformVersion}
             </p>
           </div>
           <div className="text-right text-xs text-[var(--text-dimmed)]">
-            <div>Role: <span className="text-terminal-green">{user?.role?.toUpperCase()}</span></div>
-            <div>Session: <span className="text-terminal-cyan">Active</span></div>
+            <div>{t.dashboard.role}: <span className="text-terminal-green">{user?.role?.toUpperCase()}</span></div>
+            <div>{t.dashboard.session}: <span className="text-terminal-cyan">{t.dashboard.active}</span></div>
           </div>
         </div>
       </motion.div>
 
-      {/* System Stats */}
+      {/* Announcements */}
       <motion.div
-        variants={containerVariants}
-        initial="hidden"
-        animate="visible"
-        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.2 }}
+        className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6"
       >
-        {/* Total Runs */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 hover:border-[var(--accent-cyan)] transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-2xl">⚡</span>
-            <span className="text-xs text-[var(--text-dimmed)]">RUNS</span>
+        <h2 className="text-lg font-bold text-terminal-green mb-4 flex items-center gap-2">
+          <span>📢</span> {t.dashboard.announcements}
+        </h2>
+        <div className="space-y-3">
+          <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs px-2 py-1 bg-[var(--accent-cyan)] text-[var(--bg-primary)] rounded font-bold">
+                {t.dashboard.newBadge}
+              </span>
+              <span className="text-xs text-[var(--text-dimmed)]">{t.dashboard.announcement1Date}</span>
+            </div>
+            <div className="text-sm text-[var(--text-primary)] mb-1 font-semibold">
+              {t.dashboard.announcement1Title}
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">
+              {t.dashboard.announcement1Desc}
+            </div>
           </div>
-          <div className="text-3xl font-bold text-terminal-cyan mb-1">
-            {stats.totalRuns.toLocaleString()}
-          </div>
-          <div className="text-xs text-[var(--text-secondary)]">Total Executions</div>
-        </motion.div>
 
-        {/* Total Events */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 hover:border-[var(--accent-green)] transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-2xl">📊</span>
-            <span className="text-xs text-[var(--text-dimmed)]">EVENTS</span>
+          <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs px-2 py-1 bg-[var(--accent-yellow)] text-[var(--bg-primary)] rounded font-bold">
+                {t.dashboard.tipBadge}
+              </span>
+              <span className="text-xs text-[var(--text-dimmed)]">{t.dashboard.tipLabel}</span>
+            </div>
+            <div className="text-sm text-[var(--text-primary)] mb-1 font-semibold">
+              {t.dashboard.tipTitle}
+            </div>
+            <div className="text-xs text-[var(--text-secondary)]">
+              {t.dashboard.tipDesc}
+            </div>
           </div>
-          <div className="text-3xl font-bold text-terminal-green mb-1">
-            {stats.totalEvents.toLocaleString()}
-          </div>
-          <div className="text-xs text-[var(--text-secondary)]">Events Generated</div>
-        </motion.div>
-
-        {/* Active Users */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 hover:border-[var(--accent-magenta)] transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-2xl">👥</span>
-            <span className="text-xs text-[var(--text-dimmed)]">USERS</span>
-          </div>
-          <div className="text-3xl font-bold text-terminal-magenta mb-1">
-            {stats.activeUsers}
-          </div>
-          <div className="text-xs text-[var(--text-secondary)]">Active Sessions</div>
-        </motion.div>
-
-        {/* System Load */}
-        <motion.div
-          variants={itemVariants}
-          className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 hover:border-[var(--accent-yellow)] transition-all"
-        >
-          <div className="flex items-center justify-between mb-4">
-            <span className="text-2xl">⚙</span>
-            <span className="text-xs text-[var(--text-dimmed)]">LOAD</span>
-          </div>
-          <div className="text-3xl font-bold text-[var(--accent-yellow)] mb-1">
-            {stats.systemLoad}%
-          </div>
-          <div className="text-xs text-[var(--text-secondary)]">System Resources</div>
-        </motion.div>
+        </div>
       </motion.div>
 
-      {/* Quick Actions */}
+      {/* Quick Launch & External Links */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.3 }}
+        className="grid grid-cols-1 md:grid-cols-2 gap-6"
+      >
+        {/* Quick Launch */}
+        <div className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6">
+          <h2 className="text-lg font-bold text-terminal-cyan mb-4 flex items-center gap-2">
+            <span>⚡</span> {t.dashboard.quickLaunch}
+          </h2>
+          <button
+            onClick={() => router.push('/dashboard/generator')}
+            className="w-full px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:terminal-glow transition-all text-left"
+          >
+            <div className="text-2xl mb-2">⚡</div>
+            <div className="text-sm font-semibold text-[var(--text-primary)]">
+              {t.dashboard.dataGeneratorTitle}
+            </div>
+            <div className="text-xs text-[var(--text-dimmed)] mt-1">
+              {t.dashboard.dataGeneratorDesc}
+            </div>
+          </button>
+        </div>
+
+        {/* External Links */}
+        <div className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6">
+          <h2 className="text-lg font-bold text-terminal-cyan mb-4 flex items-center gap-2">
+            <span>🔗</span> {t.dashboard.externalLinks}
+          </h2>
+          <div className="space-y-3">
+            <a
+              href="https://www.thinkingdata.kr"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:terminal-glow transition-all"
+            >
+              <div className="text-2xl mb-2">🏢</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+                {t.dashboard.officialWebsite}
+              </div>
+              <div className="text-xs text-[var(--text-dimmed)] mt-1">
+                ThinkingData Korea
+              </div>
+            </a>
+            <a
+              href="https://te-web-naver.thinkingdata.kr/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:terminal-glow transition-all"
+            >
+              <div className="text-2xl mb-2">🚀</div>
+              <div className="text-sm font-semibold text-[var(--text-primary)]">
+                {t.dashboard.thinkingEngine}
+              </div>
+              <div className="text-xs text-[var(--text-dimmed)] mt-1">
+                Thinking Engine Platform
+              </div>
+            </a>
+            <div className="px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded opacity-50">
+              <div className="text-2xl mb-2">📋</div>
+              <div className="text-sm font-semibold text-[var(--text-dimmed)]">
+                {t.dashboard.comingSoon}
+              </div>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* File Management */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.4 }}
-        className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6"
       >
-        <h2 className="text-lg font-bold text-terminal-cyan mb-4 flex items-center gap-2">
-          <span>⚡</span> Quick Actions
-        </h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:terminal-glow transition-all text-left">
-            <div className="text-xl mb-2">🚀</div>
-            <div className="text-sm font-semibold text-[var(--text-primary)]">
-              New Data Generation
-            </div>
-            <div className="text-xs text-[var(--text-dimmed)] mt-1">
-              Start a new run
-            </div>
-          </button>
-
-          <button className="px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-green)] hover:terminal-glow-green transition-all text-left">
-            <div className="text-xl mb-2">📁</div>
-            <div className="text-sm font-semibold text-[var(--text-primary)]">
-              Upload Excel
-            </div>
-            <div className="text-xs text-[var(--text-dimmed)] mt-1">
-              Import schema file
-            </div>
-          </button>
-
-          <button className="px-6 py-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded hover:border-[var(--accent-magenta)] hover:terminal-glow-magenta transition-all text-left">
-            <div className="text-xl mb-2">📜</div>
-            <div className="text-sm font-semibold text-[var(--text-primary)]">
-              View History
-            </div>
-            <div className="text-xs text-[var(--text-dimmed)] mt-1">
-              Recent executions
-            </div>
-          </button>
-        </div>
-      </motion.div>
-
-      {/* System Logs (Terminal Output) */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.6 }}
-        className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6"
-      >
-        <h2 className="text-lg font-bold text-terminal-green mb-4 flex items-center gap-2">
-          <span>&gt;_</span> System Logs
-        </h2>
-        <div className="bg-[var(--bg-primary)] rounded p-4 font-mono text-xs space-y-1 max-h-64 overflow-auto terminal-scrollbar">
-          <div className="text-terminal-cyan">
-            [INFO] System initialized successfully
-          </div>
-          <div className="text-terminal-green">
-            [OK] Database connection established
-          </div>
-          <div className="text-terminal-cyan">
-            [INFO] User {user?.username} authenticated (role: {user?.role})
-          </div>
-          <div className="text-terminal-green">
-            [OK] Dashboard loaded
-          </div>
-          <div className="text-[var(--text-dimmed)]">
-            [DEBUG] Awaiting user input...
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="text-terminal-green">&gt;</span>
-            <span className="w-2 h-4 bg-[var(--accent-cyan)] cursor-blink" />
-          </div>
-        </div>
+        <FileManager retentionDays={retentionDays} />
       </motion.div>
     </div>
   );

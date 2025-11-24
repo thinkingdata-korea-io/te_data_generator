@@ -1,78 +1,88 @@
-# apiVersion: apps/v1
-# kind: Deployment
-# metadata:
-#   name: te-data-generator-backend
-#   namespace: korea
-#   labels:
-#     app: te-data-generator
-#     component: backend
-#     owner/name: korea
-#     owner/purpose: develop
-#   annotations:
-#     description: "This deployment is used for korea team"
-# spec:
-#   replicas: 1
-#   selector:
-#     matchLabels:
-#       app: te-data-generator
-#       component: backend
-#   template:
-#     metadata:
-#       labels:
-#         app: te-data-generator
-#         component: backend
-#     spec:
-#       containers:
-#       - name: backend
-#         image: data-generator:latest
-#         imagePullPolicy: Never
-#         ports:
-#         - containerPort: 3001
-#           name: http
-#         env:
-#         - name: NODE_ENV
-#           value: "production"
-#         - name: PORT
-#           value: "3001"
-#         - name: ANTHROPIC_API_KEY
-#           valueFrom:
-#             secretKeyRef:
-#               name: te-data-generator-secrets
-#               key: anthropic-api-key
-#         - name: OPENAI_API_KEY
-#           valueFrom:
-#             secretKeyRef:
-#               name: te-data-generator-secrets
-#               key: openai-api-key
-#               optional: true
-#         - name: TE_RECEIVER_URL
-#           valueFrom:
-#             configMapKeyRef:
-#               name: te-data-generator-config
-#               key: te-receiver-url
-#         - name: TE_APP_ID
-#           valueFrom:
-#             configMapKeyRef:
-#               name: te-data-generator-config
-#               key: te-app-id
-#         resources:
-#           requests:
-#             memory: "512Mi"
-#             cpu: "500m"
-#           limits:
-#             memory: "2Gi"
-#             cpu: "2000m"
-#         volumeMounts:
-#         - name: data
-#           mountPath: /app/output
-#         - name: logbus
-#           mountPath: /app/../logbus 2
-#       volumes:
-#       - name: data
-#         emptyDir: {}
-#       - name: logbus
-#         emptyDir: {}
-# ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: te-data-generator-backend
+  namespace: korea
+  labels:
+    app: te-data-generator
+    component: backend
+    owner/name: korea
+    owner/purpose: develop
+  annotations:
+    description: "This deployment is used for korea team"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: te-data-generator
+      component: backend
+  template:
+    metadata:
+      labels:
+        app: te-data-generator
+        component: backend
+    spec:
+      containers:
+      - name: backend
+        image: docker-ta-inner.thinkingdata.cn/korea/data-generator-backend:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 3001
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: API_PORT
+          value: "3001"
+        - name: DATABASE_URL
+          valueFrom:
+            secretKeyRef:
+              name: te-data-generator-secrets
+              key: database-url
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: te-data-generator-secrets
+              key: jwt-secret
+        - name: ANTHROPIC_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: te-data-generator-secrets
+              key: anthropic-api-key
+        - name: OPENAI_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: te-data-generator-secrets
+              key: openai-api-key
+              optional: true
+        - name: TE_RECEIVER_URL
+          valueFrom:
+            configMapKeyRef:
+              name: te-data-generator-config
+              key: te-receiver-url
+        - name: TE_APP_ID
+          valueFrom:
+            configMapKeyRef:
+              name: te-data-generator-config
+              key: te-app-id
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "500m"
+          limits:
+            memory: "2Gi"
+            cpu: "2000m"
+        volumeMounts:
+        - name: data
+          mountPath: /app/output
+        - name: logbus
+          mountPath: /app/../logbus 2
+      volumes:
+      - name: data
+        emptyDir: {}
+      - name: logbus
+        emptyDir: {}
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

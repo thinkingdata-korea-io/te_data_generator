@@ -1,4 +1,4 @@
-import { EventDefinition, ParsedSchema, AIAnalysisResult } from '../types';
+import { EventDefinition, ParsedSchema, AIAnalysisResult, Transaction } from '../types';
 
 /**
  * 이벤트 의존성 관리자
@@ -13,6 +13,10 @@ export class DependencyManager {
   private sessionEventCounts: Map<string, number> = new Map();
   private userEventCounts: Map<string, number> = new Map();
 
+  // 🆕 트랜잭션 상태 추적
+  private activeTransactions: Set<string> = new Set();  // 현재 활성화된 트랜잭션 이름들
+  private completedTransactions: Set<string> = new Set();  // 완료된 트랜잭션 이름들
+
   constructor(schema: ParsedSchema, aiAnalysis: AIAnalysisResult) {
     this.schema = schema;
     this.aiAnalysis = aiAnalysis;
@@ -24,6 +28,9 @@ export class DependencyManager {
    */
   resetSessionCounts(): void {
     this.sessionEventCounts.clear();
+    // 트랜잭션 상태도 리셋
+    this.activeTransactions.clear();
+    this.completedTransactions.clear();
   }
 
   /**
@@ -37,6 +44,31 @@ export class DependencyManager {
     // 유저 카운트
     const userCount = this.userEventCounts.get(eventName) || 0;
     this.userEventCounts.set(eventName, userCount + 1);
+
+    // 🆕 트랜잭션 상태 업데이트
+    this.updateTransactionState(eventName);
+  }
+
+  /**
+   * 🆕 트랜잭션 상태 업데이트
+   */
+  private updateTransactionState(eventName: string): void {
+    const sequencing = this.aiAnalysis.eventSequencing;
+    if (!sequencing || !sequencing.transactions) return;
+
+    for (const transaction of sequencing.transactions) {
+      // 트랜잭션 시작 이벤트
+      if (transaction.startEvents.includes(eventName)) {
+        this.activeTransactions.add(transaction.name);
+        this.completedTransactions.delete(transaction.name);
+      }
+
+      // 트랜잭션 종료 이벤트
+      if (transaction.endEvents.includes(eventName)) {
+        this.activeTransactions.delete(transaction.name);
+        this.completedTransactions.add(transaction.name);
+      }
+    }
   }
 
   /**
@@ -80,11 +112,17 @@ export class DependencyManager {
     isFirstSession: boolean = false,
     sessionNumber: number = 1
   ): boolean {
+    // 🆕 0. 트랜잭션 차단 체크 (최우선!)
+    if (!this.canExecuteInTransaction(eventName)) {
+      return false;
+    }
+
     // 1. 기존 의존성 체크
     const dependencies = this.dependencyGraph.get(eventName);
     if (dependencies && dependencies.size > 0) {
-      for (const dep of dependencies) {
-        if (!executedEvents.has(dep)) {
+      const depsArray = Array.from(dependencies);
+      for (let i = 0; i < depsArray.length; i++) {
+        if (!executedEvents.has(depsArray[i])) {
           return false;
         }
       }
@@ -128,6 +166,38 @@ export class DependencyManager {
               return false;
             }
           }
+        }
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * 🆕 트랜잭션 내에서 이벤트 실행 가능 여부 확인
+   * 핵심: 트랜잭션 종료 후 내부 이벤트 차단!
+   */
+  private canExecuteInTransaction(eventName: string): boolean {
+    const sequencing = this.aiAnalysis.eventSequencing;
+    if (!sequencing || !sequencing.transactions) return true;
+
+    for (const transaction of sequencing.transactions) {
+      // 이 이벤트가 트랜잭션 내부 이벤트인가?
+      if (transaction.innerEvents.includes(eventName)) {
+        // 트랜잭션이 완료되었는가?
+        if (this.completedTransactions.has(transaction.name)) {
+          // allowInnerAfterEnd가 false면 차단!
+          if (!transaction.allowInnerAfterEnd) {
+            console.log(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" already completed`);
+            return false;
+          }
+        }
+
+        // 트랜잭션이 시작되지 않았는가?
+        if (!this.activeTransactions.has(transaction.name) && !this.completedTransactions.has(transaction.name)) {
+          // 내부 이벤트는 트랜잭션 시작 전에는 발생 불가
+          console.log(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" not started`);
+          return false;
         }
       }
     }

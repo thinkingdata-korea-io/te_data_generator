@@ -9,7 +9,7 @@ const languages: { code: Language; label: string; flag: string }[] = [
   { code: 'zh', label: '中文', flag: 'ZH' },
 ];
 
-export default function LanguageSwitcher() {
+function LanguageSwitcher() {
   const { language, setLanguage } = useLanguage();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -85,3 +85,6 @@ export default function LanguageSwitcher() {
     </div>
   );
 }
+
+export { LanguageSwitcher };
+export default LanguageSwitcher;

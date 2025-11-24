@@ -3,8 +3,10 @@
 import { useState, FormEvent, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { TypingAnimation } from '@/components/effects/TypingAnimation';
 import { TerminalPrompt } from '@/components/effects/TerminalPrompt';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 import { motion } from 'framer-motion';
 
 /**
@@ -14,6 +16,7 @@ import { motion } from 'framer-motion';
 export default function LoginPage() {
   const router = useRouter();
   const { login, isAuthenticated } = useAuth();
+  const { t } = useLanguage();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [isAuthenticating, setIsAuthenticating] = useState(false);
@@ -32,12 +35,12 @@ export default function LoginPage() {
     e.preventDefault();
 
     if (!username.trim()) {
-      setError('Username required');
+      setError(t.login.usernameRequired);
       return;
     }
 
     if (!password.trim()) {
-      setError('Password required');
+      setError(t.login.passwordRequired);
       return;
     }
 
@@ -49,7 +52,7 @@ export default function LoginPage() {
       await login(username, password);
       router.push('/dashboard');
     } catch (err) {
-      setError('Authentication failed. Access denied.');
+      setError(t.login.authFailed);
       setIsAuthenticating(false);
       setStage('init');
       // Clear password on error
@@ -59,6 +62,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[var(--bg-primary)] scan-lines crt-screen relative overflow-hidden">
+      {/* Language Switcher - Top Right */}
+      <div className="absolute top-4 right-4 z-50">
+        <LanguageSwitcher />
+      </div>
+
       {/* Background Grid Effect */}
       <div className="absolute inset-0 opacity-10">
         <div className="grid grid-cols-12 gap-4 h-full">
@@ -143,7 +151,7 @@ export default function LoginPage() {
                 </div>
                 <div className="text-[var(--text-secondary)] mt-4">
                   <TypingAnimation
-                    text="System initialized. Authentication required."
+                    text={t.login.systemInit}
                     speed={30}
                     showCursor={false}
                   />
@@ -156,7 +164,7 @@ export default function LoginPage() {
                 {/* Username Input */}
                 <div>
                   <TerminalPrompt user="guest" path="/auth" className="mb-2">
-                    <span className="text-[var(--text-primary)]">Enter username</span>
+                    <span className="text-[var(--text-primary)]">{t.login.enterUsername}</span>
                   </TerminalPrompt>
                   <div className="flex items-center gap-2 ml-4">
                     <span className="text-terminal-green">&gt;</span>
@@ -166,7 +174,7 @@ export default function LoginPage() {
                       onChange={(e) => setUsername(e.target.value)}
                       disabled={isAuthenticating}
                       className="flex-1 bg-transparent border-none outline-none text-[var(--text-primary)] font-mono placeholder:text-[var(--text-dimmed)] disabled:opacity-50"
-                      placeholder="username"
+                      placeholder={t.auth.username}
                       autoFocus
                     />
                     {!password && !isAuthenticating && (
@@ -183,7 +191,7 @@ export default function LoginPage() {
                     transition={{ duration: 0.3 }}
                   >
                     <TerminalPrompt user={username} path="/auth" className="mb-2">
-                      <span className="text-[var(--text-primary)]">Enter password</span>
+                      <span className="text-[var(--text-primary)]">{t.login.enterPassword}</span>
                     </TerminalPrompt>
                     <div className="flex items-center gap-2 ml-4">
                       <span className="text-terminal-green">&gt;</span>
@@ -211,21 +219,21 @@ export default function LoginPage() {
                   >
                     <div className="text-[var(--accent-cyan)]">
                       <TypingAnimation
-                        text="[INFO] Authenticating user..."
+                        text={t.login.authenticating}
                         speed={30}
                         showCursor={false}
                       />
                     </div>
                     <div className="text-[var(--accent-cyan)]">
                       <TypingAnimation
-                        text="[INFO] Validating credentials..."
+                        text={t.login.validating}
                         speed={30}
                         showCursor={false}
                       />
                     </div>
                     <div className="text-terminal-green">
                       <TypingAnimation
-                        text="[OK] Access granted. Redirecting..."
+                        text={t.login.accessGranted}
                         speed={30}
                         showCursor={false}
                       />
@@ -251,7 +259,7 @@ export default function LoginPage() {
                     animate={{ opacity: 1 }}
                     className="text-[var(--text-dimmed)] text-xs"
                   >
-                    Press <kbd className="px-2 py-1 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded">Enter</kbd> to authenticate
+                    {t.login.pressEnter} <kbd className="px-2 py-1 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded">Enter</kbd> {t.login.toAuthenticate}
                   </motion.div>
                 )}
 
@@ -270,8 +278,8 @@ export default function LoginPage() {
           transition={{ delay: 1.5 }}
           className="mt-4 text-center text-xs text-[var(--text-dimmed)]"
         >
-          <div>ThinkingEngine Platform v1.0.0</div>
-          <div>Secure Terminal Access Protocol (STAP)</div>
+          <div>{t.login.platformVersion}</div>
+          <div>{t.login.secureProtocol}</div>
         </motion.div>
       </motion.div>
     </div>

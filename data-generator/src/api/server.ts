@@ -19,6 +19,10 @@ import { requireAuth, requireAdmin } from './middleware';
 import { auditMiddleware } from './audit-middleware';
 import { initializeDatabase, testConnection } from '../db/connection';
 import { getAuditLogs } from '../db/repositories/audit-repository';
+import { getUserSettings, updateUserSettings } from '../db/repositories/user-settings-repository';
+import { updateUser as updateUserRepo } from '../db/repositories/user-repository';
+import filesRouter from './routes/files';
+import excelRouter from './routes/excel';
 
 // 환경변수 로드
 dotenv.config();
@@ -34,6 +38,10 @@ const REFERENCE_DOCS_DIR = path.resolve(__dirname, '../../../reference-docs');
 // 미들웨어
 app.use(cors());
 app.use(express.json());
+
+// 라우터 등록
+app.use('/api', filesRouter);
+app.use('/api', excelRouter);
 
 // Multer 설정 (파일 업로드)
 const uploadDir = path.resolve(__dirname, '../../../uploads');
@@ -140,11 +148,19 @@ app.post('/api/excel/generate', async (req: Request, res: Response) => {
       dau,
       dateStart,
       dateEnd,
-      eventCount
+      eventCount,
+      fileAnalysisContext
     } = req.body;
 
     if (!scenario || !industry || !notes) {
       return res.status(400).json({ error: 'scenario, industry, and notes are required' });
+    }
+
+    // 파일 분석 컨텍스트를 notes에 추가
+    let enhancedNotes = notes;
+    if (fileAnalysisContext) {
+      enhancedNotes = `${notes}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
+      console.log('📎 파일 분석 컨텍스트가 추가되었습니다.');
     }
 
     const generator = new ExcelSchemaGenerator({
@@ -159,7 +175,7 @@ app.post('/api/excel/generate', async (req: Request, res: Response) => {
     const result = await generator.generate({
       scenario,
       industry,
-      notes
+      notes: enhancedNotes
     });
 
     // Parse generated Excel to get preview data
@@ -273,10 +289,10 @@ app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/excel/download/:filename
- * 생성된 Excel 파일 다운로드
+ * DELETE /api/excel/:filename
+ * Excel 파일 삭제
  */
-app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
+app.delete('/api/excel/:filename', (req: Request, res: Response) => {
   try {
     const { filename } = req.params;
     if (!filename) {
@@ -290,9 +306,133 @@ app.get('/api/excel/download/:filename', (req: Request, res: Response) => {
       return res.status(404).json({ error: 'File not found' });
     }
 
-    res.download(filePath, safeFilename);
+    fs.unlinkSync(filePath);
+    console.log(`🗑️  Excel file deleted: ${safeFilename}`);
+
+    res.json({ success: true, message: 'File deleted successfully' });
   } catch (error: any) {
-    console.error('Error downloading Excel:', error);
+    console.error('Error deleting Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/excel/:filename/retention
+ * Excel 파일 보관 기간 연장 (파일의 수정 시간을 현재 시간으로 업데이트)
+ */
+app.put('/api/excel/:filename/retention', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const { days } = req.body; // 연장할 일수 (7, 30, -1=무제한)
+
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    const safeFilename = path.basename(filename);
+    const filePath = path.join(EXCEL_OUTPUT_DIR, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // 파일의 수정 시간을 현재 시간으로 업데이트
+    const now = new Date();
+    fs.utimesSync(filePath, now, now);
+
+    console.log(`⏱️  Excel file retention extended: ${safeFilename} (+${days} days)`);
+
+    res.json({
+      success: true,
+      message: `Retention extended by ${days === -1 ? 'unlimited' : days + ' days'}`,
+      newModifiedTime: now.toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error extending Excel retention:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/generate/analysis-excel
+ * AI 분석 결과를 Excel로 생성 (사용자 검토용)
+ */
+app.post('/api/generate/analysis-excel', async (req: Request, res: Response) => {
+  try {
+    const { runId } = req.body;
+
+    if (!runId) {
+      return res.status(400).json({ error: 'runId is required' });
+    }
+
+    // progressMap에서 AI 분석 결과 가져오기
+    const progress = progressMap.get(runId);
+    if (!progress || !progress.aiAnalysis) {
+      return res.status(404).json({ error: 'AI analysis result not found for this runId' });
+    }
+
+    // AnalysisExcelGenerator import
+    const { AnalysisExcelGenerator } = await import('../utils/analysis-excel-generator');
+
+    // AI 분석 결과 Excel 생성
+    const outputDir = path.resolve(__dirname, '../../../output/analysis-excel');
+    if (!fs.existsSync(outputDir)) {
+      fs.mkdirSync(outputDir, { recursive: true });
+    }
+
+    const excelPath = await AnalysisExcelGenerator.generateAnalysisExcel(
+      progress.aiAnalysis,
+      outputDir,
+      {
+        industry: progress.industry,
+        scenario: progress.scenario,
+        originalExcelFile: progress.excelFile
+      }
+    );
+
+    const fileName = path.basename(excelPath);
+
+    res.json({
+      success: true,
+      file: {
+        path: excelPath,
+        name: fileName,
+        downloadUrl: `/api/generate/analysis-excel/download/${encodeURIComponent(fileName)}`
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error generating analysis Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/generate/analysis-excel/download/:filename
+ * AI 분석 결과 Excel 다운로드
+ */
+app.get('/api/generate/analysis-excel/download/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const safeFilename = path.basename(filename);
+    const outputDir = path.resolve(__dirname, '../../../output/analysis-excel');
+    const filePath = path.join(outputDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.download(filePath, safeFilename, (err) => {
+      if (err) {
+        console.error('Download error:', err);
+        if (!res.headersSent) {
+          res.status(500).json({ error: 'Download failed' });
+        }
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error downloading analysis Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -313,7 +453,8 @@ app.post('/api/generate/start', async (req: Request, res: Response) => {
       dateEnd,
       aiProvider,
       outputDataPath,
-      outputMetadataPath
+      outputMetadataPath,
+      fileAnalysisContext
     } = req.body;
 
     // 필수 파라미터 검증
@@ -324,12 +465,19 @@ app.post('/api/generate/start', async (req: Request, res: Response) => {
       });
     }
 
+    // 파일 분석 컨텍스트를 notes에 추가
+    let enhancedNotes = notes || '';
+    if (fileAnalysisContext) {
+      enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
+      console.log('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
+    }
+
     // AI API Key 확인
-    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY;
+    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
     if (!aiApiKey) {
       return res.status(500).json({
         error: 'AI API key not configured',
-        message: 'Set ANTHROPIC_API_KEY or OPENAI_API_KEY in environment'
+        message: 'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY in environment'
       });
     }
 
@@ -343,14 +491,17 @@ app.post('/api/generate/start', async (req: Request, res: Response) => {
         scenario,
         dau: parseInt(dau),
         industry,
-        notes: notes || '',
+        notes: enhancedNotes,
         dateRange: {
           start: dateStart,
           end: dateEnd
         }
       },
-      aiProvider: (aiProvider || 'anthropic') as 'openai' | 'anthropic',
+      aiProvider: (aiProvider || 'anthropic') as 'openai' | 'anthropic' | 'gemini',
       aiApiKey,
+      aiModel: process.env.DATA_AI_MODEL || undefined,
+      validationModelTier: (process.env.VALIDATION_MODEL_TIER as 'fast' | 'balanced') || 'fast',
+      customValidationModel: process.env.CUSTOM_VALIDATION_MODEL || undefined,
       outputDataPath: outputDataPath || path.resolve(__dirname, '../../../output/data'),
       outputMetadataPath: outputMetadataPath || path.resolve(__dirname, '../../../output/runs')
     };
@@ -451,21 +602,116 @@ app.get('/api/runs/:runId', (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/settings
- * 현재 설정 조회
+ * DELETE /api/runs/:runId
+ * 데이터 파일 삭제 (data + metadata)
  */
-app.get('/api/settings', (req: Request, res: Response) => {
+app.delete('/api/runs/:runId', (req: Request, res: Response) => {
   try {
+    const { runId } = req.params;
+    const dataPath = path.resolve(__dirname, `../../../output/data/${runId}`);
+    const metadataPath = path.resolve(__dirname, `../../../output/runs/${runId}`);
+
+    let deletedData = false;
+    let deletedMetadata = false;
+
+    // 데이터 디렉토리 삭제
+    if (fs.existsSync(dataPath)) {
+      fs.rmSync(dataPath, { recursive: true, force: true });
+      deletedData = true;
+      console.log(`🗑️  Data directory deleted: ${runId}`);
+    }
+
+    // 메타데이터 디렉토리 삭제
+    if (fs.existsSync(metadataPath)) {
+      fs.rmSync(metadataPath, { recursive: true, force: true });
+      deletedMetadata = true;
+      console.log(`🗑️  Metadata directory deleted: ${runId}`);
+    }
+
+    if (!deletedData && !deletedMetadata) {
+      return res.status(404).json({ error: 'Run not found' });
+    }
+
+    res.json({
+      success: true,
+      message: 'Run deleted successfully',
+      deletedData,
+      deletedMetadata
+    });
+  } catch (error: any) {
+    console.error('Error deleting run:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/runs/:runId/retention
+ * 데이터 파일 보관 기간 연장
+ */
+app.put('/api/runs/:runId/retention', (req: Request, res: Response) => {
+  try {
+    const { runId } = req.params;
+    const { days } = req.body;
+    const dataPath = path.resolve(__dirname, `../../../output/data/${runId}`);
+    const metadataPath = path.resolve(__dirname, `../../../output/runs/${runId}`);
+
+    if (!fs.existsSync(dataPath) && !fs.existsSync(metadataPath)) {
+      return res.status(404).json({ error: 'Run not found' });
+    }
+
+    const now = new Date();
+
+    // 데이터 디렉토리 수정 시간 업데이트
+    if (fs.existsSync(dataPath)) {
+      fs.utimesSync(dataPath, now, now);
+    }
+
+    // 메타데이터 디렉토리 수정 시간 업데이트
+    if (fs.existsSync(metadataPath)) {
+      fs.utimesSync(metadataPath, now, now);
+    }
+
+    console.log(`⏱️  Run retention extended: ${runId} (+${days} days)`);
+
+    res.json({
+      success: true,
+      message: `Retention extended by ${days === -1 ? 'unlimited' : days + ' days'}`,
+      newModifiedTime: now.toISOString()
+    });
+  } catch (error: any) {
+    console.error('Error extending run retention:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/settings
+ * 현재 사용자의 설정 조회
+ */
+app.get('/api/settings', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const userSettings = await getUserSettings(userId);
+
+    if (!userSettings) {
+      return res.status(404).json({ error: 'Settings not found' });
+    }
+
+    // Frontend에서 기대하는 형식으로 변환
     const settings = {
-      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
-      OPENAI_API_KEY: process.env.OPENAI_API_KEY || '',
-      EXCEL_AI_PROVIDER: process.env.EXCEL_AI_PROVIDER || 'anthropic',
-      DATA_AI_PROVIDER: process.env.DATA_AI_PROVIDER || 'anthropic',
-      TE_APP_ID: process.env.TE_APP_ID || '',
-      TE_RECEIVER_URL: process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/',
-      DATA_RETENTION_DAYS: process.env.DATA_RETENTION_DAYS || '7',
-      EXCEL_RETENTION_DAYS: process.env.EXCEL_RETENTION_DAYS || '30',
-      AUTO_DELETE_AFTER_SEND: process.env.AUTO_DELETE_AFTER_SEND || 'false',
+      ANTHROPIC_API_KEY: userSettings.anthropicApiKey || '',
+      OPENAI_API_KEY: userSettings.openaiApiKey || '',
+      GEMINI_API_KEY: userSettings.geminiApiKey || '',
+      EXCEL_AI_PROVIDER: userSettings.excelAiProvider,
+      DATA_AI_PROVIDER: userSettings.dataAiProvider,
+      DATA_AI_MODEL: userSettings.dataAiModel || '',
+      VALIDATION_MODEL_TIER: userSettings.validationModelTier,
+      CUSTOM_VALIDATION_MODEL: userSettings.customValidationModel || '',
+      TE_APP_ID: userSettings.teAppId || '',
+      TE_RECEIVER_URL: userSettings.teReceiverUrl,
+      DATA_RETENTION_DAYS: userSettings.dataRetentionDays.toString(),
+      EXCEL_RETENTION_DAYS: userSettings.excelRetentionDays.toString(),
+      AUTO_DELETE_AFTER_SEND: userSettings.autoDeleteAfterSend.toString(),
     };
 
     res.json(settings);
@@ -477,15 +723,20 @@ app.get('/api/settings', (req: Request, res: Response) => {
 
 /**
  * POST /api/settings
- * 설정 저장 (.env 파일 업데이트)
+ * 사용자 설정 저장 (데이터베이스에 저장)
  */
-app.post('/api/settings', (req: Request, res: Response) => {
+app.post('/api/settings', requireAuth, async (req: Request, res: Response) => {
   try {
+    const userId = (req as any).user.userId;
     const {
       ANTHROPIC_API_KEY,
       OPENAI_API_KEY,
+      GEMINI_API_KEY,
       EXCEL_AI_PROVIDER,
       DATA_AI_PROVIDER,
+      DATA_AI_MODEL,
+      VALIDATION_MODEL_TIER,
+      CUSTOM_VALIDATION_MODEL,
       TE_APP_ID,
       TE_RECEIVER_URL,
       DATA_RETENTION_DAYS,
@@ -493,63 +744,25 @@ app.post('/api/settings', (req: Request, res: Response) => {
       AUTO_DELETE_AFTER_SEND
     } = req.body;
 
-    const envPath = path.resolve(__dirname, '../../../.env');
-    let envContent = '';
+    // Database 형식으로 변환
+    const settingsData: any = {};
 
-    // 기존 .env 파일 읽기
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, 'utf-8');
-    }
+    if (ANTHROPIC_API_KEY !== undefined) settingsData.anthropicApiKey = ANTHROPIC_API_KEY;
+    if (OPENAI_API_KEY !== undefined) settingsData.openaiApiKey = OPENAI_API_KEY;
+    if (GEMINI_API_KEY !== undefined) settingsData.geminiApiKey = GEMINI_API_KEY;
+    if (EXCEL_AI_PROVIDER !== undefined) settingsData.excelAiProvider = EXCEL_AI_PROVIDER;
+    if (DATA_AI_PROVIDER !== undefined) settingsData.dataAiProvider = DATA_AI_PROVIDER;
+    if (DATA_AI_MODEL !== undefined) settingsData.dataAiModel = DATA_AI_MODEL;
+    if (VALIDATION_MODEL_TIER !== undefined) settingsData.validationModelTier = VALIDATION_MODEL_TIER;
+    if (CUSTOM_VALIDATION_MODEL !== undefined) settingsData.customValidationModel = CUSTOM_VALIDATION_MODEL;
+    if (TE_APP_ID !== undefined) settingsData.teAppId = TE_APP_ID;
+    if (TE_RECEIVER_URL !== undefined) settingsData.teReceiverUrl = TE_RECEIVER_URL;
+    if (DATA_RETENTION_DAYS !== undefined) settingsData.dataRetentionDays = parseInt(DATA_RETENTION_DAYS, 10);
+    if (EXCEL_RETENTION_DAYS !== undefined) settingsData.excelRetentionDays = parseInt(EXCEL_RETENTION_DAYS, 10);
+    if (AUTO_DELETE_AFTER_SEND !== undefined) settingsData.autoDeleteAfterSend = AUTO_DELETE_AFTER_SEND === 'true';
 
-    // 설정 업데이트
-    const updateEnvVar = (key: string, value: string) => {
-      const regex = new RegExp(`^${key}=.*$`, 'm');
-      if (regex.test(envContent)) {
-        envContent = envContent.replace(regex, `${key}=${value}`);
-      } else {
-        envContent += `\n${key}=${value}`;
-      }
-    };
-
-    if (ANTHROPIC_API_KEY !== undefined) {
-      updateEnvVar('ANTHROPIC_API_KEY', ANTHROPIC_API_KEY);
-      process.env.ANTHROPIC_API_KEY = ANTHROPIC_API_KEY;
-    }
-    if (OPENAI_API_KEY !== undefined) {
-      updateEnvVar('OPENAI_API_KEY', OPENAI_API_KEY);
-      process.env.OPENAI_API_KEY = OPENAI_API_KEY;
-    }
-    if (EXCEL_AI_PROVIDER !== undefined) {
-      updateEnvVar('EXCEL_AI_PROVIDER', EXCEL_AI_PROVIDER);
-      process.env.EXCEL_AI_PROVIDER = EXCEL_AI_PROVIDER;
-    }
-    if (DATA_AI_PROVIDER !== undefined) {
-      updateEnvVar('DATA_AI_PROVIDER', DATA_AI_PROVIDER);
-      process.env.DATA_AI_PROVIDER = DATA_AI_PROVIDER;
-    }
-    if (TE_APP_ID !== undefined) {
-      updateEnvVar('TE_APP_ID', TE_APP_ID);
-      process.env.TE_APP_ID = TE_APP_ID;
-    }
-    if (TE_RECEIVER_URL !== undefined) {
-      updateEnvVar('TE_RECEIVER_URL', TE_RECEIVER_URL);
-      process.env.TE_RECEIVER_URL = TE_RECEIVER_URL;
-    }
-    if (DATA_RETENTION_DAYS !== undefined) {
-      updateEnvVar('DATA_RETENTION_DAYS', DATA_RETENTION_DAYS);
-      process.env.DATA_RETENTION_DAYS = DATA_RETENTION_DAYS;
-    }
-    if (EXCEL_RETENTION_DAYS !== undefined) {
-      updateEnvVar('EXCEL_RETENTION_DAYS', EXCEL_RETENTION_DAYS);
-      process.env.EXCEL_RETENTION_DAYS = EXCEL_RETENTION_DAYS;
-    }
-    if (AUTO_DELETE_AFTER_SEND !== undefined) {
-      updateEnvVar('AUTO_DELETE_AFTER_SEND', AUTO_DELETE_AFTER_SEND);
-      process.env.AUTO_DELETE_AFTER_SEND = AUTO_DELETE_AFTER_SEND;
-    }
-
-    // .env 파일 저장
-    fs.writeFileSync(envPath, envContent.trim() + '\n');
+    // 데이터베이스에 저장
+    await updateUserSettings(userId, settingsData);
 
     res.json({ success: true, message: 'Settings saved successfully' });
   } catch (error: any) {
@@ -633,6 +846,10 @@ async function generateDataAsync(runId: string, config: DataGeneratorConfig) {
         totalDays: result.totalDays,
         filesGenerated: result.filesGenerated.map(f => path.basename(f))
       },
+      aiAnalysis: result.aiAnalysis,  // 🆕 AI 분석 결과 포함
+      industry: config.userInput.industry,
+      scenario: config.userInput.scenario,
+      excelFile: path.basename(config.excelFilePath),
       completedAt: new Date().toISOString()
     });
 
@@ -1083,20 +1300,49 @@ app.delete('/api/users/:id', requireAdmin, (req: Request, res: Response) => {
 });
 
 /**
+ * PUT /api/users/profile
+ * Update current user's profile (authenticated users)
+ */
+app.put('/api/users/profile', requireAuth, async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user.userId;
+    const { email, fullName, profileImage } = req.body;
+
+    const updates: any = {};
+    if (email !== undefined) updates.email = email;
+    if (fullName !== undefined) updates.fullName = fullName;
+    if (profileImage !== undefined) updates.profileImage = profileImage;
+
+    const updatedUser = await updateUserRepo(userId, updates);
+    if (!updatedUser) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    res.json({ user: updatedUser });
+  } catch (error: any) {
+    console.error('Update profile error:', error);
+    res.status(400).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/audit-logs
  * Get audit logs (Admin only)
  */
 app.get('/api/audit-logs', requireAdmin, auditMiddleware.viewAuditLogs, async (req: Request, res: Response) => {
   try {
-    const { user_id, action, start_date, end_date, page = 1, limit = 50 } = req.query;
+    const { user_id, username, action, start_date, end_date, page = 1, limit = 50, sort_by, sort_order } = req.query;
 
     const result = await getAuditLogs({
       userId: user_id ? parseInt(user_id as string) : undefined,
+      username: username as string | undefined,
       action: action as string | undefined,
       startDate: start_date as string | undefined,
       endDate: end_date as string | undefined,
       page: page ? parseInt(page as string) : 1,
       limit: limit ? parseInt(limit as string) : 50,
+      sortBy: sort_by as string | undefined,
+      sortOrder: sort_order as 'asc' | 'desc' | undefined,
     });
 
     res.json(result);

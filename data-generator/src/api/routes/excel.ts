@@ -101,8 +101,95 @@ router.post('/excel/parse', async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /api/excel/generate-stream (SSE)
+ * 사용자 입력 기반으로 Excel 텍소노미 생성 (실시간 진행 상황 스트리밍)
+ */
+router.post('/excel/generate-stream', async (req: Request, res: Response) => {
+  const {
+    scenario,
+    industry,
+    notes,
+  } = req.body;
+
+  if (!scenario || !industry || !notes) {
+    return res.status(400).json({ error: 'scenario, industry, and notes are required' });
+  }
+
+  // Set up SSE
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
+  const sendProgress = (data: any) => {
+    res.write(`data: ${JSON.stringify(data)}\n\n`);
+  };
+
+  try {
+    const generator = new ExcelSchemaGenerator({
+      outputDir: EXCEL_OUTPUT_DIR,
+      preferredProvider: (process.env.EXCEL_AI_PROVIDER as 'anthropic' | 'openai') || 'anthropic',
+      anthropicKey: process.env.ANTHROPIC_API_KEY,
+      openaiKey: process.env.OPENAI_API_KEY,
+      anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL,
+      openaiModel: process.env.EXCEL_OPENAI_MODEL,
+      onProgress: (progress) => {
+        sendProgress({
+          type: 'progress',
+          stage: progress.stage,
+          progress: progress.progress,
+          message: progress.message,
+          detail: progress.detail
+        });
+      }
+    });
+
+    const result = await generator.generate({
+      scenario,
+      industry,
+      notes
+    });
+
+    // Parse generated Excel to get preview data
+    const parser = new ExcelParser();
+    const schema = await parser.parseExcelFile(result.filePath);
+
+    const eventProperties = schema.properties.filter(p => p.event_name);
+    const commonProperties = schema.properties.filter(p => !p.event_name);
+
+    // Send final result
+    sendProgress({
+      type: 'complete',
+      success: true,
+      file: {
+        name: result.fileName,
+        path: result.filePath
+      },
+      preview: {
+        events: schema.events.length,
+        eventProperties: eventProperties.length,
+        commonProperties: commonProperties.length,
+        userData: schema.userData.length,
+        eventNames: schema.events.slice(0, 10).map(e => e.event_name),
+        generatedAt: new Date().toISOString(),
+        provider: process.env.EXCEL_AI_PROVIDER || 'anthropic'
+      }
+    });
+
+    res.end();
+  } catch (error: any) {
+    console.error('Error generating Excel schema:', error);
+    sendProgress({
+      type: 'error',
+      error: error.message || 'Failed to generate Excel schema'
+    });
+    res.end();
+  }
+});
+
+/**
  * POST /api/excel/generate
- * 사용자 입력 기반으로 Excel 텍소노미 생성
+ * 사용자 입력 기반으로 Excel 텍소노미 생성 (기존 non-SSE 버전, 호환성 유지)
  */
 router.post('/excel/generate', async (req: Request, res: Response) => {
   try {

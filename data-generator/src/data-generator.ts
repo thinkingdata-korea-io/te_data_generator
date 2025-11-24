@@ -42,9 +42,11 @@ export interface DataGeneratorConfig {
   userInput: UserInput;
 
   // AI 설정
-  aiProvider: 'openai' | 'anthropic';
+  aiProvider: 'openai' | 'anthropic' | 'gemini';
   aiApiKey: string;
   aiModel?: string;
+  validationModelTier?: 'fast' | 'balanced';  // 검증 모델 등급 (기본: fast)
+  customValidationModel?: string;  // 사용자 지정 검증 모델 (선택사항)
 
   // LogBus2 설정
   logbus?: {
@@ -72,6 +74,7 @@ export interface GenerationResult {
   totalDays: number;
   filesGenerated: string[];
   metadata: any;
+  aiAnalysis?: AIAnalysisResult;  // 🆕 AI 분석 결과 포함
 }
 
 /**
@@ -124,14 +127,17 @@ export class DataGenerator {
     });
     console.log('\n🤖 Step 2: AI analysis...');
 
+    // ValidationSummary 저장용
+    let validationSummaries: any = {};
+
     // AI 분석 전에 어떤 모드인지 알림
     if (schema.events.length > 15) {
-      aiDetails.push('📊 Multi-Phase Analysis 모드 (정확도 향상)');
-      aiDetails.push('Phase 1: 전략 분석 및 이벤트 그룹핑');
+      aiDetails.push('📊 Multi-Phase Analysis 모드 활성화 (정확도 향상)');
+      aiDetails.push('⚡ Phase 1: 사용자 세그먼트 & 이벤트 구조 분석');
       this.config.onProgress?.({
         status: 'analyzing',
         progress: 27,
-        message: 'Phase 1: 전략 분석 중...',
+        message: 'AI 다단계 분석 시작 (Phase 1/3)',
         step: '2/5',
         details: aiDetails
       });
@@ -258,7 +264,8 @@ export class DataGenerator {
       totalEvents,
       totalDays: cohorts.size,
       filesGenerated,
-      metadata
+      metadata,
+      aiAnalysis  // 🆕 AI 분석 결과 포함
     };
 
     this.config.onProgress?.({
@@ -286,10 +293,34 @@ export class DataGenerator {
    * AI 분석
    */
   private async analyzeWithAI(schema: ParsedSchema): Promise<AIAnalysisResult> {
+    // AI 진행 상황을 누적하기 위한 배열
+    const progressDetails: string[] = [];
+
     const aiClient = new AIClient({
       provider: this.config.aiProvider,
       apiKey: this.config.aiApiKey,
-      model: this.config.aiModel
+      model: this.config.aiModel,
+      validationModelTier: this.config.validationModelTier || 'fast',
+      customValidationModel: this.config.customValidationModel,
+      onProgress: (aiProgress) => {
+        // AI의 detail을 progressDetails 배열에 누적
+        if (aiProgress.detail) {
+          progressDetails.push(aiProgress.detail);
+          // 최근 30개만 유지 (너무 길어지지 않도록)
+          if (progressDetails.length > 30) {
+            progressDetails.shift();
+          }
+        }
+
+        // Convert AI progress to data generator progress
+        this.config.onProgress?.({
+          status: 'analyzing',
+          progress: aiProgress.progress,
+          message: aiProgress.message,
+          step: '2/5',
+          details: [...progressDetails]  // 누적된 details 전달
+        });
+      }
     });
 
     // 다단계 분석 사용 (이벤트가 많을 때 정확도 향상)

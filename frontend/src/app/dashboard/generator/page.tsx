@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import FileUploadZone, { UploadedFileInfo } from '@/components/FileUploadZone';
 
 // API URL 설정
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -22,8 +23,12 @@ type ProcessStep =
 interface Settings {
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
+  GEMINI_API_KEY: string;
   EXCEL_AI_PROVIDER: string;
   DATA_AI_PROVIDER: string;
+  DATA_AI_MODEL: string;  // Custom data generation model (optional)
+  VALIDATION_MODEL_TIER: string;  // 'fast' or 'balanced'
+  CUSTOM_VALIDATION_MODEL: string;  // Custom validation model (optional)
   TE_APP_ID: string;
   TE_RECEIVER_URL: string;
   DATA_RETENTION_DAYS: string;
@@ -67,12 +72,18 @@ export default function Home() {
     OPENAI_API_KEY: '',
     EXCEL_AI_PROVIDER: 'anthropic',
     DATA_AI_PROVIDER: 'anthropic',
+    DATA_AI_MODEL: '',
+    VALIDATION_MODEL_TIER: 'fast',
+    CUSTOM_VALIDATION_MODEL: '',
     TE_APP_ID: '',
     TE_RECEIVER_URL: 'https://te-receiver-naver.thinkingdata.kr/',
     DATA_RETENTION_DAYS: '7',
     EXCEL_RETENTION_DAYS: '30',
     AUTO_DELETE_AFTER_SEND: 'false',
   });
+  const [uploadedFiles, setUploadedFiles] = useState<UploadedFileInfo[]>([]);
+  const [fileAnalysisResult, setFileAnalysisResult] = useState<any>(null);
+  const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
   // 설정 로드
   useEffect(() => {
@@ -113,6 +124,44 @@ export default function Home() {
   }, [runId, currentStep]);
 
   // 서비스 정보 검증 (Excel 생성용)
+  // 파일 업로드 및 AI 분석 처리
+  const handleFilesSelected = async (files: UploadedFileInfo[]) => {
+    setUploadedFiles(files);
+
+    if (files.length === 0) {
+      setFileAnalysisResult(null);
+      return;
+    }
+
+    // 파일 업로드 및 AI 분석
+    setIsUploadingFiles(true);
+    try {
+      const uploadFormData = new FormData();
+      files.forEach(fileInfo => {
+        uploadFormData.append('files', fileInfo.file);
+      });
+
+      const response = await fetch(`${API_URL}/api/files/analyze-multi`, {
+        method: 'POST',
+        body: uploadFormData,
+      });
+
+      if (!response.ok) {
+        throw new Error('파일 업로드 실패');
+      }
+
+      const result = await response.json();
+      setFileAnalysisResult(result.analysis);
+
+      console.log('📊 파일 분석 완료:', result);
+    } catch (error) {
+      console.error('파일 업로드 오류:', error);
+      alert('파일 업로드 중 오류가 발생했습니다.');
+    } finally {
+      setIsUploadingFiles(false);
+    }
+  };
+
   const validateServiceInfo = () => {
     if (!formData.scenario.trim()) {
       alert('시나리오 설명을 입력해주세요');
@@ -158,44 +207,84 @@ export default function Home() {
     setCurrentStep('generating-excel');
     setGeneratedExcelPath('');
     setExcelPreview(null);
-    setProgress({ status: 'generating-excel', progress: 5, message: 'Claude AI에게 Excel 스키마 생성 요청 준비 중...' });
+    setProgress({
+      status: 'generating-excel',
+      progress: 5,
+      message: 'Excel 스키마 생성 시작...',
+      details: ['🤖 AI 엔진 초기화 중...']
+    });
 
     try {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setProgress({ status: 'generating-excel', progress: 15, message: '산업 분야 및 서비스 특징 분석 중...' });
-
-      await new Promise(resolve => setTimeout(resolve, 1200));
-      setProgress({ status: 'generating-excel', progress: 30, message: '사용자 행동 패턴 모델링 중...' });
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress({ status: 'generating-excel', progress: 45, message: '이벤트 구조 및 계층 설계 중...' });
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress({ status: 'generating-excel', progress: 60, message: '속성 및 데이터 타입 정의 중...' });
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProgress({ status: 'generating-excel', progress: 75, message: '퍼널 및 이벤트 흐름 구성 중...' });
-
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setProgress({ status: 'generating-excel', progress: 85, message: 'Excel 파일 생성 중...' });
-
-      const response = await fetch(`${API_URL}/api/excel/generate`, {
+      // Use SSE endpoint for real-time progress
+      const response = await fetch(`${API_URL}/api/excel/generate-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           scenario: formData.scenario,
           industry: formData.industry,
           notes: formData.notes,
-          dau: formData.dau ? Number(formData.dau) : undefined,
-          dateStart: formData.dateStart,
-          dateEnd: formData.dateEnd,
         })
       });
-      const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Excel 생성에 실패했습니다');
+        throw new Error('Excel 생성 요청 실패');
       }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('Stream reader not available');
+      }
+
+      let finalResult: any = null;
+      const progressDetails: string[] = [];
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'progress') {
+                // Add detail to progress log
+                if (data.detail) {
+                  progressDetails.push(data.detail);
+                  // Keep only last 50 details for performance
+                  if (progressDetails.length > 50) {
+                    progressDetails.shift();
+                  }
+                }
+
+                setProgress({
+                  status: 'generating-excel',
+                  progress: data.progress,
+                  message: data.message,
+                  details: [...progressDetails]
+                });
+              } else if (data.type === 'complete') {
+                finalResult = data;
+              } else if (data.type === 'error') {
+                throw new Error(data.error);
+              }
+            } catch (e) {
+              console.warn('Failed to parse SSE data:', e);
+            }
+          }
+        }
+      }
+
+      if (!finalResult) {
+        throw new Error('Excel 생성 완료 데이터를 받지 못했습니다');
+      }
+
+      const data = finalResult;
 
       if (!data.file?.path) {
         throw new Error('생성된 Excel 파일 경로를 찾을 수 없습니다');
@@ -211,12 +300,6 @@ export default function Home() {
         generatedAt: data.preview?.generatedAt,
         provider: data.preview?.provider
       });
-
-      setProgress({ status: 'generating-excel', progress: 95, message: 'Excel 스키마 검증 중...' });
-      await new Promise(resolve => setTimeout(resolve, 500));
-
-      setProgress({ status: 'generating-excel', progress: 100, message: '✅ Excel 스키마 생성 완료!' });
-      await new Promise(resolve => setTimeout(resolve, 800));
 
       setCurrentStep('excel-completed');
 
@@ -248,6 +331,7 @@ export default function Home() {
           dateStart: formData.dateStart,
           dateEnd: formData.dateEnd,
           aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
+          fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
         }),
       });
 
@@ -338,7 +422,8 @@ export default function Home() {
       notes: formData.notes,
       dateStart: formData.dateStart,
       dateEnd: formData.dateEnd,
-      aiProvider: settings.DATA_AI_PROVIDER || 'anthropic'
+      aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
+      fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
     };
 
     try {
@@ -387,7 +472,7 @@ export default function Home() {
             &gt; ThinkingEngine
           </h1>
           <p className="text-[var(--text-secondary)] font-mono text-sm">
-            AI 기반 이벤트 데이터 생성 플랫폼
+            {t.dashboard.dataGeneratorDesc}
           </p>
         </div>
 
@@ -396,11 +481,11 @@ export default function Home() {
           <div className="mb-8">
             <div className="flex items-center justify-between">
               {[
-                { key: 'input', label: startMode === 'new' ? '정보 입력' : '엑셀 업로드', icon: startMode === 'new' ? '✎' : '⇪' },
-                { key: 'excel', label: startMode === 'new' ? 'Excel 생성' : '설정 입력', icon: startMode === 'new' ? '▦' : '⚙' },
-                { key: 'data', label: '데이터 생성', icon: '⚡' },
-                { key: 'send', label: '데이터 전송', icon: '⇈' },
-                { key: 'complete', label: '완료', icon: '✓' }
+                { key: 'input', label: startMode === 'new' ? t.generator.stepInput : t.generator.stepUpload, icon: startMode === 'new' ? '✎' : '⇪' },
+                { key: 'excel', label: startMode === 'new' ? t.generator.stepExcel : t.generator.stepSettings, icon: startMode === 'new' ? '▦' : '⚙' },
+                { key: 'data', label: t.generator.stepData, icon: '⚡' },
+                { key: 'send', label: t.generator.stepSend, icon: '⇈' },
+                { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
               ].map((step, index) => {
                 const isActive =
                   (step.key === 'input' && (currentStep === 'input' || currentStep === 'upload-excel')) ||
@@ -500,49 +585,76 @@ export default function Home() {
         {currentStep === 'input' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 mb-6 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span>▦</span> 서비스 정보 입력
+              <span>▦</span> {t.generator.serviceInfo}
             </h2>
 
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                  시나리오 설명 <span className="text-[var(--error-red)]">*</span>
+                  {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
                 </label>
                 <textarea
                   value={formData.scenario}
                   onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
                   className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
                   rows={4}
-                  placeholder="예: D1 리텐션이 40%로 낮은 상황입니다. 튜토리얼 이탈률이 높고, 초반 보상이 부족하여 사용자들이 첫날 이후 재방문하지 않는 패턴을 만들고 싶습니다."
+                  placeholder={t.generator.scenarioPlaceholder}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    산업 분야 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.industry}
                     onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
-                    placeholder="예: 게임, 커머스, 금융, 미디어..."
+                    placeholder={t.generator.industryPlaceholder}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    서비스 특징 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.notes} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
-                    placeholder="예: 실시간 PVP 매칭, 가챠 시스템, 길드 레이드 등의 기능 보유"
+                    placeholder={t.generator.notesPlaceholder}
                   />
                 </div>
               </div>
+            </div>
+
+            {/* 파일 업로드 섹션 */}
+            <div className="mt-8 pt-6 border-t border-[var(--border)]">
+              <FileUploadZone
+                onFilesSelected={handleFilesSelected}
+                maxFiles={5}
+                maxFileSize={10}
+                maxTotalSize={50}
+                disabled={isUploadingFiles}
+              />
+
+              {/* File upload status */}
+              {isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-cyan)]/10 border border-[var(--accent-cyan)] rounded">
+                  <p className="text-[var(--accent-cyan)] font-mono text-sm">🤖 {t.generator.analyzingFiles}</p>
+                </div>
+              )}
+
+              {fileAnalysisResult && uploadedFiles.length > 0 && !isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-green)]/10 border border-[var(--accent-green)] rounded">
+                  <h3 className="text-[var(--accent-green)] font-semibold mb-2 font-mono">✅ {t.generator.fileAnalysisComplete}</h3>
+                  <p className="text-sm text-[var(--text-secondary)] font-mono">
+                    {uploadedFiles.length}{t.generator.filesUploadedMessage}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-8">
@@ -550,13 +662,14 @@ export default function Home() {
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] hover:text-[var(--text-primary)] transition-all"
               >
-                &lt; 홈으로
+                &lt; {t.generator.home}
               </button>
               <button
                 onClick={handleStartExcelGeneration}
-                className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan"
+                disabled={isUploadingFiles}
+                className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                &gt; 생성 시작
+                &gt; {t.generator.generateStart}
               </button>
             </div>
           </div>
@@ -566,11 +679,23 @@ export default function Home() {
         {currentStep === 'generating-excel' && progress && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span className="animate-pulse">▣</span> Excel 스키마 생성 중
+              <span className="animate-pulse">▣</span> {t.generator.generatingExcelSchema}
             </h2>
+
+            {/* Current Stage Badge */}
+            <div className="mb-4">
+              <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono">
+                {progress.progress < 30 ? '🔹 Stage 1: 이벤트 구조 분석' :
+                 progress.progress < 70 ? '🔹 Stage 2: 속성 범위 생성' :
+                 progress.progress < 90 ? '🔹 Stage 3: 유저 데이터 생성' :
+                 '📝 Excel 파일 작성'}
+              </span>
+            </div>
+
+            {/* Progress Bar */}
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">진행률</span>
+                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">{t.generator.progress}</span>
                 <span className="text-sm font-bold text-[var(--accent-cyan)] font-mono">{progress.progress}%</span>
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
@@ -582,9 +707,30 @@ export default function Home() {
                 </div>
               </div>
             </div>
-            <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)]">
+
+            {/* Current Message */}
+            <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
               <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
             </div>
+
+            {/* Detailed Progress Log */}
+            {progress.details && progress.details.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">실시간 진행 상황</h3>
+                <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-64 overflow-y-auto terminal-scrollbar">
+                  <div className="space-y-1">
+                    {progress.details.map((detail: string, idx: number) => (
+                      <div key={idx} className="text-xs font-mono text-[var(--text-secondary)]">
+                        {detail}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                  {progress.details.length}개 작업 진행 중 (자동 업데이트)
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -592,48 +738,48 @@ export default function Home() {
         {currentStep === 'excel-completed' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> Excel 스키마 생성 완료
+              <span>✓</span> {t.generator.excelSchemaComplete}
             </h2>
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <p className="text-[var(--accent-green)] mb-4 font-mono">Excel 스키마가 성공적으로 생성되었습니다!</p>
-              <p className="text-sm text-[var(--text-secondary)] font-mono">이제 데이터 생성 설정을 입력해주세요.</p>
+              <p className="text-[var(--accent-green)] mb-4 font-mono">{t.generator.excelSchemaSuccess}</p>
+              <p className="text-sm text-[var(--text-secondary)] font-mono">{t.generator.enterDataSettings}</p>
             </div>
 
             {excelPreview && (
               <div className="mb-6 space-y-4">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">이벤트 수</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventCount}</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">이벤트 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventProperties}</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">공통 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.commonProperties}</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties ?? 0}</p>
                   </div>
                   <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">유저 속성</p>
+                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.userData}</p>
                     <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData ?? 0}</p>
                   </div>
                 </div>
                 {excelPreview.provider && (
                   <p className="text-xs text-[var(--text-dimmed)] font-mono">
-                    생성 방식: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
+                    {t.generator.generationMethod}: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
                   </p>
                 )}
               </div>
             )}
 
             <div className="space-y-6 mb-6">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] font-mono">&gt; 데이터 생성 설정</h3>
+              <h3 className="text-lg font-bold text-[var(--text-primary)] font-mono">&gt; {t.generator.generationConfig}</h3>
 
               <div className="grid grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    DAU <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.dau} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="number"
@@ -641,12 +787,12 @@ export default function Home() {
                     onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
                     min="1"
-                    placeholder="5000"
+                    placeholder={t.generator.dauPlaceholder}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    시작 날짜 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.startDate} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="date"
@@ -657,7 +803,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    종료 날짜 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.endDate} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="date"
@@ -681,13 +827,13 @@ export default function Home() {
                 }}
                 className="py-4 rounded text-[var(--accent-green)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 transition-all"
               >
-                ⇓ Excel 다운로드
+                ⇓ {t.generator.downloadExcel}
               </button>
               <button
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 홈으로
+                &lt; {t.generator.home}
               </button>
             </div>
 
@@ -695,7 +841,7 @@ export default function Home() {
               onClick={handleStartDataGeneration}
               className="w-full mt-4 py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
             >
-              &gt; 데이터 생성 시작
+              &gt; {t.generator.dataGenerationStart}
             </button>
           </div>
         )}
@@ -704,7 +850,7 @@ export default function Home() {
         {currentStep === 'upload-excel' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span>⇪</span> 엑셀 파일 업로드
+              <span>⇪</span> {t.generator.uploadExcelTitle}
             </h2>
 
             <div
@@ -722,17 +868,17 @@ export default function Home() {
                 if (file && (file.name.endsWith('.xlsx') || file.name.endsWith('.xls'))) {
                   handleFileUpload(file);
                 } else {
-                  setUploadError('엑셀 파일(.xlsx, .xls)만 업로드 가능합니다.');
+                  setUploadError(t.generator.supportedFormats);
                 }
               }}
               className="border-2 border-dashed border-[var(--border)] rounded p-12 text-center transition-all cursor-pointer hover:border-[var(--accent-cyan)] hover:bg-[var(--bg-tertiary)]"
             >
               <div className="text-6xl mb-4 text-[var(--accent-cyan)]">⇪</div>
               <p className="text-lg font-semibold text-[var(--text-primary)] mb-2 font-mono">
-                엑셀 파일을 드래그 앤 드롭하거나
+                {t.generator.dragDrop}
               </p>
               <label className="inline-block mt-4 px-6 py-3 bg-[var(--accent-cyan)] text-[var(--bg-primary)] font-semibold rounded cursor-pointer hover:bg-[var(--accent-cyan)]/80 transition-all font-mono">
-                파일 선택
+                {t.generator.selectFile}
                 <input
                   type="file"
                   accept=".xlsx,.xls"
@@ -744,7 +890,7 @@ export default function Home() {
                 />
               </label>
               <p className="text-sm text-[var(--text-dimmed)] mt-4 font-mono">
-                .xlsx 또는 .xls 파일만 업로드 가능합니다
+                {t.generator.supportedFormats}
               </p>
             </div>
 
@@ -762,7 +908,7 @@ export default function Home() {
               }}
               className="w-full mt-6 py-3 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
             >
-              &lt; 이전으로
+              &lt; {t.generator.previous}
             </button>
           </div>
         )}
@@ -771,26 +917,26 @@ export default function Home() {
         {currentStep === 'upload-completed' && excelPreview && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> 엑셀 업로드 완료
+              <span>✓</span> {t.generator.uploadComplete}
             </h2>
 
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">파일 정보</h3>
+              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">{t.generator.fileInfo}</h3>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">이벤트 수</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.eventCount}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events || 0}</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">이벤트 속성</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.eventProperties}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties || 0}</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">공통 속성</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.commonProperties}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties || 0}</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">유저 속성</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.userData}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData || 0}</p>
                 </div>
               </div>
@@ -801,13 +947,13 @@ export default function Home() {
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 홈으로
+                &lt; {t.generator.home}
               </button>
               <button
                 onClick={() => setCurrentStep('combined-config')}
                 className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
               >
-                다음: 서비스 정보 입력 &gt;
+                {t.generator.nextServiceInfo} &gt;
               </button>
             </div>
           </div>
@@ -817,46 +963,46 @@ export default function Home() {
         {currentStep === 'combined-config' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 mb-6 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span>▦</span> 서비스 정보 및 데이터 생성 설정
+              <span>▦</span> {t.generator.serviceInfoAndSettings}
             </h2>
 
             <div className="space-y-6">
               <div>
                 <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                  시나리오 설명 <span className="text-[var(--error-red)]">*</span>
+                  {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
                 </label>
                 <textarea
                   value={formData.scenario}
                   onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
                   className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
                   rows={4}
-                  placeholder="예: D1 리텐션이 40%로 낮은 상황입니다. 튜토리얼 이탈률이 높고, 초반 보상이 부족하여 사용자들이 첫날 이후 재방문하지 않는 패턴을 만들고 싶습니다."
+                  placeholder={t.generator.scenarioPlaceholder}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    산업 분야 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.industry}
                     onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
-                    placeholder="예: 게임, 커머스, 금융, 미디어..."
+                    placeholder={t.generator.industryPlaceholder}
                   />
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    서비스 특징 <span className="text-[var(--error-red)]">*</span>
+                    {t.generator.notes} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
                     type="text"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
-                    placeholder="예: 실시간 PVP 매칭, 가챠 시스템, 길드 레이드 등의 기능 보유"
+                    placeholder={t.generator.notesPlaceholder}
                   />
                 </div>
               </div>
@@ -864,7 +1010,7 @@ export default function Home() {
               <div className="grid grid-cols-3 gap-6">
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    DAU
+                    {t.generator.dau}
                   </label>
                   <input
                     type="number"
@@ -876,7 +1022,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    시작 날짜
+                    {t.generator.startDate}
                   </label>
                   <input
                     type="date"
@@ -887,7 +1033,7 @@ export default function Home() {
                 </div>
                 <div>
                   <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    종료 날짜
+                    {t.generator.endDate}
                   </label>
                   <input
                     type="date"
@@ -899,11 +1045,31 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-[var(--accent-green)]/10 border-l-4 border-[var(--accent-green)] rounded">
-              <h3 className="font-semibold text-[var(--accent-green)] mb-2 font-mono">업로드된 엑셀 정보</h3>
-              <p className="text-sm text-[var(--text-secondary)] font-mono">
-                업로드된 엑셀 파일을 기반으로 데이터를 생성합니다.
-              </p>
+            {/* 파일 업로드 섹션 */}
+            <div className="mt-8 pt-6 border-t border-[var(--border)]">
+              <FileUploadZone
+                onFilesSelected={handleFilesSelected}
+                maxFiles={5}
+                maxFileSize={10}
+                maxTotalSize={50}
+                disabled={isUploadingFiles}
+              />
+
+              {/* File upload status */}
+              {isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-cyan)]/10 border border-[var(--accent-cyan)] rounded">
+                  <p className="text-[var(--accent-cyan)] font-mono text-sm">🤖 {t.generator.analyzingFiles}</p>
+                </div>
+              )}
+
+              {fileAnalysisResult && uploadedFiles.length > 0 && !isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-green)]/10 border border-[var(--accent-green)] rounded">
+                  <h3 className="text-[var(--accent-green)] font-semibold mb-2 font-mono">✅ {t.generator.fileAnalysisComplete}</h3>
+                  <p className="text-sm text-[var(--text-secondary)] font-mono">
+                    {uploadedFiles.length}{t.generator.filesUploadedMessage}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="grid grid-cols-2 gap-4 mt-8">
@@ -911,13 +1077,14 @@ export default function Home() {
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 홈으로
+                &lt; {t.generator.home}
               </button>
               <button
                 onClick={handleCombinedConfigGenerate}
-                className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan"
+                disabled={isUploadingFiles}
+                className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                &gt; 생성 시작
+                &gt; {t.generator.generateStart}
               </button>
             </div>
           </div>
@@ -927,16 +1094,28 @@ export default function Home() {
         {currentStep === 'generating-data' && progress && progress.status !== 'error' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span className="animate-pulse">⚡</span> 데이터 생성 중
+              <span className="animate-pulse">⚡</span> {t.generator.generatingData}
             </h2>
-            <div className="mb-6">
-              <span className={`inline-block px-4 py-2 rounded text-sm font-semibold mb-4 bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono`}>
-                {progress.status === 'analyzing' ? '⚡ AI 분석 중' :
-                 progress.status === 'parsing' ? '▦ Excel 파싱 중' :
-                 progress.step || '⋯ 처리 중'}
+
+            {/* Current Phase Badge */}
+            <div className="mb-4">
+              <span className={`inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono`}>
+                {progress.status === 'parsing' ? '▦ 1/5: Excel 파싱' :
+                 progress.status === 'analyzing' && progress.progress < 35 ? '🤖 2/5: AI 전략 분석 (Phase 1)' :
+                 progress.status === 'analyzing' && progress.progress < 55 ? '📈 2/5: AI 리텐션/시퀀싱 분석' :
+                 progress.status === 'analyzing' && progress.progress < 80 ? '🎯 2/5: AI 이벤트 그룹 분석 (Phase 2)' :
+                 progress.status === 'analyzing' ? '⚡ 2/5: AI 분석 완료' :
+                 progress.status === 'generating' && progress.progress < 55 ? '👥 3/5: 사용자 코호트 생성' :
+                 progress.status === 'generating' ? '📊 4/5: 이벤트 데이터 생성' :
+                 progress.status === 'saving' ? '💾 5/5: 메타데이터 저장' :
+                 progress.step || `⋯ ${t.generator.processing}`}
               </span>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">진행률</span>
+                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">{t.generator.progress}</span>
                 <span className="text-sm font-bold text-[var(--accent-cyan)] font-mono">{progress.progress}%</span>
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
@@ -948,6 +1127,8 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            {/* Current Message */}
             <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
               <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
             </div>
@@ -955,7 +1136,7 @@ export default function Home() {
             {/* AI 분석 상세 로그 */}
             {progress.details && progress.details.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">상세 진행 정보</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">{t.generator.detailedProgress}</h3>
                 <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
                   <div className="space-y-0.5">
                     {progress.details.map((detail: string, idx: number) => (
@@ -976,7 +1157,7 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
-                  {progress.details.length}개 항목 (자동 업데이트)
+                  {progress.details.length}{t.generator.autoUpdate}
                 </p>
               </div>
             )}
@@ -987,15 +1168,15 @@ export default function Home() {
         {currentStep === 'generating-data' && progress && progress.status === 'error' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--error-red)] rounded p-8">
             <h2 className="text-2xl font-bold mb-6 text-[var(--error-red)] font-mono flex items-center gap-2">
-              <span>✗</span> 데이터 생성 오류
+              <span>✗</span> {t.generator.errorTitle}
             </h2>
             <div className="p-6 bg-[var(--error-red)]/10 rounded border border-[var(--error-red)] mb-6">
-              <p className="text-[var(--error-red)] font-semibold mb-2 font-mono">ERROR: 오류가 발생했습니다</p>
+              <p className="text-[var(--error-red)] font-semibold mb-2 font-mono">{t.generator.errorOccurred}</p>
               <p className="text-[var(--text-primary)] mb-4 font-mono">{progress.message}</p>
               {progress.error && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium font-mono">
-                    상세 오류 정보 보기
+                    {t.generator.detailedErrorInfo}
                   </summary>
                   <div className="mt-3 p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
                     <pre className="text-xs text-[var(--accent-green)] font-mono overflow-x-auto whitespace-pre-wrap terminal-scrollbar">{progress.error}</pre>
@@ -1012,13 +1193,13 @@ export default function Home() {
                 }}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 이전 단계로
+                &lt; {t.generator.retryPrevious}
               </button>
               <button
                 onClick={handleStartDataGeneration}
                 className="py-4 rounded text-[var(--bg-primary)] font-mono font-semibold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all"
               >
-                ↻ 다시 시도
+                ↻ {t.generator.retry}
               </button>
             </div>
           </div>
@@ -1028,56 +1209,91 @@ export default function Home() {
         {currentStep === 'data-completed' && progress && progress.result && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> 데이터 생성 완료
+              <span>✓</span> {t.generator.dataGenerationComplete}
             </h2>
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
               <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono flex items-center gap-2">
-                <span>✓</span> 데이터 생성 완료!
+                <span>✓</span> {t.generator.generationComplete}
               </h3>
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">// 총 이벤트</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalEvents}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalEvents?.toLocaleString()}</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">// 총 사용자</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalUsers}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalUsers?.toLocaleString()}</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">// 총 일수</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalDays}</p>
                   <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalDays}일</p>
                 </div>
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">// Run ID</p>
+                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.runId}</p>
                   <p className="text-xs font-mono text-[var(--accent-cyan)]">{progress.result.runId}</p>
                 </div>
               </div>
-              <p className="text-sm text-[var(--text-secondary)] mb-4 font-mono">// ThinkingEngine으로 데이터를 전송하세요.</p>
+              <p className="text-sm text-[var(--text-secondary)] mb-4 font-mono">{t.generator.sendDataToTE}</p>
               <div className="space-y-2">
-                <label className="text-sm font-semibold text-[var(--text-primary)] font-mono">ThinkingEngine APP_ID</label>
+                <label className="text-sm font-semibold text-[var(--text-primary)] font-mono">{t.generator.appId}</label>
                 <input
                   type="text"
                   value={sendAppId}
                   onChange={(e) => setSendAppId(e.target.value)}
-                  placeholder="예: df6fff48a373418ca2da97d104df2188"
+                  placeholder={t.generator.appIdPlaceholder}
                   className="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
                 />
-                <p className="text-xs text-[var(--text-dimmed)] font-mono">// 전송할 프로젝트의 APP_ID를 입력하세요</p>
+                <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.appIdDesc}</p>
               </div>
             </div>
+
+            {/* 🆕 AI 분석 결과 다운로드 버튼 */}
+            <div className="mb-6 p-4 bg-[var(--accent-cyan)]/10 rounded border border-[var(--accent-cyan)]">
+              <h3 className="text-[var(--accent-cyan)] font-semibold mb-2 font-mono flex items-center gap-2">
+                <span>📊</span> AI 분석 결과
+              </h3>
+              <p className="text-sm text-[var(--text-secondary)] mb-3 font-mono">
+                AI가 생성한 사용자 세그먼트, 이벤트 순서 규칙, 트랜잭션 정의를 Excel로 다운로드하여 검토할 수 있습니다.
+              </p>
+              <button
+                onClick={async () => {
+                  try {
+                    const response = await fetch(`${API_URL}/api/generate/analysis-excel`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ runId })
+                    });
+
+                    if (!response.ok) {
+                      throw new Error('AI 분석 결과 생성 실패');
+                    }
+
+                    const data = await response.json();
+                    window.open(`${API_URL}${data.file.downloadUrl}`, '_blank');
+                  } catch (error) {
+                    console.error('Error:', error);
+                    alert('AI 분석 결과 다운로드 실패');
+                  }
+                }}
+                className="w-full py-3 rounded text-[var(--accent-cyan)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-all"
+              >
+                📥 AI 분석 결과 Excel 다운로드
+              </button>
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 홈으로
+                &lt; {t.generator.home}
               </button>
               <button
                 onClick={handleSendData}
                 disabled={!sendAppId.trim()}
                 className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-magenta)] hover:bg-[var(--accent-magenta)]/80 transition-all terminal-glow-magenta disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                &gt; 데이터 전송
+                &gt; {t.generator.sendData}
               </button>
             </div>
           </div>
@@ -1087,11 +1303,11 @@ export default function Home() {
         {currentStep === 'sending-data' && progress && progress.status !== 'send-error' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span className="animate-pulse">⇈</span> 데이터 전송 중
+              <span className="animate-pulse">⇈</span> {t.generator.sendingData}
             </h2>
             <div className="mb-6">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">진행률</span>
+                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">{t.generator.progress}</span>
                 <span className="text-sm font-bold text-[var(--accent-magenta)] font-mono">{progress.progress}%</span>
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
@@ -1110,7 +1326,7 @@ export default function Home() {
             {/* LogBus2 실시간 로그 */}
             {progress.logs && progress.logs.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">// LogBus2 전송 로그</h3>
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">{t.generator.logBusLogs}</h3>
                 <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-64 overflow-y-auto terminal-scrollbar">
                   <div className="space-y-1">
                     {progress.logs.map((log: any, idx: number) => (
@@ -1142,7 +1358,7 @@ export default function Home() {
                   </div>
                 </div>
                 <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
-                  // 최근 로그 {progress.logs.length}개 표시 (자동 업데이트)
+                  {t.generator.recentLogs} {progress.logs.length}{t.generator.logsDisplay}
                 </p>
               </div>
             )}
@@ -1153,15 +1369,15 @@ export default function Home() {
         {currentStep === 'sending-data' && progress && progress.status === 'send-error' && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--error-red)] rounded p-8">
             <h2 className="text-2xl font-bold mb-6 text-[var(--error-red)] font-mono flex items-center gap-2">
-              <span>✗</span> 데이터 전송 오류
+              <span>✗</span> {t.generator.sendErrorTitle}
             </h2>
             <div className="p-6 bg-[var(--error-red)]/10 rounded border border-[var(--error-red)] mb-6">
-              <p className="text-[var(--error-red)] font-semibold mb-2 font-mono">ERROR: 전송 중 오류가 발생했습니다</p>
+              <p className="text-[var(--error-red)] font-semibold mb-2 font-mono">{t.generator.sendErrorOccurred}</p>
               <p className="text-[var(--text-primary)] mb-4 font-mono">{progress.message}</p>
               {progress.error && (
                 <details className="mt-4">
                   <summary className="cursor-pointer text-sm text-[var(--text-secondary)] hover:text-[var(--text-primary)] font-medium font-mono">
-                    상세 오류 정보 보기
+                    {t.generator.detailedErrorInfo}
                   </summary>
                   <div className="mt-3 p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
                     <pre className="text-xs text-[var(--accent-green)] font-mono overflow-x-auto whitespace-pre-wrap terminal-scrollbar">{progress.error}</pre>
@@ -1180,13 +1396,13 @@ export default function Home() {
                 }}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 이전 단계로
+                &lt; {t.generator.retryPrevious}
               </button>
               <button
                 onClick={handleSendData}
                 className="py-4 rounded text-[var(--bg-primary)] font-mono font-semibold bg-[var(--accent-magenta)] hover:bg-[var(--accent-magenta)]/80 transition-all"
               >
-                ↻ 다시 전송
+                ↻ {t.generator.retrySend}
               </button>
             </div>
           </div>
@@ -1196,15 +1412,15 @@ export default function Home() {
         {currentStep === 'sent' && progress && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--accent-green)] rounded p-8 terminal-glow-green">
             <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> 모든 프로세스 완료!
+              <span>✓</span> {t.generator.allProcessComplete}
             </h2>
             <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">✓ 데이터가 성공적으로 전송되었습니다!</h3>
-              <p className="text-[var(--text-secondary)] mb-4 font-mono">// ThinkingEngine에서 데이터를 확인하실 수 있습니다.</p>
+              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">✓ {t.generator.dataSentSuccessfully}</h3>
+              <p className="text-[var(--text-secondary)] mb-4 font-mono">{t.generator.checkDataInTE}</p>
               {progress.sentInfo && (
                 <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded text-sm text-[var(--text-secondary)] space-y-1 font-mono">
                   <p><strong className="text-[var(--text-primary)]">App ID:</strong> {progress.sentInfo.appId}</p>
-                  <p><strong className="text-[var(--text-primary)]">파일 크기:</strong> {progress.sentInfo.fileSizeMB}MB</p>
+                  <p><strong className="text-[var(--text-primary)]">{t.generator.fileSize}:</strong> {progress.sentInfo.fileSizeMB}MB</p>
                   <p><strong className="text-[var(--text-primary)]">Receiver URL:</strong> {progress.sentInfo.receiverUrl}</p>
                 </div>
               )}
@@ -1213,7 +1429,7 @@ export default function Home() {
               onClick={handleComplete}
               className="w-full py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
             >
-              ✓ 종료 및 새로운 생성 시작
+              ✓ {t.generator.completeAndNew}
             </button>
           </div>
         )}

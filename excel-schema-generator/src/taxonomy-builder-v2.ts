@@ -12,11 +12,19 @@ import {
   EventSkeleton
 } from './types';
 
+export type ProgressCallback = (progress: {
+  stage: string;
+  progress: number;
+  message: string;
+  detail?: string;
+}) => void;
+
 export interface TaxonomyBuilderOptions {
   provider?: 'anthropic' | 'openai';
   apiKey?: string;
   model?: string;
   promptsDir?: string;
+  onProgress?: ProgressCallback;
 }
 
 /**
@@ -74,29 +82,97 @@ export class TaxonomyBuilderV2 {
   async build(request: ExcelGenerationRequest): Promise<TaxonomyData> {
     if (!this.options.apiKey) {
       console.warn('⚠️  No API key provided, using minimal fallback taxonomy');
+      this.options.onProgress?.({
+        stage: 'fallback',
+        progress: 100,
+        message: 'AI 키 없음, 기본 템플릿 사용'
+      });
       return this.buildFallback(request);
     }
 
     try {
+      // Stage 1: Events and Common Properties
+      this.options.onProgress?.({
+        stage: 'stage1',
+        progress: 10,
+        message: 'AI 프롬프트 준비 중...',
+        detail: 'Stage 1: 이벤트 및 공통 속성 생성'
+      });
       console.log('🔹 Stage 1: Generating events and common properties...');
-      const stage1 = await this.runStage1(request);
 
+      this.options.onProgress?.({
+        stage: 'stage1',
+        progress: 15,
+        message: `${this.options.provider === 'anthropic' ? 'Claude' : 'GPT'} AI에게 이벤트 구조 요청 중...`,
+        detail: `산업: ${request.industry}, 시나리오: ${request.scenario}`
+      });
+
+      const stage1 = await this.runStage1(request);
       console.log(`✓ Stage 1 complete: ${stage1.events.length} events, ${stage1.commonProperties.length} common properties`);
 
-      console.log('🔹 Stage 2: Generating event properties...');
-      const stage2 = await this.runStage2(request, stage1);
+      this.options.onProgress?.({
+        stage: 'stage1',
+        progress: 30,
+        message: `Stage 1 완료: ${stage1.events.length}개 이벤트, ${stage1.commonProperties.length}개 공통 속성`,
+        detail: stage1.events.slice(0, 5).map(e => `• ${e.eventName}`).join('\n')
+      });
 
+      // Stage 2: Event Properties
+      this.options.onProgress?.({
+        stage: 'stage2',
+        progress: 35,
+        message: 'Stage 2 시작: 이벤트별 속성 생성...',
+        detail: `${stage1.events.length}개 이벤트를 배치로 처리`
+      });
+      console.log('🔹 Stage 2: Generating event properties...');
+
+      const stage2 = await this.runStage2(request, stage1);
       console.log(`✓ Stage 2 complete: ${stage2.eventProperties.length} event properties`);
 
-      console.log('🔹 Stage 3: Generating user data...');
-      const stage3 = await this.runStage3(request, stage1, stage2);
+      this.options.onProgress?.({
+        stage: 'stage2',
+        progress: 70,
+        message: `Stage 2 완료: ${stage2.eventProperties.length}개 이벤트 속성 생성`,
+        detail: `배치 처리 완료`
+      });
 
+      // Stage 3: User Data
+      this.options.onProgress?.({
+        stage: 'stage3',
+        progress: 75,
+        message: 'Stage 3 시작: 유저 데이터 스키마 생성...',
+        detail: '사용자 프로필 및 유저 ID 체계 정의'
+      });
+      console.log('🔹 Stage 3: Generating user data...');
+
+      const stage3 = await this.runStage3(request, stage1, stage2);
       console.log(`✓ Stage 3 complete: ${stage3.userData.length} user properties`);
 
+      this.options.onProgress?.({
+        stage: 'stage3',
+        progress: 90,
+        message: `Stage 3 완료: ${stage3.userData.length}개 유저 속성 생성`,
+        detail: 'Taxonomy 데이터 병합 중...'
+      });
+
       // Combine all stages
-      return this.combineStagesToTaxonomy(stage1, stage2, stage3);
+      const taxonomy = this.combineStagesToTaxonomy(stage1, stage2, stage3);
+
+      this.options.onProgress?.({
+        stage: 'complete',
+        progress: 95,
+        message: 'Taxonomy 생성 완료, Excel 파일 작성 준비 중...'
+      });
+
+      return taxonomy;
     } catch (error) {
       console.warn('⚠️  AI taxonomy generation failed, using fallback:', (error as Error).message);
+      this.options.onProgress?.({
+        stage: 'fallback',
+        progress: 100,
+        message: 'AI 분석 실패, 기본 템플릿 사용',
+        detail: (error as Error).message
+      });
       return this.buildFallback(request);
     }
   }
@@ -126,12 +202,23 @@ export class TaxonomyBuilderV2 {
   private async runStage2(request: ExcelGenerationRequest, stage1: Stage1Output): Promise<Stage2Output> {
     const allProperties: any[] = [];
     const batchSize = 3; // Process 3 events at a time to avoid token limit
+    const totalBatches = Math.ceil(stage1.events.length / batchSize);
 
     // Split events into batches
     for (let i = 0; i < stage1.events.length; i += batchSize) {
       const batch = stage1.events.slice(i, i + batchSize);
+      const currentBatchNum = Math.floor(i / batchSize) + 1;
 
       console.log(`  Processing events ${i + 1}-${Math.min(i + batchSize, stage1.events.length)}...`);
+
+      // Calculate progress for Stage 2 (35-70%)
+      const stage2Progress = 35 + Math.floor((currentBatchNum / totalBatches) * 35);
+      this.options.onProgress?.({
+        stage: 'stage2',
+        progress: stage2Progress,
+        message: `이벤트 속성 생성 중 (${currentBatchNum}/${totalBatches} 배치)...`,
+        detail: `처리 중: ${batch.map(e => e.eventName).join(', ')}`
+      });
 
       // Retry logic for handling truncated responses
       let parsed: any = null;

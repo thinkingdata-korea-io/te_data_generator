@@ -74,9 +74,24 @@ export interface RetentionCurve {
 }
 
 /**
+ * 트랜잭션 정의 (시작-종료 패턴)
+ */
+export interface Transaction {
+  name: string;                   // 트랜잭션 이름 (예: "게임 라운드", "구매 프로세스")
+  description: string;            // 설명
+  startEvents: string[];          // 트랜잭션 시작 이벤트들
+  endEvents: string[];            // 트랜잭션 종료 이벤트들
+  innerEvents: string[];          // 트랜잭션 내부 이벤트들
+  allowInnerAfterEnd: boolean;    // 종료 후 내부 이벤트 허용 여부 (기본: false)
+}
+
+/**
  * AI가 분석한 이벤트 순서 제약
  */
 export interface EventSequencing {
+  // 🆕 트랜잭션 정의 (시작-종료 패턴)
+  transactions?: Transaction[];
+
   // 필수 선행 이벤트 (강제)
   strictDependencies: Record<string, string[]>;  // event -> must_have_done_before
 
@@ -106,6 +121,18 @@ export interface EventSequencing {
     sequence: string[];          // 순서대로 실행되어야 하는 이벤트
     strictOrder: boolean;        // true: 반드시 순서 지킴, false: 일부 생략 가능
   }>;
+}
+
+/**
+ * 검증 요약
+ */
+export interface ValidationSummary {
+  passed: boolean;
+  ruleBasedPassed: boolean;
+  aiValidationUsed: boolean;
+  fixAttempts: number;
+  errors: string[];
+  warnings: string[];
 }
 
 /**
@@ -140,4 +167,10 @@ export interface AIAnalysisResult {
 
   // 🆕 이벤트 순서 제약 (AI 분석)
   eventSequencing?: EventSequencing;
+
+  // 🆕 검증 요약
+  validationSummary?: {
+    retention?: ValidationSummary;
+    sequencing?: ValidationSummary;
+  };
 }

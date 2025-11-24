@@ -9,6 +9,7 @@
 ### Rule: ALL user-facing text MUST use i18n translations
 
 **❌ NEVER do this:**
+
 ```typescript
 <button>데이터 생성</button>
 <p>File uploaded successfully</p>
@@ -16,8 +17,9 @@
 ```
 
 **✅ ALWAYS do this:**
+
 ```typescript
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useLanguage } from "@/contexts/LanguageContext";
 
 function MyComponent() {
   const { t } = useLanguage();
@@ -34,47 +36,51 @@ function MyComponent() {
 ### Steps for adding new UI text:
 
 1. **Add translation keys to ALL 3 language files:**
+
    - `/frontend/src/i18n/locales/ko.ts` (Korean)
    - `/frontend/src/i18n/locales/en.ts` (English)
    - `/frontend/src/i18n/locales/zh.ts` (Chinese)
 
 2. **Translation key structure:**
+
 ```typescript
 // ko.ts
 export const ko = {
   sectionName: {
-    keyName: '한국어 텍스트',
-    buttonLabel: '버튼',
-    errorMessage: '오류가 발생했습니다',
+    keyName: "한국어 텍스트",
+    buttonLabel: "버튼",
+    errorMessage: "오류가 발생했습니다",
   },
 };
 
 // en.ts
 export const en = {
   sectionName: {
-    keyName: 'English text',
-    buttonLabel: 'Button',
-    errorMessage: 'An error occurred',
+    keyName: "English text",
+    buttonLabel: "Button",
+    errorMessage: "An error occurred",
   },
 };
 
 // zh.ts
 export const zh = {
   sectionName: {
-    keyName: '中文文本',
-    buttonLabel: '按钮',
-    errorMessage: '发生错误',
+    keyName: "中文文本",
+    buttonLabel: "按钮",
+    errorMessage: "发生错误",
   },
 };
 ```
 
 3. **Use in components:**
+
 ```typescript
 const { t } = useLanguage();
-<div>{t.sectionName.keyName}</div>
+<div>{t.sectionName.keyName}</div>;
 ```
 
 ### Existing translation sections:
+
 - `common`: Loading, save, cancel, delete, edit, back, next, confirm, search, filter, export, import
 - `auth`: Login, logout, username, password
 - `login`: Login page specific text
@@ -92,18 +98,22 @@ const { t } = useLanguage();
 ## 🎨 2. UI/UX PATTERNS - MANDATORY
 
 ### Terminal-style Theme
+
 This project uses a **terminal/cyberpunk aesthetic**. Always follow these patterns:
 
 **Color Variables (use CSS variables):**
+
 ```typescript
 // ✅ Correct
-className="text-[var(--accent-cyan)] bg-[var(--bg-secondary)] border-[var(--border)]"
+className =
+  "text-[var(--accent-cyan)] bg-[var(--bg-secondary)] border-[var(--border)]";
 
 // ❌ Wrong
-className="text-blue-500 bg-gray-800 border-gray-600"
+className = "text-blue-500 bg-gray-800 border-gray-600";
 ```
 
 **Available CSS Variables:**
+
 ```css
 --bg-primary: Main background
 --bg-secondary: Card/panel background
@@ -123,27 +133,29 @@ className="text-blue-500 bg-gray-800 border-gray-600"
 ```
 
 **Terminal Effects:**
+
 ```typescript
 // Terminal glow effect
-className="terminal-glow"
+className = "terminal-glow";
 
 // Scan lines effect
-className="scan-lines"
+className = "scan-lines";
 
 // Cursor blink
-className="cursor-blink"
+className = "cursor-blink";
 
 // CRT screen effect
-className="crt-screen"
+className = "crt-screen";
 ```
 
 ### Component Structure Pattern
-```typescript
-'use client';
 
-import { useState, useEffect } from 'react';
-import { useLanguage } from '@/contexts/LanguageContext';
-import { motion } from 'framer-motion';
+```typescript
+"use client";
+
+import { useState, useEffect } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { motion } from "framer-motion";
 
 /**
  * Component Name
@@ -151,7 +163,7 @@ import { motion } from 'framer-motion';
  */
 export default function MyComponent() {
   const { t } = useLanguage();
-  const [state, setState] = useState('');
+  const [state, setState] = useState("");
 
   return (
     <div className="space-y-6">
@@ -181,6 +193,7 @@ export default function MyComponent() {
 ## 📁 3. FILE STRUCTURE & IMPORTS
 
 ### Frontend Structure
+
 ```
 frontend/src/
 ├── app/                    # Next.js 14 App Router
@@ -209,24 +222,25 @@ frontend/src/
 ```
 
 ### Import Order (mandatory)
+
 ```typescript
 // 1. React & Next.js
-import { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 
 // 2. Third-party libraries
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 // 3. Contexts
-import { useAuth } from '@/contexts/AuthContext';
-import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
 
 // 4. Components
-import { Header } from '@/components/layout/Header';
-import { LanguageSwitcher } from '@/components/LanguageSwitcher';
+import { Header } from "@/components/layout/Header";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 // 5. Types
-import type { User } from '@/types';
+import type { User } from "@/types";
 ```
 
 ---
@@ -234,14 +248,15 @@ import type { User } from '@/types';
 ## 🔐 4. AUTHENTICATION & SECURITY
 
 ### Protected Routes
+
 All dashboard pages MUST use authentication:
 
 ```typescript
-'use client';
+"use client";
 
-import { useAuth } from '@/contexts/AuthContext';
-import { useRouter } from 'next/navigation';
-import { useEffect } from 'react';
+import { useAuth } from "@/contexts/AuthContext";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function ProtectedPage() {
   const { isAuthenticated } = useAuth();
@@ -249,7 +264,7 @@ export default function ProtectedPage() {
 
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push('/login');
+      router.push("/login");
     }
   }, [isAuthenticated, router]);
 
@@ -260,15 +275,16 @@ export default function ProtectedPage() {
 ```
 
 ### API Calls - Always include auth token
+
 ```typescript
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-const token = localStorage.getItem('auth_token');
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const token = localStorage.getItem("auth_token");
 
 const response = await fetch(`${API_URL}/api/endpoint`, {
-  method: 'POST',
+  method: "POST",
   headers: {
-    'Content-Type': 'application/json',
-    'Authorization': `Bearer ${token}`,
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${token}`,
   },
   body: JSON.stringify(data),
 });
@@ -279,25 +295,27 @@ const response = await fetch(`${API_URL}/api/endpoint`, {
 ## 🎯 5. STATE MANAGEMENT PATTERNS
 
 ### Form State
+
 ```typescript
 const [formData, setFormData] = useState({
-  field1: '',
-  field2: '',
+  field1: "",
+  field2: "",
 });
 
 const handleChange = (field: string, value: string) => {
-  setFormData(prev => ({ ...prev, [field]: value }));
+  setFormData((prev) => ({ ...prev, [field]: value }));
 };
 ```
 
 ### Loading States
+
 ```typescript
 const [isLoading, setIsLoading] = useState(false);
-const [error, setError] = useState('');
+const [error, setError] = useState("");
 
 try {
   setIsLoading(true);
-  setError('');
+  setError("");
   // ... operation
 } catch (err) {
   setError(t.errors.generic);
@@ -307,18 +325,19 @@ try {
 ```
 
 ### Progress Tracking
+
 ```typescript
 interface Progress {
-  status: 'idle' | 'generating' | 'completed' | 'error';
+  status: "idle" | "generating" | "completed" | "error";
   progress: number; // 0-100
   message: string;
   error?: string;
 }
 
 const [progress, setProgress] = useState<Progress>({
-  status: 'idle',
+  status: "idle",
   progress: 0,
-  message: '',
+  message: "",
 });
 ```
 
@@ -327,8 +346,9 @@ const [progress, setProgress] = useState<Progress>({
 ## 🎬 6. ANIMATION PATTERNS
 
 ### Page Transitions
+
 ```typescript
-import { motion } from 'framer-motion';
+import { motion } from "framer-motion";
 
 <motion.div
   initial={{ opacity: 0, y: 20 }}
@@ -336,21 +356,24 @@ import { motion } from 'framer-motion';
   transition={{ duration: 0.5 }}
 >
   {/* content */}
-</motion.div>
+</motion.div>;
 ```
 
 ### List Items
+
 ```typescript
-{items.map((item, index) => (
-  <motion.div
-    key={item.id}
-    initial={{ opacity: 0, x: -20 }}
-    animate={{ opacity: 1, x: 0 }}
-    transition={{ delay: index * 0.05 }}
-  >
-    {/* item content */}
-  </motion.div>
-))}
+{
+  items.map((item, index) => (
+    <motion.div
+      key={item.id}
+      initial={{ opacity: 0, x: -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: index * 0.05 }}
+    >
+      {/* item content */}
+    </motion.div>
+  ));
+}
 ```
 
 ---
@@ -358,6 +381,7 @@ import { motion } from 'framer-motion';
 ## 🔧 7. BACKEND API CONVENTIONS
 
 ### Response Format
+
 ```typescript
 // Success
 {
@@ -375,6 +399,7 @@ import { motion } from 'framer-motion';
 ```
 
 ### API Endpoints Pattern
+
 ```
 POST   /api/auth/login
 GET    /api/users
@@ -393,17 +418,20 @@ GET    /api/excel/list
 ## 📝 8. NAMING CONVENTIONS
 
 ### Files
+
 - Components: `PascalCase.tsx` (e.g., `DataGenerator.tsx`)
 - Utilities: `camelCase.ts` (e.g., `apiClient.ts`)
 - Pages (App Router): `page.tsx`, `layout.tsx`
 
 ### Variables & Functions
+
 - Variables: `camelCase` (e.g., `userData`, `isLoading`)
 - Functions: `camelCase` (e.g., `handleSubmit`, `fetchUsers`)
 - Constants: `UPPER_SNAKE_CASE` (e.g., `API_URL`, `MAX_FILE_SIZE`)
 - Components: `PascalCase` (e.g., `UserTable`, `LoginForm`)
 
 ### CSS Classes
+
 - Use Tailwind utility classes
 - Use CSS variables for colors
 - Font: Always use `font-mono` for terminal aesthetic
@@ -413,27 +441,31 @@ GET    /api/excel/list
 ## 🚨 9. ERROR HANDLING
 
 ### Frontend Error Display
+
 ```typescript
-{error && (
-  <motion.div
-    initial={{ opacity: 0, x: -10 }}
-    animate={{ opacity: 1, x: 0 }}
-    className="text-[var(--error-red)] text-sm font-mono"
-  >
-    <span className="text-terminal-cyan">[ERROR]</span> {error}
-  </motion.div>
-)}
+{
+  error && (
+    <motion.div
+      initial={{ opacity: 0, x: -10 }}
+      animate={{ opacity: 1, x: 0 }}
+      className="text-[var(--error-red)] text-sm font-mono"
+    >
+      <span className="text-terminal-cyan">[ERROR]</span> {error}
+    </motion.div>
+  );
+}
 ```
 
 ### Success Messages
+
 ```typescript
-{success && (
-  <div className="p-4 bg-[var(--accent-green)]/10 border border-[var(--accent-green)] rounded">
-    <p className="text-[var(--accent-green)] font-mono">
-      ✓ {successMessage}
-    </p>
-  </div>
-)}
+{
+  success && (
+    <div className="p-4 bg-[var(--accent-green)]/10 border border-[var(--accent-green)] rounded">
+      <p className="text-[var(--accent-green)] font-mono">✓ {successMessage}</p>
+    </div>
+  );
+}
 ```
 
 ---
@@ -441,6 +473,7 @@ GET    /api/excel/list
 ## 📊 10. DATA VALIDATION
 
 ### Form Validation Pattern
+
 ```typescript
 const validateForm = () => {
   if (!username.trim()) {
@@ -468,7 +501,9 @@ const handleSubmit = async (e: FormEvent) => {
 ## 🎯 11. ACCESSIBILITY
 
 ### Form Labels
+
 Always use proper labels and placeholders with i18n:
+
 ```typescript
 <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
   {t.auth.username}
@@ -482,6 +517,7 @@ Always use proper labels and placeholders with i18n:
 ```
 
 ### Button States
+
 ```typescript
 <button
   disabled={isLoading}
@@ -514,14 +550,16 @@ Before submitting any code, verify:
 ## 🚀 13. PERFORMANCE BEST PRACTICES
 
 ### Dynamic Imports
+
 ```typescript
 // For heavy components
-const HeavyComponent = dynamic(() => import('@/components/HeavyComponent'), {
-  loading: () => <div>{t.common.loading}</div>
+const HeavyComponent = dynamic(() => import("@/components/HeavyComponent"), {
+  loading: () => <div>{t.common.loading}</div>,
 });
 ```
 
 ### Memoization
+
 ```typescript
 const memoizedValue = useMemo(() => expensiveCalculation(data), [data]);
 
@@ -535,6 +573,7 @@ const memoizedCallback = useCallback(() => {
 ## 📱 14. RESPONSIVE DESIGN
 
 ### Grid Layouts
+
 ```typescript
 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
   {/* cards */}
@@ -542,6 +581,7 @@ const memoizedCallback = useCallback(() => {
 ```
 
 ### Text Visibility
+
 ```typescript
 <span className="hidden sm:inline">{t.nav.dashboard}</span>
 <span className="sm:hidden">📊</span>
@@ -552,24 +592,27 @@ const memoizedCallback = useCallback(() => {
 ## 🎨 15. COMPONENT PATTERNS
 
 ### Modal Pattern
+
 ```typescript
-{isOpen && (
-  <motion.div
-    initial={{ opacity: 0 }}
-    animate={{ opacity: 1 }}
-    className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
-    onClick={() => setIsOpen(false)}
-  >
+{
+  isOpen && (
     <motion.div
-      initial={{ scale: 0.9, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 max-w-2xl w-full mx-4"
-      onClick={(e) => e.stopPropagation()}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center"
+      onClick={() => setIsOpen(false)}
     >
-      {/* modal content */}
+      <motion.div
+        initial={{ scale: 0.9, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-6 max-w-2xl w-full mx-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* modal content */}
+      </motion.div>
     </motion.div>
-  </motion.div>
-)}
+  );
+}
 ```
 
 ---

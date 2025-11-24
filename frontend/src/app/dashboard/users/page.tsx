@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { TypingAnimation } from '@/components/effects/TypingAnimation';
 
 /**
@@ -21,6 +22,7 @@ interface User {
 }
 
 export default function UsersPage() {
+  const { t } = useLanguage();
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -60,7 +62,7 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Failed to load users:', error);
-      setMessage('[ERROR] Failed to load users');
+      setMessage(`[ERROR] ${t.users.loadFailed}`);
     } finally {
       setIsLoading(false);
     }
@@ -83,7 +85,7 @@ export default function UsersPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('[OK] User created successfully');
+        setMessage(`[OK] ${t.users.userCreated}`);
         setShowCreateModal(false);
         resetForm();
         loadUsers();
@@ -92,7 +94,7 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Failed to create user:', error);
-      setMessage('[ERROR] Failed to create user');
+      setMessage(`[ERROR] ${t.users.createFailed}`);
     }
 
     setTimeout(() => setMessage(''), 3000);
@@ -120,7 +122,7 @@ export default function UsersPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('[OK] User updated successfully');
+        setMessage(`[OK] ${t.users.userUpdated}`);
         setEditingUser(null);
         loadUsers();
       } else {
@@ -128,14 +130,14 @@ export default function UsersPage() {
       }
     } catch (error) {
       console.error('Failed to update user:', error);
-      setMessage('[ERROR] Failed to update user');
+      setMessage(`[ERROR] ${t.users.updateFailed}`);
     }
 
     setTimeout(() => setMessage(''), 3000);
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) {
+    if (!confirm(t.users.confirmDelete)) {
       return;
     }
 
@@ -153,14 +155,14 @@ export default function UsersPage() {
       const data = await response.json();
 
       if (response.ok) {
-        setMessage('[OK] User deleted successfully');
+        setMessage(`[OK] ${t.users.userDeleted}`);
         loadUsers();
       } else {
         setMessage(`[ERROR] ${data.error}`);
       }
     } catch (error) {
       console.error('Failed to delete user:', error);
-      setMessage('[ERROR] Failed to delete user');
+      setMessage(`[ERROR] ${t.users.deleteFailed}`);
     }
 
     setTimeout(() => setMessage(''), 3000);
@@ -193,7 +195,7 @@ export default function UsersPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-terminal-cyan font-mono">
-          <span className="cursor-blink">█</span> Loading users...
+          <span className="cursor-blink">█</span> {t.users.loading}
         </div>
       </div>
     );
@@ -210,17 +212,17 @@ export default function UsersPage() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-terminal-cyan mb-2">
-              <TypingAnimation text="👥 User Management" speed={30} showCursor={false} />
+              <TypingAnimation text={`👥 ${t.users.title}`} speed={30} showCursor={false} />
             </h1>
             <p className="text-[var(--text-secondary)] text-sm font-mono">
-              Manage platform users, roles, and permissions
+              {t.users.description}
             </p>
           </div>
           <button
             onClick={() => setShowCreateModal(true)}
             className="px-6 py-3 bg-[var(--bg-tertiary)] border-2 border-[var(--accent-green)] rounded text-terminal-green font-semibold hover:bg-[var(--bg-primary)] hover:terminal-glow-green transition-all"
           >
-            [+ NEW USER]
+            {t.users.newUser}
           </button>
         </div>
       </motion.div>
@@ -235,25 +237,25 @@ export default function UsersPage() {
                   ID
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Username
+                  {t.users.username}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Full Name
+                  {t.users.fullName}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Email
+                  {t.users.email}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Role
+                  {t.users.role}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Status
+                  {t.users.status}
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Last Login
+                  {t.users.lastLogin}
                 </th>
                 <th className="px-6 py-3 text-right text-xs font-semibold text-terminal-cyan uppercase tracking-wider">
-                  Actions
+                  {t.users.actions}
                 </th>
               </tr>
             </thead>
@@ -294,26 +296,26 @@ export default function UsersPage() {
                       }`}
                     >
                       <span className={`w-2 h-2 rounded-full ${user.isActive ? 'bg-[var(--accent-green)]' : 'bg-[var(--error-red)]'}`} />
-                      {user.isActive ? 'Active' : 'Inactive'}
+                      {user.isActive ? t.users.active : t.users.inactive}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-xs text-[var(--text-dimmed)] font-mono">
                     {user.lastLoginAt
                       ? new Date(user.lastLoginAt).toLocaleString()
-                      : 'Never'}
+                      : t.users.never}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-right text-sm">
                     <button
                       onClick={() => setEditingUser(user)}
                       className="text-terminal-cyan hover:text-[var(--accent-cyan)] mr-3"
                     >
-                      [EDIT]
+                      {t.users.edit}
                     </button>
                     <button
                       onClick={() => handleDeleteUser(user.id)}
                       className="text-[var(--error-red)] hover:text-red-400"
                     >
-                      [DELETE]
+                      {t.users.delete}
                     </button>
                   </td>
                 </motion.tr>
@@ -334,27 +336,27 @@ export default function UsersPage() {
               className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6 max-w-2xl w-full terminal-glow"
             >
               <h2 className="text-xl font-bold text-terminal-green mb-6">
-                &gt; CREATE NEW USER
+                &gt; {t.users.createNewUser}
               </h2>
 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Username
+                      {t.users.username}
                     </label>
                     <input
                       type="text"
                       value={formData.username}
                       onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
-                      placeholder="username"
+                      placeholder={t.auth.username}
                     />
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Email
+                      {t.users.email}
                     </label>
                     <input
                       type="email"
@@ -367,7 +369,7 @@ export default function UsersPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Full Name
+                      {t.users.fullName}
                     </label>
                     <input
                       type="text"
@@ -380,7 +382,7 @@ export default function UsersPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Password
+                      {t.auth.password}
                     </label>
                     <input
                       type="password"
@@ -393,7 +395,7 @@ export default function UsersPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Role
+                      {t.users.role}
                     </label>
                     <select
                       value={formData.role}
@@ -402,9 +404,9 @@ export default function UsersPage() {
                       }
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
                     >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                      <option value="viewer">Viewer</option>
+                      <option value="user">{t.users.user}</option>
+                      <option value="admin">{t.users.admin}</option>
+                      <option value="viewer">{t.users.viewer}</option>
                     </select>
                   </div>
                 </div>
@@ -417,13 +419,13 @@ export default function UsersPage() {
                     }}
                     className="px-6 py-2 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
                   >
-                    [CANCEL]
+                    {t.common.cancel}
                   </button>
                   <button
                     onClick={handleCreateUser}
                     className="px-6 py-2 bg-[var(--bg-tertiary)] border-2 border-[var(--accent-green)] rounded text-terminal-green hover:terminal-glow-green transition-all"
                   >
-                    [CREATE USER]
+                    {t.users.createUser}
                   </button>
                 </div>
               </div>
@@ -443,14 +445,14 @@ export default function UsersPage() {
               className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6 max-w-2xl w-full terminal-glow"
             >
               <h2 className="text-xl font-bold text-terminal-cyan mb-6">
-                &gt; EDIT USER: {editingUser.username}
+                &gt; {t.users.editUser}: {editingUser.username}
               </h2>
 
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Full Name
+                      {t.users.fullName}
                     </label>
                     <input
                       type="text"
@@ -464,7 +466,7 @@ export default function UsersPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Email
+                      {t.users.email}
                     </label>
                     <input
                       type="email"
@@ -478,7 +480,7 @@ export default function UsersPage() {
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Role
+                      {t.users.role}
                     </label>
                     <select
                       value={editingUser.role}
@@ -487,15 +489,15 @@ export default function UsersPage() {
                       }
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
                     >
-                      <option value="user">User</option>
-                      <option value="admin">Admin</option>
-                      <option value="viewer">Viewer</option>
+                      <option value="user">{t.users.user}</option>
+                      <option value="admin">{t.users.admin}</option>
+                      <option value="viewer">{t.users.viewer}</option>
                     </select>
                   </div>
 
                   <div>
                     <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-                      Status
+                      {t.users.status}
                     </label>
                     <select
                       value={editingUser.isActive ? 'active' : 'inactive'}
@@ -504,8 +506,8 @@ export default function UsersPage() {
                       }
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
                     >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
+                      <option value="active">{t.users.active}</option>
+                      <option value="inactive">{t.users.inactive}</option>
                     </select>
                   </div>
                 </div>
@@ -515,13 +517,13 @@ export default function UsersPage() {
                     onClick={() => setEditingUser(null)}
                     className="px-6 py-2 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition-all"
                   >
-                    [CANCEL]
+                    {t.common.cancel}
                   </button>
                   <button
                     onClick={() => handleUpdateUser(editingUser)}
                     className="px-6 py-2 bg-[var(--bg-tertiary)] border-2 border-[var(--accent-cyan)] rounded text-terminal-cyan hover:terminal-glow transition-all"
                   >
-                    [SAVE CHANGES]
+                    {t.users.saveChanges}
                   </button>
                 </div>
               </div>

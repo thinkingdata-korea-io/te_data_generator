@@ -15,6 +15,7 @@ export interface User {
   email: string;
   fullName: string;
   role: UserRole;
+  profileImage?: string;
   lastLoginAt?: string;
 }
 
@@ -56,6 +57,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
 
     checkAuth();
+  }, []);
+
+  // Listen for user profile updates
+  useEffect(() => {
+    const handleUserUpdate = (event: CustomEvent) => {
+      const updatedUser = event.detail;
+      // Update localStorage and state
+      localStorage.setItem('user', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+    };
+
+    window.addEventListener('userUpdated', handleUserUpdate as EventListener);
+
+    return () => {
+      window.removeEventListener('userUpdated', handleUserUpdate as EventListener);
+    };
   }, []);
 
   const login = async (username: string, password: string) => {

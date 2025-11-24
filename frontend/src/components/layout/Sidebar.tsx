@@ -9,7 +9,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 /**
  * Sidebar Component
- * @brief: Terminal-style navigation sidebar with role-based menu items
+ * @brief: Terminal-style navigation sidebar with sectioned menu (BUILD/SETTINGS/ADMIN)
  */
 
 interface NavItem {
@@ -19,12 +19,32 @@ interface NavItem {
   roles?: ('admin' | 'user' | 'viewer')[];
 }
 
-const navItems: NavItem[] = [
-  { nameKey: 'dashboard', path: '/dashboard', icon: '⌘', roles: ['admin', 'user', 'viewer'] },
-  { nameKey: 'dataGenerator', path: '/dashboard/generator', icon: '⚡', roles: ['admin', 'user'] },
-  { nameKey: 'settings', path: '/dashboard/settings', icon: '⚙', roles: ['admin', 'user', 'viewer'] },
-  { nameKey: 'userManagement', path: '/dashboard/users', icon: '👥', roles: ['admin'] },
-  { nameKey: 'auditLogs', path: '/dashboard/audit', icon: '📜', roles: ['admin'] },
+interface NavSection {
+  titleKey: keyof typeof import('@/i18n/locales/ko').ko.nav;
+  items: NavItem[];
+}
+
+const navSections: NavSection[] = [
+  {
+    titleKey: 'sectionBuild',
+    items: [
+      { nameKey: 'dashboard', path: '/dashboard', icon: '⌂', roles: ['admin', 'user', 'viewer'] },
+      { nameKey: 'dataGenerator', path: '/dashboard/generator', icon: '⚡', roles: ['admin', 'user'] },
+    ],
+  },
+  {
+    titleKey: 'sectionSettings',
+    items: [
+      { nameKey: 'settings', path: '/dashboard/settings', icon: '⚙', roles: ['admin', 'user', 'viewer'] },
+    ],
+  },
+  {
+    titleKey: 'sectionAdmin',
+    items: [
+      { nameKey: 'userManagement', path: '/dashboard/users', icon: '👥', roles: ['admin'] },
+      { nameKey: 'auditLogs', path: '/dashboard/audit', icon: '📜', roles: ['admin'] },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -33,9 +53,15 @@ export function Sidebar() {
   const { t } = useLanguage();
   const [isCollapsed, setIsCollapsed] = useState(false);
 
-  const filteredNavItems = navItems.filter(
-    (item) => !item.roles || hasPermission(item.roles)
-  );
+  // Filter sections based on user permissions
+  const filteredSections = navSections
+    .map((section) => ({
+      ...section,
+      items: section.items.filter(
+        (item) => !item.roles || hasPermission(item.roles)
+      ),
+    }))
+    .filter((section) => section.items.length > 0);
 
   return (
     <motion.div
@@ -71,8 +97,16 @@ export function Sidebar() {
       {/* User Info */}
       <div className="p-4 border-b border-[var(--border)] bg-[var(--bg-tertiary)]">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] border-2 border-[var(--accent-cyan)] flex items-center justify-center text-terminal-cyan font-bold terminal-glow">
-            {user?.username?.[0]?.toUpperCase() || 'U'}
+          <div className="w-10 h-10 rounded-full bg-[var(--bg-primary)] border-2 border-[var(--accent-cyan)] flex items-center justify-center text-terminal-cyan font-bold terminal-glow overflow-hidden">
+            {user?.profileImage ? (
+              <img
+                src={user.profileImage}
+                alt={user.username}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              user?.username?.[0]?.toUpperCase() || 'U'
+            )}
           </div>
           {!isCollapsed && (
             <motion.div
@@ -101,46 +135,68 @@ export function Sidebar() {
         </div>
       </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 overflow-y-auto p-2 space-y-1">
-        {filteredNavItems.map((item) => {
-          const isActive = pathname === item.path;
-          return (
-            <Link
-              key={item.path}
-              href={item.path}
-              className={`
-                flex items-center gap-3 px-4 py-3 rounded transition-all
-                ${
-                  isActive
-                    ? 'bg-[var(--bg-primary)] text-terminal-cyan border-l-2 border-[var(--accent-cyan)] terminal-glow'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
-                }
-              `}
-            >
-              <span className="text-xl">{item.icon}</span>
-              {!isCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="text-sm font-medium"
-                >
-                  {t.nav[item.nameKey]}
-                </motion.span>
-              )}
-              {isActive && !isCollapsed && (
-                <motion.span
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  className="ml-auto text-terminal-green text-xs"
-                >
-                  &gt;_
-                </motion.span>
-              )}
-            </Link>
-          );
-        })}
+      {/* Navigation - Sectioned */}
+      <nav className="flex-1 overflow-y-auto p-2">
+        {filteredSections.map((section, sectionIdx) => (
+          <div key={section.titleKey} className={sectionIdx > 0 ? 'mt-6' : ''}>
+            {/* Section Title */}
+            {!isCollapsed && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="px-4 py-2 text-xs font-bold text-[var(--text-dimmed)] tracking-wider"
+              >
+                {t.nav[section.titleKey]}
+              </motion.div>
+            )}
+            {isCollapsed && sectionIdx > 0 && (
+              <div className="my-2 mx-auto w-8 h-px bg-[var(--border)]" />
+            )}
+
+            {/* Section Items */}
+            <div className="space-y-1">
+              {section.items.map((item) => {
+                const isActive = pathname === item.path;
+                return (
+                  <Link
+                    key={item.path}
+                    href={item.path}
+                    className={`
+                      flex items-center gap-3 px-4 py-3 rounded transition-all
+                      ${
+                        isActive
+                          ? 'bg-[var(--bg-primary)] text-terminal-cyan border-l-2 border-[var(--accent-cyan)] terminal-glow'
+                          : 'text-[var(--text-secondary)] hover:bg-[var(--bg-tertiary)] hover:text-[var(--text-primary)]'
+                      }
+                    `}
+                  >
+                    <span className="text-xl">{item.icon}</span>
+                    {!isCollapsed && (
+                      <motion.span
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                        className="text-sm font-medium"
+                      >
+                        {t.nav[item.nameKey]}
+                      </motion.span>
+                    )}
+                    {isActive && !isCollapsed && (
+                      <motion.span
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="ml-auto text-terminal-green text-xs"
+                      >
+                        &gt;_
+                      </motion.span>
+                    )}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
 
       {/* Footer */}

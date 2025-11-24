@@ -19,7 +19,7 @@ export interface TEEvent {
   // Preset Properties (시스템 속성)
   "#os"?: string;
   "#os_version"?: string;
-  "#model"?: string;
+  "#device_model"?: string;
   "#device_id"?: string;
   "#carrier"?: string;
   "#network_type"?: string;
@@ -36,16 +36,17 @@ export interface TEEvent {
 /**
  * ThinkingEngine user_set 형식
  *
- * 주의: user_set은 #ip가 properties 안에 위치 (root level 아님)
+ * 주의: user_set은 #ip가 root level에 위치 (이벤트 속성이므로)
  */
 export interface TEUserSet {
   "#account_id": string;
   "#distinct_id": string;
   "#time": string;
   "#type": "user_set";
+  "#ip"?: string;
   "#uuid"?: string;
 
-  // User properties는 properties 객체 안에 (#ip 포함)
+  // User properties는 properties 객체 안에
   properties: Record<string, any>;
 }
 

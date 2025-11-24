@@ -32,9 +32,15 @@ demo_data_gen/
 
 ## 문서
 
+### 개발자 가이드
+- **[개발 가이드](./DEVELOPMENT_GUIDE.md)** - 🔥 **코드 작성 시 필수 참조** - i18n, 스타일링, 패턴 등 모든 규칙
+- [AI 코딩 규칙](./.clinerules) - AI가 참조하는 필수 규칙
+
+### 아키텍처 & 명세
 - [아키텍처 문서](./docs/ARCHITECTURE_KR.md)
 - [기술 명세서](./docs/TECHNICAL_SPEC_KR.md)
 - [업로드 가이드](./docs/UPLOAD_GUIDE.md)
+- [i18n 구현 가이드](./docs/I18N_IMPLEMENTATION_GUIDE.md)
 
 ## 시작하기
 

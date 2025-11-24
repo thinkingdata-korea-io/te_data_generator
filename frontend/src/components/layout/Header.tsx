@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import { motion, AnimatePresence } from 'framer-motion';
-import LanguageSwitcher from '@/components/LanguageSwitcher';
+import { LanguageSwitcher } from '@/components/LanguageSwitcher';
 
 /**
  * Header Component
@@ -71,8 +71,16 @@ export function Header() {
             onClick={() => setShowUserMenu(!showUserMenu)}
             className="flex items-center gap-3 px-4 py-2 rounded border border-[var(--border)] hover:border-[var(--accent-cyan)] hover:bg-[var(--bg-tertiary)] transition-all"
           >
-            <div className="w-8 h-8 rounded-full bg-[var(--bg-primary)] border-2 border-[var(--accent-cyan)] flex items-center justify-center text-terminal-cyan font-bold text-sm terminal-glow">
-              {user?.username?.[0]?.toUpperCase() || 'U'}
+            <div className="w-8 h-8 rounded-full bg-[var(--bg-primary)] border-2 border-[var(--accent-cyan)] flex items-center justify-center text-terminal-cyan font-bold text-sm terminal-glow overflow-hidden">
+              {user?.profileImage ? (
+                <img
+                  src={user.profileImage}
+                  alt={user.username}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                user?.username?.[0]?.toUpperCase() || 'U'
+              )}
             </div>
             <div className="text-left">
               <div className="text-sm font-medium text-[var(--text-primary)]">

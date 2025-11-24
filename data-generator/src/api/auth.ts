@@ -18,6 +18,7 @@ export interface User {
   email: string;
   passwordHash: string;
   fullName: string;
+  profileImage?: string;
   role: UserRole;
   isActive: boolean;
   createdAt: string;

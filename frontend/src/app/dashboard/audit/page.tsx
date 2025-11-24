@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
+import { useLanguage } from '@/contexts/LanguageContext';
 import { TypingAnimation } from '@/components/effects/TypingAnimation';
 
 /**
@@ -29,6 +30,7 @@ interface Pagination {
 }
 
 export default function AuditLogsPage() {
+  const { t } = useLanguage();
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [pagination, setPagination] = useState<Pagination>({
     page: 1,
@@ -38,16 +40,27 @@ export default function AuditLogsPage() {
   });
   const [isLoading, setIsLoading] = useState(true);
   const [filters, setFilters] = useState({
-    user_id: '',
+    username: '',
     action: '',
     start_date: '',
     end_date: '',
   });
+  const [sortBy, setSortBy] = useState('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
   // Load logs
   useEffect(() => {
     loadLogs();
-  }, [pagination.page, filters]);
+  }, [pagination.page, filters, sortBy, sortOrder]);
+
+  // Real-time polling for new logs (every 10 seconds)
+  useEffect(() => {
+    const interval = setInterval(() => {
+      loadLogs();
+    }, 10000); // Refresh every 10 seconds
+
+    return () => clearInterval(interval);
+  }, [pagination.page, filters, sortBy, sortOrder]);
 
   const loadLogs = async () => {
     try {
@@ -57,10 +70,12 @@ export default function AuditLogsPage() {
       const params = new URLSearchParams({
         page: pagination.page.toString(),
         limit: pagination.limit.toString(),
-        ...(filters.user_id && { user_id: filters.user_id }),
+        ...(filters.username && { username: filters.username }),
         ...(filters.action && { action: filters.action }),
         ...(filters.start_date && { start_date: filters.start_date }),
         ...(filters.end_date && { end_date: filters.end_date }),
+        sort_by: sortBy,
+        sort_order: sortOrder,
       });
 
       const response = await fetch(`${API_URL}/api/audit-logs?${params}`, {
@@ -85,6 +100,31 @@ export default function AuditLogsPage() {
   const handleFilterChange = (key: string, value: string) => {
     setFilters({ ...filters, [key]: value });
     setPagination({ ...pagination, page: 1 }); // Reset to page 1 on filter change
+  };
+
+  const handleSort = (field: string) => {
+    if (sortBy === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortBy(field);
+      setSortOrder('desc');
+    }
+  };
+
+  const getSortIcon = (field: string) => {
+    if (sortBy !== field) return ' ⇅';
+    return sortOrder === 'asc' ? ' ▲' : ' ▼';
+  };
+
+  const formatDateTime = (dateString: string) => {
+    const date = new Date(dateString);
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`;
   };
 
   const getActionColor = (action: string) => {
@@ -115,7 +155,7 @@ export default function AuditLogsPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <div className="text-terminal-cyan font-mono">
-          <span className="cursor-blink">█</span> Loading audit logs...
+          <span className="cursor-blink">█</span> {t.audit.loading}
         </div>
       </div>
     );
@@ -130,10 +170,10 @@ export default function AuditLogsPage() {
         className="bg-[var(--bg-secondary)] border-2 border-[var(--border-bright)] rounded-lg p-6 terminal-glow"
       >
         <h1 className="text-2xl font-bold text-terminal-cyan mb-2">
-          <TypingAnimation text="📜 Audit Logs" speed={30} showCursor={false} />
+          <TypingAnimation text={`📜 ${t.audit.title}`} speed={30} showCursor={false} />
         </h1>
         <p className="text-[var(--text-secondary)] text-sm font-mono">
-          System activity and security event monitoring
+          {t.audit.description}
         </p>
       </motion.div>
 
@@ -145,40 +185,40 @@ export default function AuditLogsPage() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-              User ID
+              {t.audit.username}
             </label>
             <input
-              type="number"
-              value={filters.user_id}
-              onChange={(e) => handleFilterChange('user_id', e.target.value)}
-              placeholder="All users"
+              type="text"
+              value={filters.username}
+              onChange={(e) => handleFilterChange('username', e.target.value)}
+              placeholder={t.audit.searchUsername}
               className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
             />
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-              Action
+              {t.audit.action}
             </label>
             <select
               value={filters.action}
               onChange={(e) => handleFilterChange('action', e.target.value)}
               className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
             >
-              <option value="">All actions</option>
-              <option value="login">Login</option>
-              <option value="logout">Logout</option>
-              <option value="create_run">Create Run</option>
-              <option value="send_data">Send Data</option>
-              <option value="create_user">Create User</option>
-              <option value="update_user">Update User</option>
-              <option value="delete_user">Delete User</option>
+              <option value="">{t.audit.allActions}</option>
+              <option value="login">{t.auth.login}</option>
+              <option value="logout">{t.auth.logout}</option>
+              <option value="create_run">{t.audit.createRun}</option>
+              <option value="send_data">{t.audit.sendData}</option>
+              <option value="create_user">{t.audit.createUser}</option>
+              <option value="update_user">{t.audit.updateUser}</option>
+              <option value="delete_user">{t.audit.deleteUser}</option>
             </select>
           </div>
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-              Start Date
+              {t.audit.startDate}
             </label>
             <input
               type="date"
@@ -190,7 +230,7 @@ export default function AuditLogsPage() {
 
           <div>
             <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
-              End Date
+              {t.audit.endDate}
             </label>
             <input
               type="date"
@@ -208,23 +248,35 @@ export default function AuditLogsPage() {
           <table className="w-full">
             <thead className="bg-[var(--bg-tertiary)] border-b border-[var(--border)]">
               <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  Timestamp
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase cursor-pointer hover:text-[var(--accent-cyan)] transition-colors"
+                  onClick={() => handleSort('created_at')}
+                >
+                  {t.audit.timestamp}{getSortIcon('created_at')}
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase cursor-pointer hover:text-[var(--accent-cyan)] transition-colors"
+                  onClick={() => handleSort('username')}
+                >
+                  {t.audit.user}{getSortIcon('username')}
+                </th>
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase cursor-pointer hover:text-[var(--accent-cyan)] transition-colors"
+                  onClick={() => handleSort('action')}
+                >
+                  {t.audit.action}{getSortIcon('action')}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  User
+                  {t.audit.resource}
                 </th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  Action
+                  {t.audit.details}
                 </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  Resource
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  Details
-                </th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase">
-                  Status
+                <th
+                  className="px-4 py-3 text-left text-xs font-semibold text-terminal-cyan uppercase cursor-pointer hover:text-[var(--accent-cyan)] transition-colors"
+                  onClick={() => handleSort('status')}
+                >
+                  {t.users.status}{getSortIcon('status')}
                 </th>
               </tr>
             </thead>
@@ -238,7 +290,7 @@ export default function AuditLogsPage() {
                   className="hover:bg-[var(--bg-tertiary)] transition-colors"
                 >
                   <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-[var(--text-dimmed)]">
-                    {new Date(log.createdAt).toLocaleString()}
+                    {formatDateTime(log.createdAt)}
                   </td>
                   <td className="px-4 py-3 whitespace-nowrap text-sm">
                     <div className="flex items-center gap-2">
@@ -273,7 +325,7 @@ export default function AuditLogsPage() {
                     {log.details && Object.keys(log.details).length > 0 ? (
                       <details className="cursor-pointer">
                         <summary className="text-terminal-cyan text-xs hover:underline">
-                          View Details
+                          {t.audit.viewDetails}
                         </summary>
                         <div className="mt-2 p-2 bg-[var(--bg-primary)] rounded text-xs font-mono text-[var(--text-secondary)]">
                           <pre className="whitespace-pre-wrap">
@@ -298,7 +350,7 @@ export default function AuditLogsPage() {
         <div className="bg-[var(--bg-tertiary)] border-t border-[var(--border)] px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="text-sm text-[var(--text-secondary)] font-mono">
-              Showing {logs.length} of {pagination.total} logs
+              {t.audit.showing} {logs.length} {t.audit.of} {pagination.total} {t.audit.logs}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -308,10 +360,10 @@ export default function AuditLogsPage() {
                 disabled={pagination.page === 1}
                 className="px-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-[var(--accent-cyan)] transition-all"
               >
-                &lt; Prev
+                &lt; {t.audit.prev}
               </button>
               <span className="text-sm text-[var(--text-primary)] font-mono">
-                Page {pagination.page} of {pagination.totalPages}
+                {t.audit.page} {pagination.page} {t.audit.of} {pagination.totalPages}
               </span>
               <button
                 onClick={() =>
@@ -323,38 +375,9 @@ export default function AuditLogsPage() {
                 disabled={pagination.page === pagination.totalPages}
                 className="px-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:border-[var(--accent-cyan)] transition-all"
               >
-                Next &gt;
+                {t.audit.next} &gt;
               </button>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats Summary */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Total Logs</div>
-          <div className="text-2xl font-bold text-terminal-cyan">{pagination.total}</div>
-        </div>
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Success Rate</div>
-          <div className="text-2xl font-bold text-terminal-green">
-            {logs.length > 0
-              ? ((logs.filter((l) => l.status === 'success').length / logs.length) * 100).toFixed(1)
-              : 0}
-            %
-          </div>
-        </div>
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Unique Users</div>
-          <div className="text-2xl font-bold text-terminal-magenta">
-            {new Set(logs.map((l) => l.userId)).size}
-          </div>
-        </div>
-        <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded-lg p-4">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Actions</div>
-          <div className="text-2xl font-bold text-[var(--accent-yellow)]">
-            {new Set(logs.map((l) => l.action)).size}
           </div>
         </div>
       </div>

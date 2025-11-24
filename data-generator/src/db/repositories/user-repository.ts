@@ -20,6 +20,7 @@ export interface UpdateUserData {
   role?: UserRole;
   isActive?: boolean;
   passwordHash?: string;
+  profileImage?: string;
 }
 
 /**
@@ -32,7 +33,7 @@ export async function findUserByUsername(username: string): Promise<User | null>
 
   try {
     const result = await query<User>(
-      'SELECT id, username, email, password_hash as "passwordHash", full_name as "fullName", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE username = $1 AND is_active = true',
+      'SELECT id, username, email, password_hash as "passwordHash", full_name as "fullName", profile_image as "profileImage", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE username = $1 AND is_active = true',
       [username]
     );
 
@@ -53,7 +54,7 @@ export async function findUserById(id: number): Promise<User | null> {
 
   try {
     const result = await query<User>(
-      'SELECT id, username, email, password_hash as "passwordHash", full_name as "fullName", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE id = $1 AND is_active = true',
+      'SELECT id, username, email, password_hash as "passwordHash", full_name as "fullName", profile_image as "profileImage", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE id = $1 AND is_active = true',
       [id]
     );
 
@@ -74,7 +75,7 @@ export async function getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
 
   try {
     const result = await query(
-      'SELECT id, username, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users ORDER BY id ASC'
+      'SELECT id, username, email, full_name as "fullName", profile_image as "profileImage", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users ORDER BY id ASC'
     );
 
     return result.rows;
@@ -147,18 +148,22 @@ export async function updateUser(
       updates.push(`password_hash = $${paramCount++}`);
       values.push(data.passwordHash);
     }
+    if (data.profileImage !== undefined) {
+      updates.push(`profile_image = $${paramCount++}`);
+      values.push(data.profileImage);
+    }
 
     if (updates.length === 0) {
       // No updates, just return current user
       const result = await query(
-        'SELECT id, username, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE id = $1',
+        'SELECT id, username, email, full_name as "fullName", profile_image as "profileImage", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt" FROM users WHERE id = $1',
         [id]
       );
       return result.rows[0] || null;
     }
 
     values.push(id);
-    const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, username, email, full_name as "fullName", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt"`;
+    const sql = `UPDATE users SET ${updates.join(', ')}, updated_at = NOW() WHERE id = $${paramCount} RETURNING id, username, email, full_name as "fullName", profile_image as "profileImage", role, is_active as "isActive", created_at as "createdAt", last_login_at as "lastLoginAt"`;
 
     const result = await query(sql, values);
     return result.rows[0] || null;

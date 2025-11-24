@@ -8,6 +8,13 @@ import {
   TaxonomyData
 } from './types';
 
+export type ProgressCallback = (progress: {
+  stage: string;
+  progress: number;
+  message: string;
+  detail?: string;
+}) => void;
+
 export interface ExcelSchemaGeneratorOptions {
   outputDir: string;
   preferredProvider?: 'anthropic' | 'openai';
@@ -16,6 +23,7 @@ export interface ExcelSchemaGeneratorOptions {
   anthropicModel?: string;
   openaiModel?: string;
   promptPath?: string;
+  onProgress?: ProgressCallback;
 }
 
 /**
@@ -39,12 +47,19 @@ export class ExcelSchemaGenerator {
       provider,
       apiKey: provider === 'anthropic' ? this.options.anthropicKey : this.options.openaiKey,
       model: provider === 'anthropic' ? this.options.anthropicModel : this.options.openaiModel,
-      promptsDir: path.join(__dirname, '../prompts')
+      promptsDir: path.join(__dirname, '../prompts'),
+      onProgress: this.options.onProgress
     });
 
     const taxonomy = await builder.build(request);
 
     // 2. Create output directory
+    this.options.onProgress?.({
+      stage: 'excel',
+      progress: 95,
+      message: 'Excel 파일 작성 중...',
+      detail: '4개 시트 생성 및 데이터 쓰기'
+    });
     await fs.promises.mkdir(this.options.outputDir, { recursive: true });
 
     // 3. Generate file name and path
@@ -54,8 +69,12 @@ export class ExcelSchemaGenerator {
     // 4. Write Excel workbook with 4 sheets
     await this.writeWorkbook(filePath, taxonomy);
 
-    // 5. Get file stats
-    const stats = await fs.promises.stat(filePath);
+    this.options.onProgress?.({
+      stage: 'complete',
+      progress: 100,
+      message: 'Excel 스키마 생성 완료!',
+      detail: `파일: ${fileName}`
+    });
 
     return {
       success: true,

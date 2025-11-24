@@ -26,7 +26,7 @@ export class TEFormatter {
         "#country": event.user.country,
         "#os": event.user.os,
         "#os_version": event.user.os_version,
-        "#model": event.user.device_model,
+        "#device_model": event.user.device_model,
         "#device_id": event.user.device_id,
         "#carrier": event.user.carrier,
         "#network_type": event.user.network_type,
@@ -44,16 +44,16 @@ export class TEFormatter {
    */
   formatUserSet(user: User, timestamp: Date, properties: Record<string, any>): TEUserSet {
     return {
-      // Root Level: 메타데이터 (5개 필드 - event_name, ip 제외)
+      // Root Level: 메타데이터 (6개 필드 - event_name 제외)
       "#account_id": user.account_id,
       "#distinct_id": user.distinct_id,
       "#time": toTimestamp(timestamp),
       "#type": "user_set",
+      "#ip": user.ip,
       "#uuid": randomUUID(),
 
-      // Properties: #ip + 유저 속성들
+      // Properties: 유저 속성들
       properties: {
-        "#ip": user.ip,
         user_name: user.name,
         user_email: user.email,
         user_phone: user.phone,
