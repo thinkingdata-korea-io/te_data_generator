@@ -25,7 +25,7 @@ build-backend:
     - echo "Pushing backend image..."
     - docker push ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA}
     - docker push ${BACKEND_IMAGE}:latest
-    - echo "✅ Backend image pushed successfully"
+    - echo "Backend image pushed successfully"
 
 # Frontend Build & Push
 build-frontend:
@@ -43,7 +43,7 @@ build-frontend:
     - echo "Pushing frontend image..."
     - docker push ${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA}
     - docker push ${FRONTEND_IMAGE}:latest
-    - echo "✅ Frontend image pushed successfully"
+    - echo "Frontend image pushed successfully"
 
 # Deploy to Kubernetes
 deploy-k8s:
