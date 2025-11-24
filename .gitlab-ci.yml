@@ -9,7 +9,6 @@ variables:
   FRONTEND_IMAGE: ${DOCKER_REGISTRY}/korea/data-generator-frontend
   NAMESPACE: korea
 
-# Backend Build & Push
 build-backend:
   stage: build
   tags:
@@ -27,7 +26,6 @@ build-backend:
     - docker push ${BACKEND_IMAGE}:latest
     - echo "Backend image pushed successfully"
 
-# Frontend Build & Push
 build-frontend:
   stage: build
   tags:
@@ -45,7 +43,6 @@ build-frontend:
     - docker push ${FRONTEND_IMAGE}:latest
     - echo "Frontend image pushed successfully"
 
-# Deploy to Kubernetes
 deploy-k8s:
   stage: deploy
   tags:
@@ -67,4 +64,4 @@ deploy-k8s:
     - kubectl rollout status deployment/te-data-generator-backend -n ${NAMESPACE} --timeout=5m
     - kubectl rollout status deployment/te-data-generator-frontend -n ${NAMESPACE} --timeout=5m
     - echo "Deployment completed successfully"
-    - echo "Application URL: http://te-data-generator.tx-local.thinkingdata.cn"
+    - echo "Application URL http://te-data-generator.tx-local.thinkingdata.cn"
