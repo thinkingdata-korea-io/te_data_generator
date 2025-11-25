@@ -228,6 +228,7 @@ export const ko = {
     stepUpload: '엑셀 업로드',
     stepExcel: 'Excel 생성',
     stepSettings: '설정 입력',
+    stepAIAnalysis: 'AI 분석',
     stepData: '데이터 생성',
     stepSend: '데이터 전송',
     stepComplete: '완료',
@@ -279,6 +280,25 @@ export const ko = {
     startNew: '새로 시작',
     completeAndNew: '종료 및 새로운 생성 시작',
     fileSize: '파일 크기',
+
+    // AI Analysis
+    aiAnalysisTitle: 'AI 전략 분석 결과',
+    aiAnalysisDesc: 'AI가 분석한 사용자 세그먼트, 이벤트 규칙, 트랜잭션 정의입니다. 수정 후 데이터 생성을 시작하세요.',
+    userSegments: '사용자 세그먼트',
+    segmentCount: '개 세그먼트',
+    eventSequenceRules: '이벤트 순서 규칙',
+    rulesCount: '개 규칙',
+    transactionDefinitions: '트랜잭션 정의',
+    transactionsCount: '개 트랜잭션',
+    sequenceCount: '개 시퀀스',
+    editAnalysisResults: 'AI 분석 결과 수정',
+    proceedToDataGeneration: '데이터 생성 시작',
+    analyzingAI: 'AI가 전략을 분석하고 있습니다...',
+    aiAnalysisComplete: 'AI 분석 완료',
+    aiAnalysisInProgress: 'AI 전략 분석 중',
+    downloadAnalysisExcel: 'AI 분석 결과 Excel 다운로드',
+    metadataTitle: 'AI 분석 메타데이터',
+    metadataDesc: 'AI가 생성한 사용자 세그먼트, 이벤트 순서 규칙, 트랜잭션 정의를 Excel로 다운로드하여 검토할 수 있습니다.',
 
     // File upload
     fileUpload: {

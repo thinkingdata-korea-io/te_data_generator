@@ -23111,3 +23111,4 @@
 {"level":"info","time":"2025-11-15T12:13:25+09:00","message":"cpu limit set to: 4"}
 {"level":"info","time":"2025-11-15T12:13:25+09:00","message":"cpu limit set to: 4"}
 {"level":"info","time":"2025-11-15T12:24:58+09:00","message":"cpu limit set to: 4"}
+{"level":"error","time":"2025-11-25T17:38:45+09:00","message":"read config from file failed,please check config file format: Config File \"daemon\" Not Found in \"[/Users/jegaljin-u/workspace/demo_data_gen/data-generator/conf]\""}

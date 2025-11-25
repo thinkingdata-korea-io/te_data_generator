@@ -15,6 +15,8 @@ type ProcessStep =
   | 'upload-excel'
   | 'upload-completed'
   | 'combined-config'
+  | 'analyzing-ai'           // 🆕 AI 분석 중
+  | 'ai-analysis-review'     // 🆕 AI 분석 결과 검토/수정
   | 'generating-data'
   | 'data-completed'
   | 'sending-data'
@@ -70,6 +72,7 @@ export default function Home() {
   const [settings, setSettings] = useState<Settings>({
     ANTHROPIC_API_KEY: '',
     OPENAI_API_KEY: '',
+    GEMINI_API_KEY: '',
     EXCEL_AI_PROVIDER: 'anthropic',
     DATA_AI_PROVIDER: 'anthropic',
     DATA_AI_MODEL: '',
@@ -84,6 +87,11 @@ export default function Home() {
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFileInfo[]>([]);
   const [fileAnalysisResult, setFileAnalysisResult] = useState<any>(null);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
+  const [analysisId, setAnalysisId] = useState<string>('');
+  const [aiAnalysisResult, setAiAnalysisResult] = useState<any>(null);
+  const [editedSegments, setEditedSegments] = useState<any[]>([]);
+  const [editedEventSequences, setEditedEventSequences] = useState<any[]>([]);
+  const [editedTransactions, setEditedTransactions] = useState<any[]>([]);
 
   // 설정 로드
   useEffect(() => {
@@ -96,7 +104,39 @@ export default function Home() {
       .catch(err => console.error('Failed to load settings:', err));
   }, []);
 
-  // 진행 상태 폴링
+  // AI 분석 진행률 폴링
+  useEffect(() => {
+    if (!analysisId || currentStep !== 'analyzing-ai') return;
+
+    const interval = setInterval(() => {
+      fetch(`${API_URL}/api/generate/analysis/${analysisId}`)
+        .then(res => res.json())
+        .then(data => {
+          setProgress(data);
+
+          // AI 분석 완료 시
+          if (data.status === 'completed') {
+            setAiAnalysisResult(data.result);
+            setEditedSegments(data.result.userSegments || []);
+            setEditedEventSequences(data.result.eventSequences || []);
+            setEditedTransactions(data.result.transactions || []);
+            setCurrentStep('ai-analysis-review');
+            clearInterval(interval);
+          } else if (data.status === 'error') {
+            clearInterval(interval);
+            alert('AI 분석 실패: ' + (data.message || '알 수 없는 오류'));
+            setCurrentStep('excel-completed');
+          }
+        })
+        .catch(err => {
+          console.error('Failed to fetch AI analysis progress:', err);
+        });
+    }, 2000);
+
+    return () => clearInterval(interval);
+  }, [analysisId, currentStep]);
+
+  // 데이터 생성 진행률 폴링
   useEffect(() => {
     if (!runId || currentStep === 'select-mode' || currentStep === 'input' || currentStep === 'excel-completed' || currentStep === 'data-completed' || currentStep === 'upload-excel' || currentStep === 'upload-completed' || currentStep === 'combined-config') return;
 
@@ -312,6 +352,46 @@ export default function Home() {
     }
   };
 
+  const handleStartAIAnalysis = async () => {
+    if (!validateDataSettings()) return;
+
+    setCurrentStep('analyzing-ai');
+    setProgress({ status: 'analyzing', progress: 10, message: 'AI 전략 분석 시작...' });
+
+    try {
+      const response = await fetch(`${API_URL}/api/generate/analyze`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          excelPath: generatedExcelPath,
+          scenario: formData.scenario,
+          dau: formData.dau,
+          industry: formData.industry,
+          notes: formData.notes,
+          dateStart: formData.dateStart,
+          dateEnd: formData.dateEnd,
+          aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
+          fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setAnalysisId(data.analysisId);
+      } else {
+        alert(`에러: ${data.error}`);
+        setCurrentStep('excel-completed');
+        setProgress(null);
+      }
+    } catch (error) {
+      console.error('AI analysis failed:', error);
+      alert('AI 분석 요청 실패');
+      setCurrentStep('excel-completed');
+      setProgress(null);
+    }
+  };
+
   const handleStartDataGeneration = async () => {
     if (!validateDataSettings()) return;
 
@@ -412,34 +492,61 @@ export default function Home() {
   };
 
   const handleCombinedConfigGenerate = async () => {
+    // Excel 파일 경로 확인
+    console.log('[DEBUG] uploadedExcelPath:', uploadedExcelPath);
+    console.log('[DEBUG] formData:', formData);
+
+    if (!uploadedExcelPath || uploadedExcelPath.trim() === '') {
+      alert(`엑셀 파일을 먼저 업로드해주세요\n현재 경로: "${uploadedExcelPath}"`);
+      return;
+    }
+
     if (!validateDataSettings()) return;
 
-    const payload = {
+    setCurrentStep('analyzing-ai');
+    setProgress({ status: 'analyzing', progress: 10, message: 'AI 전략 분석 시작...' });
+
+    console.log('[DEBUG] Sending to backend:', {
       excelPath: uploadedExcelPath,
       scenario: formData.scenario,
       dau: formData.dau,
-      industry: formData.industry,
-      notes: formData.notes,
-      dateStart: formData.dateStart,
-      dateEnd: formData.dateEnd,
-      aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
-      fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
-    };
+      industry: formData.industry
+    });
 
     try {
-      const response = await fetch(`${API_URL}/api/generate/start`, {
+      const response = await fetch(`${API_URL}/api/generate/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
+        body: JSON.stringify({
+          excelPath: uploadedExcelPath,
+          scenario: formData.scenario,
+          dau: formData.dau,
+          industry: formData.industry,
+          notes: formData.notes,
+          dateStart: formData.dateStart,
+          dateEnd: formData.dateEnd,
+          aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
+          fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
+        }),
       });
 
-      if (!response.ok) throw new Error('Generation failed');
-
       const data = await response.json();
-      setRunId(data.runId);
-      setCurrentStep('generating-data');
+
+      if (response.ok) {
+        setAnalysisId(data.analysisId);
+      } else {
+        const errorMsg = data.missing
+          ? `${data.error}\n누락된 필드: ${data.missing.join(', ')}`
+          : data.error;
+        alert(`에러: ${errorMsg}`);
+        setCurrentStep('combined-config');
+        setProgress(null);
+      }
     } catch (error) {
-      alert('데이터 생성 시작 실패');
+      console.error('AI analysis failed:', error);
+      alert('AI 분석 요청 실패');
+      setCurrentStep('combined-config');
+      setProgress(null);
     }
   };
 
@@ -462,6 +569,73 @@ export default function Home() {
     });
   };
 
+  const handleSegmentChange = (index: number, field: string, value: any) => {
+    const updated = [...editedSegments];
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+    setEditedSegments(updated);
+  };
+
+  const handleEventSequenceChange = (index: number, field: string, value: any) => {
+    const updated = [...editedEventSequences];
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+    setEditedEventSequences(updated);
+  };
+
+  const handleTransactionChange = (index: number, field: string, value: any) => {
+    const updated = [...editedTransactions];
+    updated[index] = {
+      ...updated[index],
+      [field]: value
+    };
+    setEditedTransactions(updated);
+  };
+
+  const handleStartDataGenerationWithAnalysis = async () => {
+    try {
+      // First, update the analysis with edited results
+      const updateResponse = await fetch(`${API_URL}/api/generate/analysis/${analysisId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userSegments: editedSegments,
+          eventSequences: editedEventSequences,
+          transactions: editedTransactions
+        })
+      });
+
+      if (!updateResponse.ok) {
+        const errorData = await updateResponse.json();
+        alert(`분석 결과 저장 실패: ${errorData.error}`);
+        return;
+      }
+
+      // Now start data generation with the modified analysis
+      const response = await fetch(`${API_URL}/api/generate/start-with-analysis`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ analysisId })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setRunId(data.runId);
+        setCurrentStep('generating-data');
+        setProgress({ status: 'starting', progress: 0, message: '수정된 분석 결과로 데이터 생성 시작...' });
+      } else {
+        alert(`에러: ${data.error}`);
+      }
+    } catch (error) {
+      console.error('Failed to start data generation with analysis:', error);
+      alert('데이터 생성 시작 실패');
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] p-8 scan-lines">
@@ -483,6 +657,7 @@ export default function Home() {
               {[
                 { key: 'input', label: startMode === 'new' ? t.generator.stepInput : t.generator.stepUpload, icon: startMode === 'new' ? '✎' : '⇪' },
                 { key: 'excel', label: startMode === 'new' ? t.generator.stepExcel : t.generator.stepSettings, icon: startMode === 'new' ? '▦' : '⚙' },
+                { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
                 { key: 'data', label: t.generator.stepData, icon: '⚡' },
                 { key: 'send', label: t.generator.stepSend, icon: '⇈' },
                 { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
@@ -490,13 +665,15 @@ export default function Home() {
                 const isActive =
                   (step.key === 'input' && (currentStep === 'input' || currentStep === 'upload-excel')) ||
                   (step.key === 'excel' && (currentStep === 'generating-excel' || currentStep === 'excel-completed' || currentStep === 'upload-completed' || currentStep === 'combined-config')) ||
+                  (step.key === 'ai-analysis' && (currentStep === 'analyzing-ai' || currentStep === 'ai-analysis-review')) ||
                   (step.key === 'data' && (currentStep === 'generating-data' || currentStep === 'data-completed')) ||
                   (step.key === 'send' && currentStep === 'sending-data') ||
                   (step.key === 'complete' && currentStep === 'sent');
 
                 const isCompleted =
                   (step.key === 'input' && !['select-mode', 'input', 'upload-excel'].includes(currentStep)) ||
-                  (step.key === 'excel' && ['generating-data', 'data-completed', 'sending-data', 'sent'].includes(currentStep)) ||
+                  (step.key === 'excel' && ['analyzing-ai', 'ai-analysis-review', 'generating-data', 'data-completed', 'sending-data', 'sent'].includes(currentStep)) ||
+                  (step.key === 'ai-analysis' && ['generating-data', 'data-completed', 'sending-data', 'sent'].includes(currentStep)) ||
                   (step.key === 'data' && ['sending-data', 'sent'].includes(currentStep)) ||
                   (step.key === 'send' && currentStep === 'sent');
 
@@ -518,7 +695,7 @@ export default function Home() {
                         {step.label}
                       </span>
                     </div>
-                    {index < 4 && (
+                    {index < 5 && (
                       <div className={`h-0.5 flex-1 mx-2 transition-all ${
                         isCompleted ? 'bg-[var(--accent-green)]' : 'bg-[var(--border)]'
                       }`} />
@@ -541,6 +718,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* New Start */}
               <button
+                type="button"
                 onClick={() => {
                   setStartMode('new');
                   setCurrentStep('input');
@@ -561,6 +739,7 @@ export default function Home() {
 
               {/* Use Excel */}
               <button
+                type="button"
                 onClick={() => {
                   setStartMode('upload');
                   setCurrentStep('upload-excel');
@@ -590,41 +769,47 @@ export default function Home() {
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                <label htmlFor="scenario-input-new" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                   {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
                 </label>
                 <textarea
+                  id="scenario-input-new"
                   value={formData.scenario}
                   onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
                   className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
                   rows={4}
                   placeholder={t.generator.scenarioPlaceholder}
+                  aria-required="true"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="industry-input-new" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="industry-input-new"
                     type="text"
                     value={formData.industry}
                     onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
                     placeholder={t.generator.industryPlaceholder}
+                    aria-required="true"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="notes-input-new" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.notes} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="notes-input-new"
                     type="text"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
                     placeholder={t.generator.notesPlaceholder}
+                    aria-required="true"
                   />
                 </div>
               </div>
@@ -659,12 +844,14 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-4 mt-8">
               <button
+                type="button"
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] hover:text-[var(--text-primary)] transition-all"
               >
                 &lt; {t.generator.home}
               </button>
               <button
+                type="button"
                 onClick={handleStartExcelGeneration}
                 disabled={isUploadingFiles}
                 className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
@@ -683,13 +870,18 @@ export default function Home() {
             </h2>
 
             {/* Current Stage Badge */}
-            <div className="mb-4">
-              <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono">
+            <div className="mb-4 flex items-center gap-3">
+              <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border">
                 {progress.progress < 30 ? '🔹 Stage 1: 이벤트 구조 분석' :
                  progress.progress < 70 ? '🔹 Stage 2: 속성 범위 생성' :
                  progress.progress < 90 ? '🔹 Stage 3: 유저 데이터 생성' :
                  '📝 Excel 파일 작성'}
               </span>
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '300ms' }}></span>
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -700,10 +892,11 @@ export default function Home() {
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
                 <div
-                  className="bg-[var(--accent-cyan)] h-4 transition-all duration-500 relative overflow-hidden"
+                  className="bg-[var(--accent-cyan)] h-4 transition-all duration-500 relative overflow-hidden animate-pulse-subtle"
                   style={{ width: `${progress.progress}%` }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-cyan)] to-[var(--accent-cyan)]/80"></div>
                 </div>
               </div>
             </div>
@@ -720,7 +913,7 @@ export default function Home() {
                 <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-64 overflow-y-auto terminal-scrollbar">
                   <div className="space-y-1">
                     {progress.details.map((detail: string, idx: number) => (
-                      <div key={idx} className="text-xs font-mono text-[var(--text-secondary)]">
+                      <div key={idx} className="text-xs font-mono text-[var(--text-secondary)] animate-fade-in">
                         {detail}
                       </div>
                     ))}
@@ -778,38 +971,44 @@ export default function Home() {
 
               <div className="grid grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="dau-input-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.dau} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="dau-input-excel"
                     type="number"
                     value={formData.dau}
                     onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
                     min="1"
                     placeholder={t.generator.dauPlaceholder}
+                    aria-required="true"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="start-date-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.startDate} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="start-date-excel"
                     type="date"
                     value={formData.dateStart}
                     onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-required="true"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="end-date-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.endDate} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="end-date-excel"
                     type="date"
                     value={formData.dateEnd}
                     onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-required="true"
                   />
                 </div>
               </div>
@@ -817,6 +1016,7 @@ export default function Home() {
 
             <div className="grid grid-cols-2 gap-4">
               <button
+                type="button"
                 onClick={() => {
                   const filename = generatedExcelPath.split('/').pop() || '';
                   if (filename) {
@@ -830,6 +1030,7 @@ export default function Home() {
                 ⇓ {t.generator.downloadExcel}
               </button>
               <button
+                type="button"
                 onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
@@ -838,10 +1039,11 @@ export default function Home() {
             </div>
 
             <button
-              onClick={handleStartDataGeneration}
-              className="w-full mt-4 py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
+              type="button"
+              onClick={handleStartAIAnalysis}
+              className="w-full mt-4 py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan"
             >
-              &gt; {t.generator.dataGenerationStart}
+              &gt; AI 전략 분석 시작
             </button>
           </div>
         )}
@@ -968,78 +1170,91 @@ export default function Home() {
 
             <div className="space-y-6">
               <div>
-                <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                <label htmlFor="scenario-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                   {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
                 </label>
                 <textarea
+                  id="scenario-input-combined"
                   value={formData.scenario}
                   onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
                   className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
                   rows={4}
                   placeholder={t.generator.scenarioPlaceholder}
+                  aria-required="true"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="industry-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="industry-input-combined"
                     type="text"
                     value={formData.industry}
                     onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
                     placeholder={t.generator.industryPlaceholder}
+                    aria-required="true"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="notes-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.notes} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
+                    id="notes-input-combined"
                     type="text"
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
                     placeholder={t.generator.notesPlaceholder}
+                    aria-required="true"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="dau-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.dau}
                   </label>
                   <input
+                    id="dau-input-combined"
                     type="number"
                     value={formData.dau}
                     onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
                     min="1"
+                    placeholder="Daily Active Users"
+                    aria-label={t.generator.dau}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="start-date-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.startDate}
                   </label>
                   <input
+                    id="start-date-combined"
                     type="date"
                     value={formData.dateStart}
                     onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-label={t.generator.startDate}
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  <label htmlFor="end-date-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
                     {t.generator.endDate}
                   </label>
                   <input
+                    id="end-date-combined"
                     type="date"
                     value={formData.dateEnd}
                     onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
                     className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-label={t.generator.endDate}
                   />
                 </div>
               </div>
@@ -1090,26 +1305,26 @@ export default function Home() {
           </div>
         )}
 
-        {/* Data Generation Progress */}
-        {currentStep === 'generating-data' && progress && progress.status !== 'error' && (
+        {/* AI Analysis Progress */}
+        {currentStep === 'analyzing-ai' && progress && (
           <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
             <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-              <span className="animate-pulse">⚡</span> {t.generator.generatingData}
+              <span className="animate-pulse">🤖</span> {t.generator.aiAnalysisInProgress}
             </h2>
 
             {/* Current Phase Badge */}
-            <div className="mb-4">
-              <span className={`inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono`}>
-                {progress.status === 'parsing' ? '▦ 1/5: Excel 파싱' :
-                 progress.status === 'analyzing' && progress.progress < 35 ? '🤖 2/5: AI 전략 분석 (Phase 1)' :
-                 progress.status === 'analyzing' && progress.progress < 55 ? '📈 2/5: AI 리텐션/시퀀싱 분석' :
-                 progress.status === 'analyzing' && progress.progress < 80 ? '🎯 2/5: AI 이벤트 그룹 분석 (Phase 2)' :
-                 progress.status === 'analyzing' ? '⚡ 2/5: AI 분석 완료' :
-                 progress.status === 'generating' && progress.progress < 55 ? '👥 3/5: 사용자 코호트 생성' :
-                 progress.status === 'generating' ? '📊 4/5: 이벤트 데이터 생성' :
-                 progress.status === 'saving' ? '💾 5/5: 메타데이터 저장' :
-                 progress.step || `⋯ ${t.generator.processing}`}
+            <div className="mb-4 flex items-center gap-3">
+              <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border">
+                {progress.progress < 30 ? '📋 Excel 파싱 중...' :
+                 progress.progress < 60 ? '🤖 AI 전략 분석 중...' :
+                 progress.progress < 90 ? '🎯 사용자 세그먼트 생성 중...' :
+                 '⚡ 분석 완료 중...'}
               </span>
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '300ms' }}></span>
+              </div>
             </div>
 
             {/* Progress Bar */}
@@ -1120,10 +1335,11 @@ export default function Home() {
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
                 <div
-                  className="bg-[var(--accent-cyan)] h-4 transition-all duration-500 relative overflow-hidden"
+                  className="bg-[var(--accent-cyan)] h-4 transition-all duration-500 relative overflow-hidden animate-pulse-subtle"
                   style={{ width: `${progress.progress}%` }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-cyan)] to-[var(--accent-cyan)]/80"></div>
                 </div>
               </div>
             </div>
@@ -1140,7 +1356,347 @@ export default function Home() {
                 <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
                   <div className="space-y-0.5">
                     {progress.details.map((detail: string, idx: number) => (
-                      <div key={idx} className="text-xs font-mono">
+                      <div key={idx} className="text-xs text-[var(--text-secondary)] font-mono animate-fade-in">
+                        <span className="text-[var(--accent-cyan)]">&gt;</span> {detail}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                  {progress.details.length} {t.generator.autoUpdate}
+                </p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* AI Analysis Review Screen */}
+        {currentStep === 'ai-analysis-review' && aiAnalysisResult && (
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
+            <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
+              <span>🤖</span> {t.generator.aiAnalysisTitle}
+            </h2>
+
+            <div className="p-6 bg-[var(--accent-cyan)]/10 rounded border border-[var(--accent-cyan)] mb-6">
+              <p className="text-[var(--accent-cyan)] mb-2 font-mono font-semibold">✅ {t.generator.aiAnalysisComplete}</p>
+              <p className="text-sm text-[var(--text-secondary)] font-mono">{t.generator.aiAnalysisDesc}</p>
+            </div>
+
+            {/* Summary Cards */}
+            <div className="grid grid-cols-3 gap-4 mb-8">
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.userSegments}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {editedSegments.length || 0}{t.generator.segmentCount}
+                </p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventSequenceRules}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {editedEventSequences.length || 0}{t.generator.sequenceCount}
+                </p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.transactionDefinitions}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {editedTransactions.length || 0}{t.generator.transactionsCount}
+                </p>
+              </div>
+            </div>
+
+            {/* User Segments Table */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 font-mono flex items-center gap-2">
+                <span>👥</span> {t.generator.userSegments}
+              </h3>
+              <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-[var(--bg-tertiary)] border-b border-[var(--border)]">
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">세그먼트명</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">비율(%)</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">특성</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">평균 세션/일</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">평균 세션 시간</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-[var(--text-secondary)] font-mono">평균 이벤트/세션</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {editedSegments.map((segment: any, idx: number) => (
+                        <tr key={idx} className="border-b border-[var(--border)] hover:bg-[var(--bg-tertiary)]/50 transition-colors">
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={segment.name}
+                              onChange={(e) => handleSegmentChange(idx, 'name', e.target.value)}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                              aria-label={`세그먼트명 ${idx + 1}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={segment.percentage}
+                              onChange={(e) => handleSegmentChange(idx, 'percentage', parseFloat(e.target.value))}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--accent-cyan)] font-mono font-semibold focus:outline-none focus:border-[var(--accent-cyan)]"
+                              min="0"
+                              max="100"
+                              step="0.1"
+                              aria-label={`비율(%) ${idx + 1}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <textarea
+                              value={segment.characteristics}
+                              onChange={(e) => handleSegmentChange(idx, 'characteristics', e.target.value)}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)] resize-none"
+                              rows={2}
+                              aria-label={`특성 ${idx + 1}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={segment.avgSessionsPerDay}
+                              onChange={(e) => handleSegmentChange(idx, 'avgSessionsPerDay', parseFloat(e.target.value))}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                              min="0"
+                              step="0.1"
+                              aria-label={`평균 세션/일 ${idx + 1}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="text"
+                              value={segment.avgSessionDuration}
+                              onChange={(e) => handleSegmentChange(idx, 'avgSessionDuration', e.target.value)}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                              aria-label={`평균 세션 시간 ${idx + 1}`}
+                            />
+                          </td>
+                          <td className="px-4 py-3">
+                            <input
+                              type="number"
+                              value={segment.avgEventsPerSession}
+                              onChange={(e) => handleSegmentChange(idx, 'avgEventsPerSession', parseFloat(e.target.value))}
+                              className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-2 py-1 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                              min="0"
+                              step="0.1"
+                              aria-label={`평균 이벤트/세션 ${idx + 1}`}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                💡 비율, 세션 패턴 등을 수정하여 재검토할 수 있습니다.
+              </p>
+            </div>
+
+            {/* Event Sequence Rules */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 font-mono flex items-center gap-2">
+                <span>🔄</span> {t.generator.eventSequenceRules}
+              </h3>
+              <div className="space-y-3">
+                {editedEventSequences.map((sequence: any, idx: number) => (
+                  <div key={idx} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded p-4 hover:border-[var(--accent-cyan)] transition-colors">
+                    <div className="grid grid-cols-12 gap-4">
+                      <div className="col-span-5">
+                        <label htmlFor={`sequence-name-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">시퀀스 이름</label>
+                        <input
+                          id={`sequence-name-${idx}`}
+                          type="text"
+                          value={sequence.name}
+                          onChange={(e) => handleEventSequenceChange(idx, 'name', e.target.value)}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label htmlFor={`sequence-probability-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">확률(%)</label>
+                        <input
+                          id={`sequence-probability-${idx}`}
+                          type="number"
+                          value={sequence.probability}
+                          onChange={(e) => handleEventSequenceChange(idx, 'probability', parseFloat(e.target.value))}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--accent-cyan)] font-mono font-semibold focus:outline-none focus:border-[var(--accent-cyan)]"
+                          min="0"
+                          max="100"
+                          step="0.1"
+                        />
+                      </div>
+                      <div className="col-span-5">
+                        <label htmlFor={`sequence-events-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">이벤트 순서</label>
+                        <input
+                          id={`sequence-events-${idx}`}
+                          type="text"
+                          value={Array.isArray(sequence.events) ? sequence.events.join(' → ') : sequence.events}
+                          onChange={(e) => handleEventSequenceChange(idx, 'events', e.target.value.split(' → '))}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                          placeholder="event1 → event2 → event3"
+                        />
+                      </div>
+                    </div>
+                    {sequence.description && (
+                      <div className="mt-3">
+                        <label htmlFor={`sequence-description-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">설명</label>
+                        <textarea
+                          id={`sequence-description-${idx}`}
+                          value={sequence.description}
+                          onChange={(e) => handleEventSequenceChange(idx, 'description', e.target.value)}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)] resize-none"
+                          rows={2}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                💡 이벤트 순서를 "→"로 구분하여 수정할 수 있습니다.
+              </p>
+            </div>
+
+            {/* Transaction Definitions */}
+            <div className="mb-8">
+              <h3 className="text-lg font-bold text-[var(--text-primary)] mb-4 font-mono flex items-center gap-2">
+                <span>💰</span> {t.generator.transactionDefinitions}
+              </h3>
+              <div className="space-y-3">
+                {editedTransactions.map((transaction: any, idx: number) => (
+                  <div key={idx} className="bg-[var(--bg-primary)] border border-[var(--border)] rounded p-4 hover:border-[var(--accent-cyan)] transition-colors">
+                    <div className="grid grid-cols-12 gap-4">
+                      <div className="col-span-4">
+                        <label htmlFor={`transaction-name-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">트랜잭션명</label>
+                        <input
+                          id={`transaction-name-${idx}`}
+                          type="text"
+                          value={transaction.name}
+                          onChange={(e) => handleTransactionChange(idx, 'name', e.target.value)}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-primary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <label htmlFor={`transaction-trigger-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">트리거 이벤트</label>
+                        <input
+                          id={`transaction-trigger-${idx}`}
+                          type="text"
+                          value={transaction.triggerEvent}
+                          onChange={(e) => handleTransactionChange(idx, 'triggerEvent', e.target.value)}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                        />
+                      </div>
+                      <div className="col-span-4">
+                        <label htmlFor={`transaction-properties-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">관련 속성</label>
+                        <input
+                          id={`transaction-properties-${idx}`}
+                          type="text"
+                          value={Array.isArray(transaction.properties) ? transaction.properties.join(', ') : transaction.properties}
+                          onChange={(e) => handleTransactionChange(idx, 'properties', e.target.value.split(', '))}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)]"
+                          placeholder="property1, property2"
+                        />
+                      </div>
+                    </div>
+                    {transaction.description && (
+                      <div className="mt-3">
+                        <label htmlFor={`transaction-description-${idx}`} className="text-xs text-[var(--text-dimmed)] mb-1 block font-mono">설명</label>
+                        <textarea
+                          id={`transaction-description-${idx}`}
+                          value={transaction.description}
+                          onChange={(e) => handleTransactionChange(idx, 'description', e.target.value)}
+                          className="w-full bg-[var(--bg-tertiary)] border border-[var(--border)] rounded px-3 py-2 text-sm text-[var(--text-secondary)] font-mono focus:outline-none focus:border-[var(--accent-cyan)] resize-none"
+                          rows={2}
+                        />
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                💡 트랜잭션 트리거와 관련 속성을 수정할 수 있습니다.
+              </p>
+            </div>
+
+            {/* Action Buttons */}
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={handleComplete}
+                className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
+              >
+                &lt; {t.generator.home}
+              </button>
+              <button
+                onClick={handleStartDataGenerationWithAnalysis}
+                className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
+              >
+                &gt; {t.generator.proceedToDataGeneration}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Data Generation Progress */}
+        {currentStep === 'generating-data' && progress && progress.status !== 'error' && (
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
+            <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
+              <span className="animate-pulse">⚡</span> {t.generator.generatingData}
+            </h2>
+
+            {/* Current Phase Badge */}
+            <div className="mb-4 flex items-center gap-3">
+              <span className={`inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border`}>
+                {progress.status === 'parsing' ? '▦ 1/5: Excel 파싱' :
+                 progress.status === 'analyzing' && progress.progress < 35 ? '🤖 2/5: AI 전략 분석 (Phase 1)' :
+                 progress.status === 'analyzing' && progress.progress < 55 ? '📈 2/5: AI 리텐션/시퀀싱 분석' :
+                 progress.status === 'analyzing' && progress.progress < 80 ? '🎯 2/5: AI 이벤트 그룹 분석 (Phase 2)' :
+                 progress.status === 'analyzing' ? '⚡ 2/5: AI 분석 완료' :
+                 progress.status === 'generating' && progress.progress < 55 ? '👥 3/5: 사용자 코호트 생성' :
+                 progress.status === 'generating' ? '📊 4/5: 이벤트 데이터 생성' :
+                 progress.status === 'saving' ? '💾 5/5: 메타데이터 저장' :
+                 progress.step || `⋯ ${t.generator.processing}`}
+              </span>
+              <div className="flex gap-1">
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '150ms' }}></span>
+                <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '300ms' }}></span>
+              </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="mb-6">
+              <div className="flex justify-between items-center mb-2">
+                <span className="text-sm font-medium text-[var(--text-secondary)] font-mono">{t.generator.progress}</span>
+                <span className="text-sm font-bold text-[var(--accent-cyan)] font-mono">{progress.progress}%</span>
+              </div>
+              <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
+                <div
+                  className="bg-[var(--accent-cyan)] h-4 transition-all duration-500 relative overflow-hidden animate-pulse-subtle"
+                  style={{ width: `${progress.progress}%` }}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-cyan)] to-[var(--accent-cyan)]/80"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* Current Message */}
+            <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
+              <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
+            </div>
+
+            {/* AI 분석 상세 로그 */}
+            {progress.details && progress.details.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">{t.generator.detailedProgress}</h3>
+                <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
+                  <div className="space-y-0.5">
+                    {progress.details.map((detail: string, idx: number) => (
+                      <div key={idx} className="text-xs font-mono animate-fade-in">
                         <span className={`${
                           detail.includes('✅') || detail.includes('완료') ? 'text-[var(--accent-green)]' :
                           detail.includes('⚠️') || detail.includes('경고') ? 'text-[var(--accent-yellow)]' :
@@ -1312,10 +1868,11 @@ export default function Home() {
               </div>
               <div className="w-full bg-[var(--bg-tertiary)] rounded h-4 overflow-hidden border border-[var(--border)]">
                 <div
-                  className="bg-[var(--accent-magenta)] h-4 transition-all duration-500 relative overflow-hidden"
+                  className="bg-[var(--accent-magenta)] h-4 transition-all duration-500 relative overflow-hidden animate-pulse-subtle"
                   style={{ width: `${progress.progress}%` }}
                 >
-                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent animate-shimmer"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-[var(--accent-magenta)] to-[var(--accent-magenta)]/80"></div>
                 </div>
               </div>
             </div>
@@ -1447,6 +2004,62 @@ export default function Home() {
 
         .animate-shimmer {
           animation: shimmer 2s infinite;
+        }
+
+        @keyframes pulse-subtle {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.85;
+          }
+        }
+
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s ease-in-out infinite;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+
+        @keyframes pulse-border {
+          0%, 100% {
+            box-shadow: 0 0 0 0 var(--accent-cyan), 0 0 8px 0 var(--accent-cyan);
+          }
+          50% {
+            box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 12px 2px var(--accent-cyan);
+          }
+        }
+
+        .animate-pulse-border {
+          animation: pulse-border 2s ease-in-out infinite;
+        }
+
+        @keyframes bounce-dot {
+          0%, 80%, 100% {
+            transform: translateY(0);
+            opacity: 0.5;
+          }
+          40% {
+            transform: translateY(-6px);
+            opacity: 1;
+          }
+        }
+
+        .animate-bounce-dot {
+          animation: bounce-dot 1.4s ease-in-out infinite;
         }
       `}</style>
     </div>

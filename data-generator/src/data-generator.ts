@@ -62,6 +62,9 @@ export interface DataGeneratorConfig {
 
   // 진행 상황 콜백 (선택적)
   onProgress?: ProgressCallback;
+
+  // 사전 분석된 AI 결과 (선택적)
+  preAnalyzedResult?: AIAnalysisResult;
 }
 
 /**
@@ -126,9 +129,6 @@ export class DataGenerator {
       details: ['🤖 AI 분석 시작', `📋 이벤트 수: ${schema.events.length}개`, `📋 속성 수: ${schema.properties.length}개`]
     });
     console.log('\n🤖 Step 2: AI analysis...');
-
-    // ValidationSummary 저장용
-    let validationSummaries: any = {};
 
     // AI 분석 전에 어떤 모드인지 알림
     if (schema.events.length > 15) {
@@ -693,7 +693,7 @@ export class DataGenerator {
     await controller.start();
 
     // 진행 상태 모니터링
-    await controller.monitorProgress(5, (status) => {
+    await controller.monitorProgress(5, (_status) => {
       // Progress callback
     });
 

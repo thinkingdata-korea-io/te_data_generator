@@ -309,14 +309,16 @@ export default function SettingsPage() {
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                  <label htmlFor="username-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                     <span className="text-terminal-cyan">$</span> {t.auth.username}
                   </label>
                   <input
+                    id="username-input"
                     type="text"
                     value={user?.username || ''}
                     disabled
                     className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-dimmed)] font-mono text-sm"
+                    aria-label={t.auth.username}
                   />
                   <p className="text-xs text-[var(--text-dimmed)] mt-1">
                     {t.settings.usernameCannotChange}
@@ -324,10 +326,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                  <label htmlFor="fullname-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                     <span className="text-terminal-cyan">$</span> {t.settings.displayName}
                   </label>
                   <input
+                    id="fullname-input"
                     type="text"
                     value={profile.fullName}
                     onChange={(e) => setProfile({ ...profile, fullName: e.target.value })}
@@ -336,10 +339,11 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                  <label htmlFor="email-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                     <span className="text-terminal-cyan">$</span> {t.settings.email}
                   </label>
                   <input
+                    id="email-input"
                     type="email"
                     value={profile.email}
                     onChange={(e) => setProfile({ ...profile, email: e.target.value })}
@@ -348,14 +352,16 @@ export default function SettingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                  <label htmlFor="role-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                     <span className="text-terminal-cyan">$</span> {t.settings.role}
                   </label>
                   <input
+                    id="role-input"
                     type="text"
                     value={user?.role?.toUpperCase() || ''}
                     disabled
-                    className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-dimmed)] font-mono text-sm"
+                    className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm"
+                    aria-label={t.settings.role}
                   />
                 </div>
               </div>
@@ -528,15 +534,17 @@ export default function SettingsPage() {
               <div className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                    <label htmlFor="data-retention-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                       <span className="text-terminal-cyan">$</span> {t.settings.dataRetentionDays}
                     </label>
                     <input
+                      id="data-retention-input"
                       type="number"
                       min="1"
                       value={settings.DATA_RETENTION_DAYS}
                       onChange={(e) => setSettings({ ...settings, DATA_RETENTION_DAYS: e.target.value })}
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none transition-all"
+                      placeholder="7"
                     />
                     <p className="text-xs text-[var(--text-dimmed)] mt-1">
                       {t.settings.dataRetentionDesc}
@@ -544,15 +552,17 @@ export default function SettingsPage() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+                    <label htmlFor="excel-retention-input" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
                       <span className="text-terminal-cyan">$</span> {t.settings.excelRetentionDays}
                     </label>
                     <input
+                      id="excel-retention-input"
                       type="number"
                       min="1"
                       value={settings.EXCEL_RETENTION_DAYS}
                       onChange={(e) => setSettings({ ...settings, EXCEL_RETENTION_DAYS: e.target.value })}
                       className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none transition-all"
+                      placeholder="30"
                     />
                     <p className="text-xs text-[var(--text-dimmed)] mt-1">
                       {t.settings.excelRetentionDesc}

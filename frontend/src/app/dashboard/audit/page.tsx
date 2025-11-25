@@ -197,10 +197,11 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+            <label htmlFor="action-filter" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
               {t.audit.action}
             </label>
             <select
+              id="action-filter"
               value={filters.action}
               onChange={(e) => handleFilterChange('action', e.target.value)}
               className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
@@ -217,26 +218,30 @@ export default function AuditLogsPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+            <label htmlFor="start-date-filter" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
               {t.audit.startDate}
             </label>
             <input
+              id="start-date-filter"
               type="date"
               value={filters.start_date}
               onChange={(e) => handleFilterChange('start_date', e.target.value)}
               className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
+              aria-label={t.audit.startDate}
             />
           </div>
 
           <div>
-            <label className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
+            <label htmlFor="end-date-filter" className="block text-sm font-semibold mb-2 text-[var(--text-primary)]">
               {t.audit.endDate}
             </label>
             <input
+              id="end-date-filter"
               type="date"
               value={filters.end_date}
               onChange={(e) => handleFilterChange('end_date', e.target.value)}
               className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] font-mono text-sm focus:border-[var(--accent-cyan)] focus:outline-none"
+              aria-label={t.audit.endDate}
             />
           </div>
         </div>
