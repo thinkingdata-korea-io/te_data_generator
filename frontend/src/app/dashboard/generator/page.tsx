@@ -6,6 +6,9 @@ import FileUploadZone, { UploadedFileInfo } from '@/components/FileUploadZone';
 import AIAnalysisProgress from './components/AIAnalysisProgress';
 import AIAnalysisReview from './components/AIAnalysisReview';
 import DataGenerationProgress from './components/DataGenerationProgress';
+import ModeSelector from './components/ModeSelector';
+import ExcelCompleted from './components/ExcelCompleted';
+import DataCompleted from './components/DataCompleted';
 
 // API URL 설정
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -713,55 +716,12 @@ export default function Home() {
         {/* Main Content */}
         {/* Select Mode Screen */}
         {currentStep === 'select-mode' && (
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8">
-            <h2 className="text-2xl font-bold mb-8 text-terminal-cyan font-mono">
-              &gt; {t.generator.title}
-            </h2>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* New Start */}
-              <button
-                type="button"
-                onClick={() => {
-                  setStartMode('new');
-                  setCurrentStep('input');
-                }}
-                className="p-8 border border-[var(--border)] rounded hover:border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/5 transition-all text-left group"
-              >
-                <div className="text-4xl mb-4 text-[var(--accent-cyan)]">▣</div>
-                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">{t.generator.newStart}</h3>
-                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono whitespace-pre-line">
-                  {t.generator.newStartDesc}
-                </p>
-                <div className="text-xs text-[var(--text-dimmed)] font-mono space-y-1">
-                  <div>{t.generator.newStartStep1}</div>
-                  <div>{t.generator.newStartStep2}</div>
-                  <div>{t.generator.newStartStep3}</div>
-                </div>
-              </button>
-
-              {/* Use Excel */}
-              <button
-                type="button"
-                onClick={() => {
-                  setStartMode('upload');
-                  setCurrentStep('upload-excel');
-                }}
-                className="p-8 border border-[var(--border)] rounded hover:border-[var(--accent-green)] hover:bg-[var(--accent-green)]/5 transition-all text-left group"
-              >
-                <div className="text-4xl mb-4 text-[var(--accent-green)]">⇪</div>
-                <h3 className="text-xl font-bold mb-2 text-[var(--text-primary)] font-mono">{t.generator.useExcel}</h3>
-                <p className="text-[var(--text-secondary)] text-sm mb-4 font-mono whitespace-pre-line">
-                  {t.generator.useExcelDesc}
-                </p>
-                <div className="text-xs text-[var(--text-dimmed)] font-mono space-y-1">
-                  <div>{t.generator.useExcelStep1}</div>
-                  <div>{t.generator.useExcelStep2}</div>
-                  <div>{t.generator.useExcelStep3}</div>
-                </div>
-              </button>
-            </div>
-          </div>
+          <ModeSelector
+            onSelectMode={(mode) => {
+              setStartMode(mode);
+              setCurrentStep(mode === 'new' ? 'input' : 'upload-excel');
+            }}
+          />
         )}
 
         {currentStep === 'input' && (
@@ -932,123 +892,22 @@ export default function Home() {
 
         {/* Excel Completed */}
         {currentStep === 'excel-completed' && (
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
-            <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> {t.generator.excelSchemaComplete}
-            </h2>
-            <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <p className="text-[var(--accent-green)] mb-4 font-mono">{t.generator.excelSchemaSuccess}</p>
-              <p className="text-sm text-[var(--text-secondary)] font-mono">{t.generator.enterDataSettings}</p>
-            </div>
-
-            {excelPreview && (
-              <div className="mb-6 space-y-4">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventCount}</p>
-                    <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events ?? 0}</p>
-                  </div>
-                  <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventProperties}</p>
-                    <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties ?? 0}</p>
-                  </div>
-                  <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.commonProperties}</p>
-                    <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties ?? 0}</p>
-                  </div>
-                  <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
-                    <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.userData}</p>
-                    <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData ?? 0}</p>
-                  </div>
-                </div>
-                {excelPreview.provider && (
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">
-                    {t.generator.generationMethod}: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
-                  </p>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-6 mb-6">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] font-mono">&gt; {t.generator.generationConfig}</h3>
-
-              <div className="grid grid-cols-3 gap-6">
-                <div>
-                  <label htmlFor="dau-input-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    {t.generator.dau} <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <input
-                    id="dau-input-excel"
-                    type="number"
-                    value={formData.dau}
-                    onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
-                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    min="1"
-                    placeholder={t.generator.dauPlaceholder}
-                    aria-required="true"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="start-date-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    {t.generator.startDate} <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <input
-                    id="start-date-excel"
-                    type="date"
-                    value={formData.dateStart}
-                    onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
-                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    aria-required="true"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="end-date-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    {t.generator.endDate} <span className="text-[var(--error-red)]">*</span>
-                  </label>
-                  <input
-                    id="end-date-excel"
-                    type="date"
-                    value={formData.dateEnd}
-                    onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
-                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    aria-required="true"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                type="button"
-                onClick={() => {
-                  const filename = generatedExcelPath.split('/').pop() || '';
-                  if (filename) {
-                    window.open(`/api/excel/download/${encodeURIComponent(filename)}`, '_blank');
-                  } else {
-                    alert('Excel 파일 이름을 찾을 수 없습니다.');
-                  }
-                }}
-                className="py-4 rounded text-[var(--accent-green)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 transition-all"
-              >
-                ⇓ {t.generator.downloadExcel}
-              </button>
-              <button
-                type="button"
-                onClick={handleComplete}
-                className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
-              >
-                &lt; {t.generator.home}
-              </button>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleStartAIAnalysis}
-              className="w-full mt-4 py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan"
-            >
-              &gt; AI 전략 분석 시작
-            </button>
-          </div>
+          <ExcelCompleted
+            excelPreview={excelPreview}
+            generatedExcelPath={generatedExcelPath}
+            formData={formData}
+            onFormDataChange={setFormData}
+            onDownloadExcel={() => {
+              const filename = generatedExcelPath.split('/').pop() || '';
+              if (filename) {
+                window.open(`/api/excel/download/${encodeURIComponent(filename)}`, '_blank');
+              } else {
+                alert('Excel 파일 이름을 찾을 수 없습니다.');
+              }
+            }}
+            onComplete={handleComplete}
+            onStartAIAnalysis={handleStartAIAnalysis}
+          />
         )}
 
         {/* Upload Excel Screen */}
@@ -1376,96 +1235,14 @@ export default function Home() {
 
         {/* Data Completed */}
         {currentStep === 'data-completed' && progress && progress.result && (
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
-            <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> {t.generator.dataGenerationComplete}
-            </h2>
-            <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono flex items-center gap-2">
-                <span>✓</span> {t.generator.generationComplete}
-              </h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalEvents}</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalEvents?.toLocaleString()}</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalUsers}</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalUsers?.toLocaleString()}</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.totalDays}</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{progress.result.totalDays}일</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.runId}</p>
-                  <p className="text-xs font-mono text-[var(--accent-cyan)]">{progress.result.runId}</p>
-                </div>
-              </div>
-              <p className="text-sm text-[var(--text-secondary)] mb-4 font-mono">{t.generator.sendDataToTE}</p>
-              <div className="space-y-2">
-                <label className="text-sm font-semibold text-[var(--text-primary)] font-mono">{t.generator.appId}</label>
-                <input
-                  type="text"
-                  value={sendAppId}
-                  onChange={(e) => setSendAppId(e.target.value)}
-                  placeholder={t.generator.appIdPlaceholder}
-                  className="w-full px-4 py-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                />
-                <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.appIdDesc}</p>
-              </div>
-            </div>
-
-            {/* 🆕 AI 분석 결과 다운로드 버튼 */}
-            <div className="mb-6 p-4 bg-[var(--accent-cyan)]/10 rounded border border-[var(--accent-cyan)]">
-              <h3 className="text-[var(--accent-cyan)] font-semibold mb-2 font-mono flex items-center gap-2">
-                <span>📊</span> AI 분석 결과
-              </h3>
-              <p className="text-sm text-[var(--text-secondary)] mb-3 font-mono">
-                AI가 생성한 사용자 세그먼트, 이벤트 순서 규칙, 트랜잭션 정의를 Excel로 다운로드하여 검토할 수 있습니다.
-              </p>
-              <button
-                onClick={async () => {
-                  try {
-                    const response = await fetch(`${API_URL}/api/generate/analysis-excel`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ runId })
-                    });
-
-                    if (!response.ok) {
-                      throw new Error('AI 분석 결과 생성 실패');
-                    }
-
-                    const data = await response.json();
-                    window.open(`${API_URL}${data.file.downloadUrl}`, '_blank');
-                  } catch (error) {
-                    console.error('Error:', error);
-                    alert('AI 분석 결과 다운로드 실패');
-                  }
-                }}
-                className="w-full py-3 rounded text-[var(--accent-cyan)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-all"
-              >
-                📥 AI 분석 결과 Excel 다운로드
-              </button>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <button
-                onClick={handleComplete}
-                className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
-              >
-                &lt; {t.generator.home}
-              </button>
-              <button
-                onClick={handleSendData}
-                disabled={!sendAppId.trim()}
-                className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-magenta)] hover:bg-[var(--accent-magenta)]/80 transition-all terminal-glow-magenta disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                &gt; {t.generator.sendData}
-              </button>
-            </div>
-          </div>
+          <DataCompleted
+            progress={progress}
+            runId={runId}
+            sendAppId={sendAppId}
+            onSendAppIdChange={setSendAppId}
+            onComplete={handleComplete}
+            onSendData={handleSendData}
+          />
         )}
 
         {/* Data Sending Progress */}
