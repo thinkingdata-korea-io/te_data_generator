@@ -138,6 +138,7 @@ export const ko = {
   generator: {
     title: '데이터 생성 방법을 선택하세요',
     selectMode: '데이터 생성 방법 선택',
+    analysisLanguage: '분석 언어',
 
     // Mode selection
     newStart: '새로 시작하기',

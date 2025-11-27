@@ -1,19 +1,23 @@
 'use client';
 
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ProcessStep } from '../types';
+import { ProcessStep, TaskMode } from '../types';
 
 interface ProgressStepsProps {
   currentStep: ProcessStep;
-  startMode: 'new' | 'upload' | null;
+  startMode: TaskMode | null;
 }
 
 export default function ProgressSteps({ currentStep, startMode }: ProgressStepsProps) {
   const { t } = useLanguage();
 
+  // Determine first step label and icon based on task mode
+  const isGenerateMode = startMode === 'taxonomy-only' || startMode === 'full-process';
+  const isUploadMode = startMode === 'analysis-only' || startMode === 'data-only';
+
   const steps = [
-    { key: 'input', label: startMode === 'new' ? t.generator.stepInput : t.generator.stepUpload, icon: startMode === 'new' ? '✎' : '⇪' },
-    { key: 'excel', label: startMode === 'new' ? t.generator.stepExcel : t.generator.stepSettings, icon: startMode === 'new' ? '▦' : '⚙' },
+    { key: 'input', label: isGenerateMode ? t.generator.stepInput : t.generator.stepUpload, icon: isGenerateMode ? '✎' : '⇪' },
+    { key: 'excel', label: isGenerateMode ? t.generator.stepExcel : t.generator.stepSettings, icon: isGenerateMode ? '▦' : '⚙' },
     { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
     { key: 'data', label: t.generator.stepData, icon: '⚡' },
     { key: 'send', label: t.generator.stepSend, icon: '⇈' },

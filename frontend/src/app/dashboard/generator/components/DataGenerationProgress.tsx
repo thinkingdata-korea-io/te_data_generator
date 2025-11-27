@@ -1,13 +1,16 @@
 'use client';
 
+import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { ProgressData } from '../types';
 
 interface DataGenerationProgressProps {
-  progress: any;
+  progress: ProgressData | null;
 }
 
 export default function DataGenerationProgress({ progress }: DataGenerationProgressProps) {
   const { t } = useLanguage();
+  const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
 
   if (!progress || progress.status === 'error') {
     return null;
@@ -22,14 +25,10 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
       {/* Current Phase Badge */}
       <div className="mb-4 flex items-center gap-3">
         <span className={`inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border`}>
-          {progress.status === 'parsing' ? '▦ 1/5: Excel 파싱' :
-           progress.status === 'analyzing' && progress.progress < 35 ? '🤖 2/5: AI 전략 분석 (Phase 1)' :
-           progress.status === 'analyzing' && progress.progress < 55 ? '📈 2/5: AI 리텐션/시퀀싱 분석' :
-           progress.status === 'analyzing' && progress.progress < 80 ? '🎯 2/5: AI 이벤트 그룹 분석 (Phase 2)' :
-           progress.status === 'analyzing' ? '⚡ 2/5: AI 분석 완료' :
-           progress.status === 'generating' && progress.progress < 55 ? '👥 3/5: 사용자 코호트 생성' :
-           progress.status === 'generating' ? '📊 4/5: 이벤트 데이터 생성' :
-           progress.status === 'saving' ? '💾 5/5: 메타데이터 저장' :
+          {progress.status === 'parsing' ? '📋 Excel 파싱 중' :
+           progress.status === 'analyzing' ? '🤖 AI 분석 중' :
+           progress.status === 'generating' ? '📊 데이터 생성 중' :
+           progress.status === 'saving' ? '💾 저장 중' :
            progress.step || `⋯ ${t.generator.processing}`}
         </span>
         <div className="flex gap-1">
@@ -64,31 +63,117 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
       {/* Detailed Progress Logs */}
       {progress.details && progress.details.length > 0 && (
         <div className="mt-4">
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">{t.generator.detailedProgress}</h3>
-          <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
-            <div className="space-y-0.5">
-              {progress.details.map((detail: string, idx: number) => (
-                <div key={idx} className="text-xs font-mono animate-fade-in">
-                  <span className={`${
-                    detail.includes('✅') || detail.includes('완료') ? 'text-[var(--accent-green)]' :
-                    detail.includes('⚠️') || detail.includes('경고') ? 'text-[var(--accent-yellow)]' :
-                    detail.includes('❌') || detail.includes('오류') ? 'text-[var(--error-red)]' :
-                    detail.includes('⚡') || detail.includes('AI') ? 'text-[var(--accent-cyan)]' :
-                    detail.includes('▦') || detail.includes('Phase') ? 'text-[var(--accent-magenta)]' :
-                    detail.startsWith('  ') ? 'text-[var(--text-dimmed)]' :
-                    'text-[var(--text-secondary)]'
-                  }`}>
-                    {detail}
-                  </span>
+          <button
+            onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--text-primary)] bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] border border-[var(--border)] hover:border-[var(--accent-cyan)] rounded font-mono transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-[var(--accent-cyan)] text-xl">{isDetailsExpanded ? '▼' : '▶'}</span>
+              {t.generator.detailedProgress}
+            </span>
+            <span className="text-xs text-[var(--text-dimmed)]">
+              {isDetailsExpanded ? '접기' : '펼치기'}
+            </span>
+          </button>
+          {isDetailsExpanded && (
+            <>
+              <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
+                <div className="space-y-0.5">
+                  {progress.details.map((detail: string, idx: number) => (
+                    <div key={idx} className="text-xs font-mono animate-fade-in">
+                      <span className={`${
+                        detail.includes('✅') || detail.includes('완료') ? 'text-[var(--accent-green)]' :
+                        detail.includes('⚠️') || detail.includes('경고') ? 'text-[var(--accent-yellow)]' :
+                        detail.includes('❌') || detail.includes('오류') ? 'text-[var(--error-red)]' :
+                        detail.includes('⚡') || detail.includes('AI') ? 'text-[var(--accent-cyan)]' :
+                        detail.includes('▦') || detail.includes('Phase') ? 'text-[var(--accent-magenta)]' :
+                        detail.startsWith('  ') ? 'text-[var(--text-dimmed)]' :
+                        'text-[var(--text-secondary)]'
+                      }`}>
+                        {detail}
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          </div>
-          <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
-            {progress.details.length}{t.generator.autoUpdate}
-          </p>
+              </div>
+              <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                {progress.details.length}{t.generator.autoUpdate}
+              </p>
+            </>
+          )}
         </div>
       )}
+
+      <style jsx>{`
+        @keyframes bounce-dot {
+          0%, 80%, 100% {
+            transform: translateY(0);
+            opacity: 0.5;
+          }
+          40% {
+            transform: translateY(-6px);
+            opacity: 1;
+          }
+        }
+
+        .animate-bounce-dot {
+          animation: bounce-dot 1.4s ease-in-out infinite;
+        }
+
+        @keyframes pulse-border {
+          0%, 100% {
+            box-shadow: 0 0 0 0 var(--accent-cyan), 0 0 8px 0 var(--accent-cyan);
+          }
+          50% {
+            box-shadow: 0 0 0 2px var(--accent-cyan), 0 0 12px 2px var(--accent-cyan);
+          }
+        }
+
+        .animate-pulse-border {
+          animation: pulse-border 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-subtle {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.85;
+          }
+        }
+
+        .animate-pulse-subtle {
+          animation: pulse-subtle 2s ease-in-out infinite;
+        }
+
+        @keyframes shimmer {
+          0% {
+            transform: translateX(-100%);
+          }
+          100% {
+            transform: translateX(100%);
+          }
+        }
+
+        .animate-shimmer {
+          animation: shimmer 2s infinite;
+        }
+
+        @keyframes fade-in {
+          from {
+            opacity: 0;
+            transform: translateY(-4px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+
+        .animate-fade-in {
+          animation: fade-in 0.3s ease-out forwards;
+        }
+      `}</style>
     </div>
   );
 }

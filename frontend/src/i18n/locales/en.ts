@@ -138,6 +138,7 @@ export const en = {
   generator: {
     title: 'Select Data Generation Method',
     selectMode: 'Choose Data Generation Method',
+    analysisLanguage: 'Analysis Language',
 
     // Mode selection
     newStart: 'Start from Scratch',

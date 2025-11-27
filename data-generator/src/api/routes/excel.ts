@@ -109,20 +109,34 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
     scenario,
     industry,
     notes,
+    language = 'ko', // Default to Korean
   } = req.body;
 
   if (!scenario || !industry || !notes) {
     return res.status(400).json({ error: 'scenario, industry, and notes are required' });
   }
 
+  console.log(`📝 Excel generation requested with language: ${language}`);
+
   // Set up SSE
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no'); // Disable nginx buffering
+  res.setHeader('Transfer-Encoding', 'chunked');
   res.flushHeaders();
 
+  // Send initial comment to establish SSE connection
+  res.write(': SSE connection established\n\n');
+
   const sendProgress = (data: any) => {
-    res.write(`data: ${JSON.stringify(data)}\n\n`);
+    const message = `data: ${JSON.stringify(data)}\n\n`;
+    console.log('[SSE] Sending:', data.message || data.type);
+    res.write(message);
+    // Explicitly tell Node to flush the write buffer
+    if ((res as any).socket) {
+      (res as any).socket.uncork();
+    }
   };
 
   try {

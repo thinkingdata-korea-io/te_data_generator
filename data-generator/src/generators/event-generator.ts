@@ -59,7 +59,7 @@ export class EventGenerator {
         events.push(event);
         executedEvents.add(eventName);
         this.dependencyManager.recordEventExecution(eventName);
-        currentTime = addMilliseconds(currentTime, this.getEventInterval());
+        currentTime = addMilliseconds(currentTime, this.getEventInterval(eventName));
       }
     }
 
@@ -77,7 +77,7 @@ export class EventGenerator {
           events.push(event);
           executedEvents.add(eventName);
           this.dependencyManager.recordEventExecution(eventName);
-          currentTime = addMilliseconds(currentTime, this.getEventInterval());
+          currentTime = addMilliseconds(currentTime, this.getEventInterval(eventName));
         }
       }
     }
@@ -117,7 +117,7 @@ export class EventGenerator {
 
       if (availableEvents.length === 0) break;
 
-      const selectedEvent = this.selectEvent(availableEvents);
+      const selectedEvent = this.selectEvent(availableEvents, session.user.segment);
       if (!selectedEvent) break;
 
       const event = this.createEvent(selectedEvent.event_name, session.user, currentTime);
@@ -125,7 +125,7 @@ export class EventGenerator {
       executedEvents.add(selectedEvent.event_name);
       this.dependencyManager.recordEventExecution(selectedEvent.event_name);
 
-      currentTime = addMilliseconds(currentTime, this.getEventInterval());
+      currentTime = addMilliseconds(currentTime, this.getEventInterval(selectedEvent.event_name));
     }
 
     // 4. session_end 이벤트
@@ -221,24 +221,55 @@ export class EventGenerator {
     transactionEvents.push(startEventData);
     executedEvents.add(startEvent);
     this.dependencyManager.recordEventExecution(startEvent);
-    currentTime = addMilliseconds(currentTime, this.getEventInterval());
+    currentTime = addMilliseconds(currentTime, this.getEventInterval(startEvent));
 
-    // 2. 내부 이벤트 (랜덤하게 2~5개)
-    const innerEventCount = randomInt(2, Math.min(5, transaction.innerEvents.length + 1));
-    for (let i = 0; i < innerEventCount; i++) {
-      const availableInner = transaction.innerEvents.filter(e =>
-        !executedEvents.has(e) &&
-        this.dependencyManager.canExecuteEvent(e, executedEvents, isFirstSession, sessionNumber)
-      );
+    // 2. 내부 이벤트
+    // 🆕 innerEventSequence가 정의되어 있으면 순서대로 실행
+    if (transaction.innerEventSequence && transaction.innerEventSequence.length > 0) {
+      // 순서가 정의된 경우: sequence별로 순서대로 실행
+      for (const sequence of transaction.innerEventSequence) {
+        for (const eventName of sequence.events) {
+          // 이미 실행되었거나 실행 불가능한 이벤트는 건너뛰기
+          if (executedEvents.has(eventName) ||
+              !this.dependencyManager.canExecuteEvent(eventName, executedEvents, isFirstSession, sessionNumber)) {
+            if (sequence.strictOrder) {
+              // strictOrder인 경우 순서가 깨지면 이 sequence 중단
+              break;
+            }
+            // strictOrder가 아니면 건너뛰고 계속
+            continue;
+          }
 
-      if (availableInner.length === 0) break;
+          // strictOrder가 아닌 경우 확률적으로 생략 가능 (30% 확률로 생략)
+          if (!sequence.strictOrder && probabilityCheck(0.3)) {
+            continue;
+          }
 
-      const innerEvent = availableInner[Math.floor(Math.random() * availableInner.length)];
-      const innerEventData = this.createEvent(innerEvent, user, currentTime);
-      transactionEvents.push(innerEventData);
-      executedEvents.add(innerEvent);
-      this.dependencyManager.recordEventExecution(innerEvent);
-      currentTime = addMilliseconds(currentTime, this.getEventInterval());
+          const innerEventData = this.createEvent(eventName, user, currentTime);
+          transactionEvents.push(innerEventData);
+          executedEvents.add(eventName);
+          this.dependencyManager.recordEventExecution(eventName);
+          currentTime = addMilliseconds(currentTime, this.getEventInterval(eventName));
+        }
+      }
+    } else {
+      // 순서가 정의되지 않은 경우: 기존 로직 (랜덤하게 2~5개)
+      const innerEventCount = randomInt(2, Math.min(5, transaction.innerEvents.length + 1));
+      for (let i = 0; i < innerEventCount; i++) {
+        const availableInner = transaction.innerEvents.filter(e =>
+          !executedEvents.has(e) &&
+          this.dependencyManager.canExecuteEvent(e, executedEvents, isFirstSession, sessionNumber)
+        );
+
+        if (availableInner.length === 0) break;
+
+        const innerEvent = availableInner[Math.floor(Math.random() * availableInner.length)];
+        const innerEventData = this.createEvent(innerEvent, user, currentTime);
+        transactionEvents.push(innerEventData);
+        executedEvents.add(innerEvent);
+        this.dependencyManager.recordEventExecution(innerEvent);
+        currentTime = addMilliseconds(currentTime, this.getEventInterval(innerEvent));
+      }
     }
 
     // 3. 종료 이벤트
@@ -519,24 +550,101 @@ export class EventGenerator {
 
   /**
    * 확률 기반 이벤트 선택
+   * 🆕 세그먼트별 이벤트 선호도 적용
    */
   private selectEvent(
-    events: typeof this.schema.events
+    events: typeof this.schema.events,
+    userSegment?: string
   ): typeof this.schema.events[0] | null {
     if (events.length === 0) return null;
 
-    // 확률이 있는 이벤트들
-    const weights = events.map(e => e.trigger_probability || 0.5);
+    // 기본 가중치: trigger_probability
+    const weights = events.map(e => {
+      let weight = e.trigger_probability || 0.5;
+
+      // 🆕 세그먼트별 선호도 적용
+      if (userSegment) {
+        const segmentLower = userSegment.toLowerCase();
+        const eventNameLower = e.event_name.toLowerCase();
+
+        // VIP/Premium 유저는 수익화 이벤트 10x 부스트
+        if (segmentLower.includes('vip') || segmentLower.includes('whale') || segmentLower.includes('프리미엄')) {
+          if (eventNameLower.includes('purchase') || eventNameLower.includes('premium') ||
+              eventNameLower.includes('구매') || eventNameLower.includes('결제')) {
+            weight *= 10;
+          }
+        }
+
+        // 신규 유저는 탐색 이벤트 3x 부스트
+        if (segmentLower.includes('new') || segmentLower.includes('신규')) {
+          if (eventNameLower.includes('view') || eventNameLower.includes('search') ||
+              eventNameLower.includes('browse') || eventNameLower.includes('탐색')) {
+            weight *= 3;
+          }
+        }
+
+        // 활성 유저는 핵심 기능 5x 부스트
+        if (segmentLower.includes('active') || segmentLower.includes('engaged') || segmentLower.includes('활성')) {
+          if (eventNameLower.includes('use') || eventNameLower.includes('play') ||
+              eventNameLower.includes('사용') || eventNameLower.includes('실행')) {
+            weight *= 5;
+          }
+        }
+      }
+
+      return weight;
+    });
+
     return weightedRandom(events, weights);
   }
 
   /**
    * 이벤트 간 시간 간격 (밀리초)
+   * 🆕 이벤트별로 다른 시간 간격 적용
    */
-  private getEventInterval(): number {
-    // 지수 분포 사용 (평균 10초)
+  private getEventInterval(eventName?: string): number {
+    // AI가 정의한 이벤트별 시간 간격 확인
+    const eventIntervals = this.aiAnalysis.eventSequencing?.eventIntervals;
+
+    if (eventName && eventIntervals && eventIntervals[eventName]) {
+      const config = eventIntervals[eventName];
+      const avgMs = config.avgSeconds * 1000;
+      const minMs = (config.minSeconds || 1) * 1000;
+      const maxMs = (config.maxSeconds || 60) * 1000;
+      const distribution = config.distribution || 'exponential';
+
+      let interval: number;
+
+      switch (distribution) {
+        case 'exponential':
+          // 지수 분포: lambda = 1/mean
+          interval = exponentialDistribution(1 / config.avgSeconds) * 1000;
+          break;
+
+        case 'normal':
+          // 정규 분포: Box-Muller 변환
+          const u1 = Math.random();
+          const u2 = Math.random();
+          const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+          const stdDev = avgMs / 4; // 표준편차 = 평균의 1/4
+          interval = avgMs + z * stdDev;
+          break;
+
+        case 'uniform':
+          // 균등 분포: [avg/2, avg*1.5] 범위
+          interval = randomFloat(avgMs * 0.5, avgMs * 1.5);
+          break;
+
+        default:
+          interval = avgMs;
+      }
+
+      // 최소/최대 제약 적용
+      return Math.max(minMs, Math.min(maxMs, interval));
+    }
+
+    // 기본값: 지수 분포 (평균 10초)
     const interval = exponentialDistribution(1 / 10) * 1000;
-    // 최소 1초, 최대 60초
     return Math.max(1000, Math.min(60000, interval));
   }
 

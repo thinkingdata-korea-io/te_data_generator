@@ -11,6 +11,16 @@ import {
   splitLargeGroups
 } from './prompts';
 import { ValidationPipeline } from './validation-pipeline';
+import {
+  AnalysisLanguage,
+  getMessage,
+  formatSegmentList,
+  formatRetentionDetail,
+  formatSequencingDetail,
+  formatPhase4GroupDetail,
+  formatPhase4CompletionDetail,
+  formatPhase5CompletionDetail
+} from '../utils/language-helper';
 
 export type AIProgressCallback = (progress: {
   phase: string;
@@ -28,6 +38,7 @@ export interface AIClientConfig {
   model?: string;
   validationModelTier?: 'fast' | 'balanced';  // 검증 모델 등급 (기본: fast)
   customValidationModel?: string;  // 사용자 지정 검증 모델 (선택사항)
+  language?: AnalysisLanguage;  // 분석 언어 (기본: ko)
   onProgress?: AIProgressCallback;  // 진행 상황 콜백
 }
 
@@ -403,12 +414,14 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
   ): Promise<AIAnalysisResult> {
     console.log('\n🎯 Starting Multi-Phase AI Analysis...');
 
+    const lang = this.config.language || 'ko';
+
     // Phase 1: 전략 분석
     this.config.onProgress?.({
       phase: 'phase1',
       progress: 30,
-      message: 'Phase 1/3: 사용자 전략 분석 중...',
-      detail: '🤖 AI가 사용자 세그먼트 및 이벤트 구조 분석 중'
+      message: getMessage(lang, 'phase1_analyzing'),
+      detail: getMessage(lang, 'phase1_detail')
     });
     console.log('\n📋 Phase 1: Strategy Analysis');
     const strategy = await this.analyzeStrategy(schema, userInput);
@@ -421,34 +434,37 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     this.config.onProgress?.({
       phase: 'phase1',
       progress: 35,
-      message: `Phase 1/3 완료: ${strategy.userSegments.length}개 사용자 세그먼트 생성됨`,
-      detail: `✅ 세그먼트: ${strategy.userSegments.map(s => `${s.name}(${(s.ratio*100).toFixed(0)}%)`).join(', ')}`
+      message: getMessage(lang, 'phase1_completed', strategy.userSegments.length),
+      detail: formatSegmentList(lang, strategy.userSegments)
     });
 
-    // Phase 1.5: 리텐션 커브 분석
+    // Phase 2: 리텐션 커브 분석
     this.config.onProgress?.({
-      phase: 'phase1.5',
+      phase: 'phase2',
       progress: 40,
-      message: 'Phase 1/3: 리텐션 패턴 분석 중...',
-      detail: '📈 사용자 유지율 및 재방문 패턴 생성'
+      message: getMessage(lang, 'phase2_analyzing'),
+      detail: getMessage(lang, 'phase2_detail')
     });
     console.log('\n📈 Phase 1.5: Retention Curve Analysis');
     const { retentionCurve, validationSummary: retentionSummary } = await this.analyzeRetention(userInput, strategy.userSegments);
     console.log(`  ✅ Retention: Day1=${(retentionCurve.day1Retention * 100).toFixed(1)}%, Day7=${(retentionCurve.day7Retention * 100).toFixed(1)}%, Day30=${(retentionCurve.day30Retention * 100).toFixed(1)}%`);
 
     this.config.onProgress?.({
-      phase: 'phase1.5',
+      phase: 'phase2',
       progress: 45,
-      message: 'Phase 1/3: 리텐션 분석 완료',
-      detail: `✅ 유지율: D1=${(retentionCurve.day1Retention*100).toFixed(1)}%, D7=${(retentionCurve.day7Retention*100).toFixed(1)}%, D30=${(retentionCurve.day30Retention*100).toFixed(1)}%`
+      message: getMessage(lang, 'phase2_completed',
+        (retentionCurve.day1Retention*100).toFixed(1),
+        (retentionCurve.day7Retention*100).toFixed(1),
+        (retentionCurve.day30Retention*100).toFixed(1)),
+      detail: formatRetentionDetail(lang, retentionCurve.day1Retention, retentionCurve.day7Retention, retentionCurve.day30Retention)
     });
 
-    // Phase 1.6: 이벤트 순서 분석
+    // Phase 3: 이벤트 순서 분석
     this.config.onProgress?.({
-      phase: 'phase1.6',
+      phase: 'phase3',
       progress: 50,
-      message: 'Phase 1/3: 이벤트 시퀀스 분석 중...',
-      detail: '🔗 이벤트 의존성 및 사용자 퍼널 구조 분석'
+      message: getMessage(lang, 'phase3_analyzing'),
+      detail: getMessage(lang, 'phase3_detail')
     });
     console.log('\n🔗 Phase 1.6: Event Sequencing Analysis');
     const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput);
@@ -457,18 +473,20 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     console.log(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
 
     this.config.onProgress?.({
-      phase: 'phase1.6',
+      phase: 'phase3',
       progress: 55,
-      message: 'Phase 1/3 완료: 이벤트 시퀀싱 분석 완료',
-      detail: `✅ ${eventSequencing.logicalSequences.length}개 퍼널, ${Object.keys(eventSequencing.strictDependencies).length}개 의존성 규칙`
+      message: getMessage(lang, 'phase3_completed',
+        eventSequencing.logicalSequences.length,
+        Object.keys(eventSequencing.strictDependencies).length),
+      detail: formatSequencingDetail(lang, eventSequencing.logicalSequences.length, Object.keys(eventSequencing.strictDependencies).length)
     });
 
-    // Phase 2: 이벤트 그룹별 속성 범위 생성
+    // Phase 4: 이벤트 그룹별 속성 범위 생성
     this.config.onProgress?.({
-      phase: 'phase2',
+      phase: 'phase4',
       progress: 60,
-      message: `Phase 2/3: 이벤트 속성 범위 생성 준비 중...`,
-      detail: `📊 ${schema.events.length}개 이벤트를 카테고리별로 그룹화`
+      message: getMessage(lang, 'phase4_preparing', schema.events.length),
+      detail: formatPhase4GroupDetail(lang, schema.events.length)
     });
     console.log(`\n📊 Phase 2: Event Group Analysis (${schema.events.length} events)`);
 
@@ -494,10 +512,10 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     console.log(`  📁 Final groups: ${groups.size} (max 10 events per group)`);
 
     this.config.onProgress?.({
-      phase: 'phase2',
+      phase: 'phase4',
       progress: 62,
-      message: `Phase 2/3: ${groups.size}개 그룹 분석 시작`,
-      detail: `✅ 그룹화 완료 (최대 10개 이벤트/그룹)`
+      message: getMessage(lang, 'phase4_grouping', groups.size),
+      detail: formatPhase4CompletionDetail(lang, groups.size)
     });
 
     // 각 그룹별로 AI 분석
@@ -507,13 +525,13 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     for (const [groupName, events] of groups.entries()) {
       groupIndex++;
 
-      // Calculate progress for Phase 2 groups (62-80%)
+      // Calculate progress for Phase 4 groups (62-80%)
       const groupProgress = 62 + Math.floor((groupIndex / groups.size) * 18);
       this.config.onProgress?.({
-        phase: 'phase2',
+        phase: 'phase4',
         progress: groupProgress,
-        message: `Phase 2/3: 그룹 ${groupIndex}/${groups.size} 분석 중 - ${groupName}`,
-        detail: `🔍 ${events.length}개 이벤트의 속성 범위 AI 생성 중`
+        message: getMessage(lang, 'phase4_analyzing', groupIndex, groups.size, groupName),
+        detail: getMessage(lang, 'phase4_detail', events.length)
       });
 
       console.log(`\n  📦 Group ${groupIndex}/${groups.size}: ${groupName} (${events.length} events)`);
@@ -540,8 +558,14 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       }
     }
 
-    // Phase 3: 결과 병합
-    console.log(`\n🔗 Phase 3: Merging Results`);
+    // Phase 5: 결과 병합 및 검증
+    this.config.onProgress?.({
+      phase: 'phase5',
+      progress: 85,
+      message: getMessage(lang, 'phase5_validating'),
+      detail: getMessage(lang, 'phase5_detail')
+    });
+    console.log(`\n🔗 Phase 5: Merging Results & Validation`);
     const result: AIAnalysisResult = {
       userSegments: strategy.userSegments,
       eventDependencies: strategy.eventDependencies || {},
@@ -560,6 +584,13 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
 
     // 검증
     this.validateAIResult(result);
+
+    this.config.onProgress?.({
+      phase: 'phase5',
+      progress: 95,
+      message: getMessage(lang, 'phase5_completed', result.userSegments.length, result.eventRanges.length),
+      detail: formatPhase5CompletionDetail(lang, result.userSegments.length, result.eventRanges.length)
+    });
 
     console.log('\n✅ Multi-Phase AI Analysis Completed!');
     return result;

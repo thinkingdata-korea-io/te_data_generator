@@ -4,8 +4,9 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { ko } from '../i18n/locales/ko';
 import { en } from '../i18n/locales/en';
 import { zh } from '../i18n/locales/zh';
+import { ja } from '../i18n/locales/ja';
 
-export type Language = 'ko' | 'en' | 'zh';
+export type Language = 'ko' | 'en' | 'zh' | 'ja';
 type Translations = typeof ko;
 
 interface LanguageContextType {
@@ -18,6 +19,7 @@ const translations: Record<Language, Translations> = {
   ko,
   en,
   zh,
+  ja,
 };
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
@@ -30,6 +32,7 @@ function detectBrowserLanguage(): Language {
 
   if (browserLang.startsWith('ko')) return 'ko';
   if (browserLang.startsWith('zh')) return 'zh';
+  if (browserLang.startsWith('ja')) return 'ja';
   return 'en'; // 기본값
 }
 
@@ -40,7 +43,7 @@ export function LanguageProvider({ children }: { children: ReactNode }) {
   // 초기화: localStorage 또는 브라우저 언어 감지
   useEffect(() => {
     const savedLang = localStorage.getItem('language') as Language | null;
-    if (savedLang && (savedLang === 'ko' || savedLang === 'en' || savedLang === 'zh')) {
+    if (savedLang && (savedLang === 'ko' || savedLang === 'en' || savedLang === 'zh' || savedLang === 'ja')) {
       setLanguageState(savedLang);
     } else {
       const detected = detectBrowserLanguage();

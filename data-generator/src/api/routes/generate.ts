@@ -1,13 +1,42 @@
 import { Router, Request, Response } from 'express';
 import * as path from 'path';
+import multer from 'multer';
+import archiver from 'archiver';
 import { DataGeneratorConfig } from '../../data-generator';
 import { generateDataAsync, getGenerationProgress } from '../services/data-generation.service';
 import { analyzeOnlyAsync, getAnalysisResult, updateAnalysisResult } from '../services/analysis.service';
 import { sendDataAsync } from '../services/logbus.service';
 import { AnalysisExcelGenerator } from '../../utils/analysis-excel-generator';
+import { AnalysisExcelParser } from '../../utils/analysis-excel-parser';
 import * as fs from 'fs';
 
 const router = Router();
+
+// Multer setup for Excel file uploads
+const uploadDir = path.resolve(__dirname, '../../../uploads/analysis-updates');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => {
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      cb(null, `${uniqueSuffix}-${file.originalname}`);
+    }
+  }),
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+        file.originalname.endsWith('.xlsx')) {
+      cb(null, true);
+    } else {
+      cb(new Error('Only .xlsx files are allowed'));
+    }
+  }
+});
 
 /**
  * POST /api/generate/start
@@ -124,7 +153,8 @@ router.post('/analyze', async (req: Request, res: Response) => {
       dateStart,
       dateEnd,
       aiProvider,
-      fileAnalysisContext
+      fileAnalysisContext,
+      language = 'ko' // Default to Korean
     } = req.body;
 
     // Validate required fields
@@ -164,6 +194,8 @@ router.post('/analyze', async (req: Request, res: Response) => {
     // Generate Analysis ID
     const analysisId = `analysis_${Date.now()}`;
 
+    console.log(`🤖 AI analysis requested with language: ${language}`);
+
     // Start async AI analysis
     analyzeOnlyAsync(analysisId, {
       excelPath,
@@ -174,7 +206,8 @@ router.post('/analyze', async (req: Request, res: Response) => {
       dateStart,
       dateEnd,
       aiProvider: (aiProvider || 'anthropic') as 'openai' | 'anthropic' | 'gemini',
-      aiApiKey
+      aiApiKey,
+      language
     });
 
     // Immediate response
@@ -408,6 +441,202 @@ router.post('/send-data/:runId', async (req: Request, res: Response) => {
     });
   } catch (error: any) {
     console.error('Error starting data transmission:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/generate/analysis-excel/:filename
+ * Download AI analysis Excel file
+ */
+router.get('/analysis-excel/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    if (!filename) {
+      return res.status(400).json({ error: 'Filename is required' });
+    }
+
+    const safeFilename = path.basename(filename);
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-results');
+    const filePath = path.join(analysisExcelDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    res.download(filePath, safeFilename);
+  } catch (error: any) {
+    console.error('Error downloading analysis Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/excel/upload-analysis
+ * Upload AI analysis Excel file (for data-only mode)
+ */
+router.post('/upload-analysis', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    console.log(`📤 Processing AI analysis Excel upload: ${req.file.originalname}`);
+
+    // Parse the uploaded Excel file
+    const parser = new AnalysisExcelParser();
+    const parsedData = await parser.parseAnalysisExcel(req.file.path);
+
+    console.log(`✅ Parsed AI analysis Excel:`, {
+      userSegments: parsedData.userSegments?.length || 0,
+      eventSequencing: parsedData.eventSequencing ? 'present' : 'missing',
+      transactions: parsedData.eventSequencing?.transactions?.length || 0
+    });
+
+    // Keep the file for later use
+    const savedPath = req.file.path;
+
+    // Return preview data
+    res.json({
+      success: true,
+      file: {
+        path: savedPath,
+        originalName: req.file.originalname
+      },
+      preview: {
+        segments: parsedData.userSegments?.length || 0,
+        transactions: parsedData.eventSequencing?.transactions?.length || 0,
+        hasEventSequencing: !!parsedData.eventSequencing
+      }
+    });
+
+  } catch (error: any) {
+    console.error('Error uploading AI analysis Excel:', error);
+
+    // Clean up uploaded file if it exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/generate/update-analysis-excel
+ * Update AI analysis by uploading a modified Excel file
+ */
+router.post('/update-analysis-excel', upload.single('file'), async (req: Request, res: Response) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+
+    const analysisId = req.body.analysisId;
+    if (!analysisId) {
+      // Clean up uploaded file
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'analysisId is required' });
+    }
+
+    // Check if analysis exists
+    const analysis = getAnalysisResult(analysisId);
+    if (!analysis) {
+      fs.unlinkSync(req.file.path);
+      return res.status(404).json({ error: 'Analysis not found' });
+    }
+
+    if (analysis.status !== 'completed') {
+      fs.unlinkSync(req.file.path);
+      return res.status(400).json({ error: 'Analysis not yet completed' });
+    }
+
+    console.log(`📤 Processing uploaded Excel for analysis: ${analysisId}`);
+
+    // Parse the uploaded Excel file
+    const parser = new AnalysisExcelParser();
+    const parsedData = await parser.parseAnalysisExcel(req.file.path);
+
+    console.log(`✅ Parsed Excel data:`, {
+      userSegments: parsedData.userSegments?.length || 0,
+      eventSequencing: parsedData.eventSequencing ? 'present' : 'missing',
+      transactions: parsedData.eventSequencing?.transactions?.length || 0
+    });
+
+    // Update the analysis with parsed data
+    updateAnalysisResult(analysisId, parsedData);
+
+    // Get updated analysis
+    const updatedAnalysis = getAnalysisResult(analysisId);
+
+    // Clean up uploaded file
+    fs.unlinkSync(req.file.path);
+
+    res.json({
+      success: true,
+      message: 'AI 분석 결과가 업데이트되었습니다',
+      updatedAnalysis: updatedAnalysis?.result
+    });
+
+  } catch (error: any) {
+    console.error('Error updating analysis from Excel:', error);
+
+    // Clean up uploaded file if it exists
+    if (req.file && fs.existsSync(req.file.path)) {
+      fs.unlinkSync(req.file.path);
+    }
+
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/generate/download-data/:runId
+ * Download generated data files as ZIP
+ */
+router.get('/download-data/:runId', async (req: Request, res: Response) => {
+  try {
+    const { runId } = req.params;
+
+    // Find data directory for the runId
+    const dataDir = path.resolve(__dirname, `../../../runs/${runId}`);
+
+    if (!fs.existsSync(dataDir)) {
+      return res.status(404).json({ error: 'Run ID not found' });
+    }
+
+    // Check if there are JSONL files
+    const files = fs.readdirSync(dataDir).filter(f => f.endsWith('.jsonl'));
+
+    if (files.length === 0) {
+      return res.status(404).json({ error: 'No data files found' });
+    }
+
+    // Set response headers for ZIP download
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=data_${runId}.zip`);
+
+    // Create archiver
+    const archive = archiver('zip', {
+      zlib: { level: 9 } // Maximum compression
+    });
+
+    // Pipe archive to response
+    archive.pipe(res);
+
+    // Add all JSONL files to the archive
+    files.forEach(file => {
+      const filePath = path.join(dataDir, file);
+      archive.file(filePath, { name: file });
+    });
+
+    // Finalize the archive
+    await archive.finalize();
+
+    console.log(`📦 Sent ${files.length} data files as ZIP for run ${runId}`);
+
+  } catch (error: any) {
+    console.error('Error downloading data files:', error);
     res.status(500).json({ error: error.message });
   }
 });

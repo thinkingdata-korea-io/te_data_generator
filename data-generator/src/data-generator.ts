@@ -45,6 +45,7 @@ export interface DataGeneratorConfig {
   aiProvider: 'openai' | 'anthropic' | 'gemini';
   aiApiKey: string;
   aiModel?: string;
+  aiLanguage?: 'ko' | 'en' | 'zh' | 'ja';  // 🆕 분석 언어 (기본: ko)
   validationModelTier?: 'fast' | 'balanced';  // 검증 모델 등급 (기본: fast)
   customValidationModel?: string;  // 사용자 지정 검증 모델 (선택사항)
 
@@ -300,6 +301,7 @@ export class DataGenerator {
       provider: this.config.aiProvider,
       apiKey: this.config.aiApiKey,
       model: this.config.aiModel,
+      language: this.config.aiLanguage || 'ko', // 🆕 언어 파라미터 추가
       validationModelTier: this.config.validationModelTier || 'fast',
       customValidationModel: this.config.customValidationModel,
       onProgress: (aiProgress) => {
@@ -469,9 +471,20 @@ export class DataGenerator {
 
         const fileName = `${dateKey}.jsonl`;
         const filePath = path.join(runDataPath, fileName);
-        const jsonl = teFormatter.toJSONL(dailyEvents);
 
-        fs.writeFileSync(filePath, jsonl, 'utf-8');
+        // Write events in batches to avoid "Invalid string length" error
+        const BATCH_SIZE = 1000;
+        for (let i = 0; i < dailyEvents.length; i += BATCH_SIZE) {
+          const batch = dailyEvents.slice(i, i + BATCH_SIZE);
+          const batchJsonl = teFormatter.toJSONL(batch);
+
+          if (i === 0) {
+            fs.writeFileSync(filePath, batchJsonl, 'utf-8');  // First batch: create file
+          } else {
+            fs.appendFileSync(filePath, batchJsonl, 'utf-8');  // Subsequent batches: append
+          }
+        }
+
         filesGenerated.push(filePath);
         totalEvents += dailyEvents.length;
 

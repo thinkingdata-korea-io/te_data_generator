@@ -3,6 +3,8 @@
  * Centralized type definitions for the data generator workflow
  */
 
+export type TaskMode = 'taxonomy-only' | 'analysis-only' | 'data-only' | 'full-process';
+
 export type ProcessStep =
   | 'select-mode'
   | 'input'
@@ -10,6 +12,8 @@ export type ProcessStep =
   | 'excel-completed'
   | 'upload-excel'
   | 'upload-completed'
+  | 'dual-upload'
+  | 'dual-upload-completed'
   | 'combined-config'
   | 'analyzing-ai'
   | 'ai-analysis-review'
@@ -46,6 +50,8 @@ export interface ExcelPreviewSummary {
   requestedEventCount?: number;
 }
 
+export type AnalysisLanguage = 'ko' | 'en' | 'zh' | 'ja';
+
 export interface FormData {
   scenario: string;
   dau: string;
@@ -53,6 +59,7 @@ export interface FormData {
   notes: string;
   dateStart: string;
   dateEnd: string;
+  language?: AnalysisLanguage;
 }
 
 export interface ProgressData {
@@ -61,9 +68,27 @@ export interface ProgressData {
   message: string;
   step?: string;
   details?: string[];
-  result?: any;
-  aiAnalysis?: any;
-  logs?: any[];
+  result?: {
+    excelPath?: string;
+    csvPath?: string;
+    summary?: ExcelPreviewSummary;
+    [key: string]: any;
+  };
+  aiAnalysis?: AIAnalysisResult;
+  logs?: Array<{
+    timestamp: string;
+    level: string;
+    message: string;
+    [key: string]: any;
+  }>;
+  analysisExcelFileName?: string;
+  error?: string;
+  sentInfo?: {
+    totalCount: number;
+    successCount: number;
+    failedCount: number;
+    [key: string]: any;
+  };
 }
 
 export interface AIAnalysisResult {
@@ -92,4 +117,14 @@ export interface Transaction {
   name: string;
   amount: number;
   currency: string;
+  properties?: string | string[];
+}
+
+export interface ExcelGenerationResult {
+  type: 'complete';
+  file: {
+    path: string;
+    [key: string]: any;
+  };
+  preview: ExcelPreviewSummary;
 }

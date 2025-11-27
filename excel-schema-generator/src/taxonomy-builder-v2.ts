@@ -43,7 +43,8 @@ export class TaxonomyBuilderV2 {
       provider: options.provider || 'anthropic',
       apiKey: options.apiKey,
       model: options.model,
-      promptsDir: options.promptsDir
+      promptsDir: options.promptsDir,
+      onProgress: options.onProgress
     };
 
     if (this.options.provider === 'anthropic' && this.options.apiKey) {

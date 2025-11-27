@@ -65,6 +65,39 @@ export default function ExcelCompleted({
       <div className="space-y-6 mb-6">
         <h3 className="text-lg font-bold text-[var(--text-primary)] font-mono">&gt; {t.generator.generationConfig}</h3>
 
+        {/* Scenario and Industry row */}
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <label htmlFor="scenario-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+              시나리오 <span className="text-[var(--error-red)]">*</span>
+            </label>
+            <input
+              id="scenario-excel"
+              type="text"
+              value={formData.scenario}
+              onChange={(e) => onFormDataChange({ ...formData, scenario: e.target.value })}
+              className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+              placeholder="예: RPG 게임, 쇼핑몰 앱"
+              aria-required="true"
+            />
+          </div>
+          <div>
+            <label htmlFor="industry-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+              산업 분야 <span className="text-[var(--error-red)]">*</span>
+            </label>
+            <input
+              id="industry-excel"
+              type="text"
+              value={formData.industry}
+              onChange={(e) => onFormDataChange({ ...formData, industry: e.target.value })}
+              className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+              placeholder="예: 게임, 이커머스"
+              aria-required="true"
+            />
+          </div>
+        </div>
+
+        {/* DAU, Start Date, End Date row */}
         <div className="grid grid-cols-3 gap-6">
           <div>
             <label htmlFor="dau-input-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">

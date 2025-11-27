@@ -67,37 +67,43 @@ export default function DataCompleted({
         </div>
       </div>
 
-      {/* AI 분석 결과 다운로드 버튼 */}
-      <div className="mb-6 p-4 bg-[var(--accent-cyan)]/10 rounded border border-[var(--accent-cyan)]">
-        <h3 className="text-[var(--accent-cyan)] font-semibold mb-2 font-mono flex items-center gap-2">
-          <span>📊</span> AI 분석 결과
+      {/* 생성된 데이터 파일 다운로드 */}
+      <div className="mb-6 p-4 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)]">
+        <h3 className="text-[var(--accent-green)] font-semibold mb-2 font-mono flex items-center gap-2">
+          <span>📦</span> 생성된 데이터 파일
         </h3>
         <p className="text-sm text-[var(--text-secondary)] mb-3 font-mono">
-          AI가 생성한 사용자 세그먼트, 이벤트 순서 규칙, 트랜잭션 정의를 Excel로 다운로드하여 검토할 수 있습니다.
+          생성된 이벤트 데이터 파일(JSONL)을 압축하여 다운로드할 수 있습니다.
         </p>
         <button
           onClick={async () => {
             try {
-              const response = await fetch(`${API_URL}/api/generate/analysis-excel`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ runId })
+              const response = await fetch(`${API_URL}/api/generate/download-data/${runId}`, {
+                method: 'GET'
               });
 
               if (!response.ok) {
-                throw new Error('AI 분석 결과 생성 실패');
+                throw new Error('데이터 파일 다운로드 실패');
               }
 
-              const data = await response.json();
-              window.open(`${API_URL}${data.file.downloadUrl}`, '_blank');
+              // Create download link
+              const blob = await response.blob();
+              const url = window.URL.createObjectURL(blob);
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `data_${runId}.zip`;
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+              document.body.removeChild(a);
             } catch (error) {
               console.error('Error:', error);
-              alert('AI 분석 결과 다운로드 실패');
+              alert('데이터 파일 다운로드 실패');
             }
           }}
-          className="w-full py-3 rounded text-[var(--accent-cyan)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-all"
+          className="w-full py-3 rounded text-[var(--accent-green)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 transition-all"
         >
-          📥 AI 분석 결과 Excel 다운로드
+          📥 생성된 데이터 파일 다운로드 (ZIP)
         </button>
       </div>
 

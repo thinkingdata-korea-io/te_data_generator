@@ -5,7 +5,9 @@ import {
   ExcelPreviewSummary,
   FormData,
   ProgressData,
-  AIAnalysisResult
+  AIAnalysisResult,
+  AnalysisLanguage,
+  TaskMode
 } from '../types';
 import { UploadedFileInfo } from '@/components/FileUploadZone';
 
@@ -13,7 +15,7 @@ import { UploadedFileInfo } from '@/components/FileUploadZone';
  * Generator State Management Hook
  * Centralizes all state management for the generator workflow
  */
-export function useGeneratorState() {
+export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
   // Form data
   const [formData, setFormData] = useState<FormData>({
     scenario: '',
@@ -22,11 +24,12 @@ export function useGeneratorState() {
     notes: '',
     dateStart: '2025-01-01',
     dateEnd: '2025-01-03',
+    language: initialLanguage,
   });
 
   // Workflow state
   const [currentStep, setCurrentStep] = useState<ProcessStep>('select-mode');
-  const [startMode, setStartMode] = useState<'new' | 'upload' | null>(null);
+  const [startMode, setStartMode] = useState<TaskMode | null>(null);
 
   // Excel state
   const [uploadedExcelPath, setUploadedExcelPath] = useState<string>('');

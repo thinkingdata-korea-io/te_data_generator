@@ -730,7 +730,13 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
       "startEvents": ["game_start", "battle_start"],
       "endEvents": ["game_end", "battle_end"],
       "innerEvents": ["death", "kill", "score_update", "item_use"],
-      "allowInnerAfterEnd": false
+      "allowInnerAfterEnd": false,
+      "innerEventSequence": [
+        {
+          "events": ["score_update", "item_use", "kill", "death"],
+          "strictOrder": true
+        }
+      ]
     }
   ]
 }
@@ -739,6 +745,48 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 **allowInnerAfterEnd**:
 - \`false\` (기본값): 종료 후 내부 이벤트 **절대 불가** (게임, 결제, 거래 등)
 - \`true\`: 종료 후에도 가능 (드문 경우, 예: 부활 시스템이 있는 게임)
+
+**🆕 innerEventSequence** (선택사항):
+- 트랜잭션 내부 이벤트들의 **논리적 순서**를 정의합니다
+- 예: 게임에서 "킬" 이벤트는 반드시 "데스" 이벤트 **전에** 발생해야 합니다
+- \`strictOrder: true\`: 반드시 이 순서대로 실행 (예: 결제 프로세스)
+- \`strictOrder: false\`: 순서는 권장이지만 일부 생략 가능 (예: 게임 플레이)
+
+**도메인별 innerEventSequence 예시:**
+
+**[게임 도메인]**
+\`\`\`json
+"innerEventSequence": [
+  {
+    "events": ["item_use", "kill", "death"],
+    "strictOrder": true
+  }
+]
+// ✅ 올바른 순서: item_use → kill → death
+// ❌ 잘못된 순서: death → kill (죽은 후 킬 불가능!)
+\`\`\`
+
+**[커머스 도메인]**
+\`\`\`json
+"innerEventSequence": [
+  {
+    "events": ["add_payment_method", "verify_address", "apply_coupon"],
+    "strictOrder": true
+  }
+]
+// ✅ 올바른 순서: 결제수단 → 주소확인 → 쿠폰적용
+\`\`\`
+
+**[금융 도메인]**
+\`\`\`json
+"innerEventSequence": [
+  {
+    "events": ["check_balance", "verify_otp", "confirm_recipient"],
+    "strictOrder": true
+  }
+]
+// ✅ 올바른 순서: 잔액확인 → OTP인증 → 수신인확인
+\`\`\`
 
 ---
 
@@ -757,6 +805,57 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 
 ---
 
+### STEP 7: 이벤트별 시간 간격 설정 (eventIntervals) 🆕 선택사항
+
+이벤트 타입별로 다른 시간 간격을 정의하여 현실적인 데이터를 생성하세요:
+
+\`\`\`json
+"eventIntervals": {
+  "page_view": {
+    "avgSeconds": 2,
+    "distribution": "exponential",
+    "minSeconds": 1,
+    "maxSeconds": 10
+  },
+  "button_click": {
+    "avgSeconds": 1,
+    "distribution": "exponential",
+    "minSeconds": 0.5,
+    "maxSeconds": 5
+  },
+  "purchase": {
+    "avgSeconds": 15,
+    "distribution": "normal",
+    "minSeconds": 5,
+    "maxSeconds": 60
+  }
+}
+\`\`\`
+
+**도메인별 가이드라인:**
+
+**[게임 도메인]**
+- 빠른 액션: \`kill, death\` → 1-3초 (exponential)
+- 중간 액션: \`item_use, skill_cast\` → 3-5초 (exponential)
+- 느린 액션: \`level_up, achievement\` → 30-120초 (normal)
+
+**[커머스 도메인]**
+- 빠른 탐색: \`product_view, search\` → 2-5초 (exponential)
+- 고민 액션: \`cart_add, wishlist_add\` → 10-30초 (normal)
+- 신중한 결정: \`purchase, checkout\` → 30-180초 (normal)
+
+**[금융 도메인]**
+- 조회: \`balance_check, transaction_list\` → 2-5초 (exponential)
+- 인증: \`verify_otp, biometric_auth\` → 5-15초 (normal)
+- 거래: \`transfer, payment\` → 20-60초 (normal)
+
+**distribution 타입:**
+- \`exponential\`: 대부분의 이벤트 (빠른 액션, 클릭 등)
+- \`normal\`: 고민이 필요한 이벤트 (구매, 결정)
+- \`uniform\`: 균등한 간격이 필요한 경우 (드물게 사용)
+
+---
+
 다음 JSON 형식으로 **반드시** 응답해주세요:
 
 \`\`\`json
@@ -769,7 +868,13 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
         "startEvents": ["start_event"],
         "endEvents": ["end_event"],
         "innerEvents": ["inner1", "inner2"],
-        "allowInnerAfterEnd": false
+        "allowInnerAfterEnd": false,
+        "innerEventSequence": [
+          {
+            "events": ["inner1", "inner2"],
+            "strictOrder": true
+          }
+        ]
       }
     ],
     "strictDependencies": {
@@ -792,6 +897,20 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
       },
       "signup": {
         "maxOccurrencesPerUser": 1
+      }
+    },
+    "eventIntervals": {
+      "page_view": {
+        "avgSeconds": 2,
+        "distribution": "exponential",
+        "minSeconds": 1,
+        "maxSeconds": 10
+      },
+      "purchase": {
+        "avgSeconds": 15,
+        "distribution": "normal",
+        "minSeconds": 5,
+        "maxSeconds": 60
       }
     },
     "logicalSequences": [

@@ -138,6 +138,7 @@ export const zh = {
   generator: {
     title: '选择数据生成方式',
     selectMode: '选择数据生成方法',
+    analysisLanguage: '分析语言',
 
     // Mode selection
     newStart: '从头开始',

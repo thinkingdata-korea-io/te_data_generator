@@ -83,6 +83,12 @@ export interface Transaction {
   endEvents: string[];            // 트랜잭션 종료 이벤트들
   innerEvents: string[];          // 트랜잭션 내부 이벤트들
   allowInnerAfterEnd: boolean;    // 종료 후 내부 이벤트 허용 여부 (기본: false)
+
+  // 🆕 내부 이벤트 순서 정의 (선택사항)
+  innerEventSequence?: Array<{
+    events: string[];             // 순서대로 실행할 이벤트 목록
+    strictOrder: boolean;         // true: 반드시 순서 준수, false: 일부 생략 가능
+  }>;
 }
 
 /**
@@ -112,6 +118,14 @@ export interface EventSequencing {
     requiresFirstSession?: boolean;      // 첫 세션에만 발생
     minimumSessionNumber?: number;       // 최소 N번째 세션부터 가능
     blockedAfterEvents?: string[];       // 특정 이벤트 이후 차단
+  }>;
+
+  // 🆕 이벤트별 시간 간격 설정 (선택사항)
+  eventIntervals?: Record<string, {
+    avgSeconds: number;           // 평균 시간 간격 (초)
+    distribution?: 'exponential' | 'normal' | 'uniform';  // 분포 타입 (기본: exponential)
+    minSeconds?: number;          // 최소 시간 간격
+    maxSeconds?: number;          // 최대 시간 간격
   }>;
 
   // 논리적 이벤트 순서 (funnel)

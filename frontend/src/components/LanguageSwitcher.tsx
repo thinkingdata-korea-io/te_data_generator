@@ -7,6 +7,7 @@ const languages: { code: Language; label: string; flag: string }[] = [
   { code: 'ko', label: '한국어', flag: 'KO' },
   { code: 'en', label: 'English', flag: 'EN' },
   { code: 'zh', label: '中文', flag: 'ZH' },
+  { code: 'ja', label: '日本語', flag: 'JA' },
 ];
 
 function LanguageSwitcher() {

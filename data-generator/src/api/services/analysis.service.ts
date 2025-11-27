@@ -1,6 +1,7 @@
 import * as path from 'path';
 import { ExcelParser } from '../../excel/parser';
 import { DataGenerator, DataGeneratorConfig } from '../../data-generator';
+import { AnalysisExcelGenerator } from '../../utils/analysis-excel-generator';
 
 /**
  * AI Analysis Service
@@ -14,6 +15,8 @@ interface AnalysisProgressMap {
   details: string[];
   config?: any;
   result?: any;
+  analysisExcelPath?: string;
+  analysisExcelFileName?: string;
   startedAt?: string;
   completedAt?: string;
   modifiedAt?: string;
@@ -41,14 +44,13 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
       startedAt: new Date().toISOString()
     });
 
-    progressDetails.push('Phase 1/3: 리텐션 패턴 분석 중...');
+    progressDetails.push('AI 전략 분석 시작...');
 
     // Parse Excel
     const parser = new ExcelParser();
     const schema = await parser.parseExcelFile(config.excelPath);
 
     progressDetails.push(`✓ Excel 파싱 완료 (이벤트: ${schema.events.length}개, 속성: ${schema.properties.length}개)`);
-    progressDetails.push('Phase 2/3: AI 사용자 세그먼트 분석 중...');
 
     analysisMap.set(analysisId, {
       ...analysisMap.get(analysisId)!,
@@ -61,6 +63,7 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
     const aiApiKey = config.aiApiKey;
     const aiProvider = config.aiProvider || 'anthropic';
     const aiModel = process.env.DATA_AI_MODEL || undefined;
+    const aiLanguage = config.language || 'ko'; // 🆕 언어 설정
 
     // Create temp config for AI analysis
     const tempConfig: DataGeneratorConfig = {
@@ -78,6 +81,7 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
       aiProvider,
       aiApiKey,
       aiModel,
+      aiLanguage, // 🆕 언어 파라미터 추가
       validationModelTier: (process.env.VALIDATION_MODEL_TIER as 'fast' | 'balanced') || 'fast',
       customValidationModel: process.env.CUSTOM_VALIDATION_MODEL || undefined,
       outputDataPath: path.resolve(__dirname, '../../../output/data'),
@@ -105,8 +109,7 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
     // Execute AI analysis
     const aiAnalysis = await (generator as any).analyzeWithAI(schema);
 
-    progressDetails.push('Phase 3/3: 이벤트 시퀀스 및 트랜잭션 분석 완료');
-    progressDetails.push(`✓ 사용자 세그먼트: ${aiAnalysis.userSegments?.length || 0}개 생성`);
+    progressDetails.push(`✓ AI 분석 완료 - 사용자 세그먼트: ${aiAnalysis.userSegments?.length || 0}개`);
     progressDetails.push(`✓ 이벤트 시퀀스: ${aiAnalysis.eventSequences?.length || 0}개 생성`);
     progressDetails.push(`✓ 트랜잭션: ${aiAnalysis.transactions?.length || 0}개 정의`);
 
@@ -149,6 +152,22 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
     };
 
     progressDetails.push('✅ 모든 AI 분석 완료!');
+    progressDetails.push('📄 AI 분석 결과 Excel 파일 생성 중...');
+
+    // Generate Analysis Excel
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-results');
+    const analysisExcelPath = await AnalysisExcelGenerator.generateAnalysisExcel(
+      aiAnalysis,
+      analysisExcelDir,
+      {
+        industry: config.industry,
+        scenario: config.scenario,
+        originalExcelFile: path.basename(config.excelPath)
+      }
+    );
+    const analysisExcelFileName = path.basename(analysisExcelPath);
+
+    progressDetails.push(`✅ AI 분석 Excel 생성 완료: ${analysisExcelFileName}`);
 
     // Complete
     analysisMap.set(analysisId, {
@@ -158,10 +177,13 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
       details: [...progressDetails],
       config,
       result: transformedAnalysis,
+      analysisExcelPath,
+      analysisExcelFileName,
       completedAt: new Date().toISOString()
     });
 
     console.log(`✅ AI 분석 완료 (${analysisId}): ${aiAnalysis.userSegments?.length || 0} 세그먼트, ${aiAnalysis.eventRanges?.length || 0} 이벤트 범위`);
+    console.log(`📄 AI 분석 Excel: ${analysisExcelFileName}`);
 
   } catch (error: any) {
     console.error('Error during AI analysis:', error);

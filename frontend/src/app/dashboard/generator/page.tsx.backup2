@@ -12,31 +12,17 @@ import DataCompleted from './components/DataCompleted';
 import ProgressSteps from './components/ProgressSteps';
 import ServiceInfoForm from './components/forms/ServiceInfoForm';
 import CombinedConfigForm from './components/forms/CombinedConfigForm';
-import LoadingDots from './components/LoadingDots';
-import DualExcelUpload from './components/DualExcelUpload';
 import { useGeneratorState } from './hooks/useGeneratorState';
 import { useExcelGeneration } from './hooks/useExcelGeneration';
 import { useAIAnalysis } from './hooks/useAIAnalysis';
 import { useDataGeneration } from './hooks/useDataGeneration';
-import { AnalysisLanguage, UserSegment, EventSequence, Transaction, TaskMode } from './types';
+import { AnalysisLanguage, UserSegment, EventSequence, Transaction } from './types';
 
 // API URL 설정
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function Home() {
   const { t, language: uiLanguage } = useLanguage();
-
-  // Helper function to replace "..." with LoadingDots component
-  const renderMessageWithDots = (message: string) => {
-    if (!message) return message;
-    const parts = message.split('...');
-    return parts.map((part, idx) => (
-      <span key={idx}>
-        {part}
-        {idx < parts.length - 1 && <LoadingDots />}
-      </span>
-    ));
-  };
 
   // ✅ Centralized state management using custom hook
   const {
@@ -236,11 +222,6 @@ export default function Home() {
   };
 
   const handleStartAIAnalysis = async () => {
-    // Validate BEFORE changing step to prevent UI from advancing on validation failure
-    if (!aiAnalysis.validateDataSettings(formData)) {
-      return; // Validation failed, don't proceed
-    }
-
     setCurrentStep('analyzing-ai');
     await aiAnalysis.startAnalysis(generatedExcelPath, formData, settings, fileAnalysisResult);
   };
@@ -282,11 +263,6 @@ export default function Home() {
   };
 
   const handleCombinedConfigGenerate = async () => {
-    // Validate BEFORE changing step to prevent UI from advancing on validation failure
-    if (!aiAnalysis.validateDataSettings(formData)) {
-      return; // Validation failed, don't proceed
-    }
-
     setCurrentStep('analyzing-ai');
     await aiAnalysis.startAnalysis(uploadedExcelPath, formData, settings, fileAnalysisResult);
   };
@@ -372,20 +348,7 @@ export default function Home() {
             onSelectMode={(mode, language) => {
               setStartMode(mode);
               setFormData((prev) => ({ ...prev, language: language || 'ko' }));
-
-              // Route based on selected task mode
-              switch (mode) {
-                case 'taxonomy-only':
-                case 'full-process':
-                  setCurrentStep('input');
-                  break;
-                case 'analysis-only':
-                  setCurrentStep('upload-excel');
-                  break;
-                case 'data-only':
-                  setCurrentStep('dual-upload');
-                  break;
-              }
+              setCurrentStep(mode === 'new' ? 'input' : 'upload-excel');
             }}
           />
         )}
@@ -444,7 +407,7 @@ export default function Home() {
 
             {/* Current Message */}
             <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
-              <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {renderMessageWithDots(progress.message)}</p>
+              <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
             </div>
 
             {/* Detailed Progress Log */}
@@ -455,7 +418,7 @@ export default function Home() {
                   <div className="space-y-1">
                     {progress.details.map((detail: string, idx: number) => (
                       <div key={idx} className="text-xs font-mono text-[var(--text-secondary)] animate-fade-in">
-                        {renderMessageWithDots(detail)}
+                        {detail}
                       </div>
                     ))}
                   </div>
@@ -601,180 +564,148 @@ export default function Home() {
           </div>
         )}
 
-        {/* Dual Excel Upload Screen (for data-only mode) */}
-        {currentStep === 'dual-upload' && (
-          <DualExcelUpload
-            onComplete={(taxonomyPath, analysisPath, taxonomyPreview, analysisPreview) => {
-              setUploadedExcelPath(taxonomyPath);
-              setExcelPreview(taxonomyPreview);
-              // TODO: Store analysisPath and analysisPreview for later use
-              setCurrentStep('dual-upload-completed');
-            }}
-            onCancel={() => {
-              setCurrentStep('select-mode');
-              setStartMode(null);
-            }}
-          />
-        )}
-
-        {/* Dual Upload Completed - proceed directly to data generation */}
-        {currentStep === 'dual-upload-completed' && (
-          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
-            <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-              <span>✓</span> 파일 업로드 완료
+        {/* Combined Config Screen */}
+        {currentStep === 'combined-config' && (
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 mb-6 terminal-glow">
+            <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
+              <span>▦</span> {t.generator.serviceInfoAndSettings}
             </h2>
 
-            <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-              <p className="text-[var(--accent-green)] mb-4 font-mono">
-                Taxonomy Excel과 AI 분석 Excel이 모두 업로드되었습니다.
-              </p>
-              <p className="text-sm text-[var(--text-secondary)] font-mono">
-                이제 데이터 생성 설정을 입력해주세요.
-              </p>
-            </div>
-
-            {excelPreview && (
-              <div className="mb-6 grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">이벤트</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events || 0}</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">속성</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties || 0}</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">공통 속성</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties || 0}</p>
-                </div>
-                <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-                  <p className="text-xs text-[var(--text-dimmed)] font-mono">사용자 데이터</p>
-                  <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData || 0}</p>
-                </div>
+            <div className="space-y-6">
+              <div>
+                <label htmlFor="scenario-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                  {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
+                </label>
+                <textarea
+                  id="scenario-input-combined"
+                  value={formData.scenario}
+                  onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
+                  className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
+                  rows={4}
+                  placeholder={t.generator.scenarioPlaceholder}
+                  aria-required="true"
+                />
               </div>
-            )}
 
-            <div className="space-y-6 mb-6">
-              <h3 className="text-lg font-bold text-[var(--text-primary)] font-mono">&gt; 데이터 생성 설정</h3>
-
-              <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-6">
                 <div>
-                  <label htmlFor="scenario-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                    시나리오 <span className="text-[var(--error-red)]">*</span>
+                  <label htmlFor="industry-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                    {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
                   </label>
                   <input
-                    id="scenario-dual"
+                    id="industry-input-combined"
                     type="text"
-                    value={formData.scenario}
-                    onChange={(e) => setFormData({ ...formData, scenario: e.target.value })}
-                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    placeholder="예: RPG 게임, 쇼핑몰 앱"
+                    value={formData.industry}
+                    onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
+                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
+                    placeholder={t.generator.industryPlaceholder}
+                    aria-required="true"
                   />
                 </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label htmlFor="industry-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                      산업 분야 <span className="text-[var(--error-red)]">*</span>
-                    </label>
-                    <input
-                      id="industry-dual"
-                      type="text"
-                      value={formData.industry}
-                      onChange={(e) => setFormData({ ...formData, industry: e.target.value })}
-                      className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                      placeholder="예: 게임, 이커머스"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="notes-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                      추가 메모
-                    </label>
-                    <input
-                      id="notes-dual"
-                      type="text"
-                      value={formData.notes}
-                      onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                      className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                      placeholder="추가 설명 (선택)"
-                    />
-                  </div>
+                <div>
+                  <label htmlFor="notes-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                    {t.generator.notes} <span className="text-[var(--error-red)]">*</span>
+                  </label>
+                  <input
+                    id="notes-input-combined"
+                    type="text"
+                    value={formData.notes}
+                    onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
+                    placeholder={t.generator.notesPlaceholder}
+                    aria-required="true"
+                  />
                 </div>
+              </div>
 
-                <div className="grid grid-cols-3 gap-4">
-                  <div>
-                    <label htmlFor="dau-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                      DAU <span className="text-[var(--error-red)]">*</span>
-                    </label>
-                    <input
-                      id="dau-dual"
-                      type="number"
-                      value={formData.dau}
-                      onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
-                      className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                      min="1"
-                      placeholder="예: 10000"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="start-date-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                      시작 날짜 <span className="text-[var(--error-red)]">*</span>
-                    </label>
-                    <input
-                      id="start-date-dual"
-                      type="date"
-                      value={formData.dateStart}
-                      onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
-                      className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="end-date-dual" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-                      종료 날짜 <span className="text-[var(--error-red)]">*</span>
-                    </label>
-                    <input
-                      id="end-date-dual"
-                      type="date"
-                      value={formData.dateEnd}
-                      onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
-                      className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-                    />
-                  </div>
+              <div className="grid grid-cols-3 gap-6">
+                <div>
+                  <label htmlFor="dau-input-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                    {t.generator.dau}
+                  </label>
+                  <input
+                    id="dau-input-combined"
+                    type="number"
+                    value={formData.dau}
+                    onChange={(e) => setFormData({ ...formData, dau: e.target.value })}
+                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    min="1"
+                    placeholder="Daily Active Users"
+                    aria-label={t.generator.dau}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="start-date-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                    {t.generator.startDate}
+                  </label>
+                  <input
+                    id="start-date-combined"
+                    type="date"
+                    value={formData.dateStart}
+                    onChange={(e) => setFormData({ ...formData, dateStart: e.target.value })}
+                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-label={t.generator.startDate}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="end-date-combined" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
+                    {t.generator.endDate}
+                  </label>
+                  <input
+                    id="end-date-combined"
+                    type="date"
+                    value={formData.dateEnd}
+                    onChange={(e) => setFormData({ ...formData, dateEnd: e.target.value })}
+                    className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
+                    aria-label={t.generator.endDate}
+                  />
                 </div>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
+            {/* 파일 업로드 섹션 */}
+            <div className="mt-8 pt-6 border-t border-[var(--border)]">
+              <FileUploadZone
+                onFilesSelected={handleFilesSelected}
+                maxFiles={5}
+                maxFileSize={10}
+                maxTotalSize={50}
+                disabled={isUploadingFiles}
+              />
+
+              {/* File upload status */}
+              {isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-cyan)]/10 border border-[var(--accent-cyan)] rounded">
+                  <p className="text-[var(--accent-cyan)] font-mono text-sm">🤖 {t.generator.analyzingFiles}</p>
+                </div>
+              )}
+
+              {fileAnalysisResult && uploadedFiles.length > 0 && !isUploadingFiles && (
+                <div className="mt-4 p-4 bg-[var(--accent-green)]/10 border border-[var(--accent-green)] rounded">
+                  <h3 className="text-[var(--accent-green)] font-semibold mb-2 font-mono">✅ {t.generator.fileAnalysisComplete}</h3>
+                  <p className="text-sm text-[var(--text-secondary)] font-mono">
+                    {uploadedFiles.length}{t.generator.filesUploadedMessage}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            <div className="grid grid-cols-2 gap-4 mt-8">
               <button
-                onClick={() => setCurrentStep('dual-upload')}
+                onClick={handleComplete}
                 className="py-4 rounded text-[var(--text-secondary)] font-mono font-semibold bg-[var(--bg-tertiary)] border border-[var(--border)] hover:border-[var(--border-bright)] transition-all"
               >
-                &lt; 이전으로
+                &lt; {t.generator.home}
               </button>
               <button
-                onClick={async () => {
-                  await dataGeneration.startGeneration(uploadedExcelPath, formData, settings, fileAnalysisResult);
-                }}
-                className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
+                onClick={handleCombinedConfigGenerate}
+                disabled={isUploadingFiles}
+                className="py-4 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                데이터 생성 시작 &gt;
+                &gt; {t.generator.generateStart}
               </button>
             </div>
           </div>
-        )}
-
-        {/* Combined Config Screen */}
-        {currentStep === 'combined-config' && (
-          <CombinedConfigForm
-            formData={formData}
-            onFormDataChange={setFormData}
-            onNext={handleCombinedConfigGenerate}
-            onCancel={handleComplete}
-            onFilesSelected={handleFilesSelected}
-            uploadedFiles={uploadedFiles}
-            fileAnalysisResult={fileAnalysisResult}
-            isUploadingFiles={isUploadingFiles}
-          />
         )}
 
         {/* AI Analysis Progress */}
@@ -787,15 +718,8 @@ export default function Home() {
           <AIAnalysisCompleted
             aiAnalysisResult={aiAnalysisResult}
             analysisExcelFileName={progress?.analysisExcelFileName}
-            analysisId={analysisId}
             onComplete={handleComplete}
-            onProceedToGeneration={handleStartDataGenerationWithAnalysis}
-            onAnalysisUpdate={(updatedResult) => {
-              setAiAnalysisResult(updatedResult);
-              setEditedSegments(updatedResult.userSegments || []);
-              setEditedEventSequences(updatedResult.eventSequences || []);
-              setEditedTransactions(updatedResult.transactions || []);
-            }}
+            onProceedToGeneration={handleStartDataGeneration}
           />
         )}
 
@@ -827,12 +751,7 @@ export default function Home() {
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => {
-                  // Go back to the correct screen based on workflow mode
-                  if (startMode === 'data-only') {
-                    setCurrentStep('dual-upload-completed');
-                  } else {
-                    setCurrentStep('excel-completed');
-                  }
+                  setCurrentStep('excel-completed');
                   setProgress(null);
                   setRunId('');
                 }}
@@ -841,13 +760,7 @@ export default function Home() {
                 &lt; {t.generator.retryPrevious}
               </button>
               <button
-                onClick={async () => {
-                  if (startMode === 'data-only') {
-                    await dataGeneration.startGeneration(uploadedExcelPath, formData, settings, fileAnalysisResult);
-                  } else {
-                    handleStartDataGeneration();
-                  }
-                }}
+                onClick={handleStartDataGeneration}
                 className="py-4 rounded text-[var(--bg-primary)] font-mono font-semibold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all"
               >
                 ↻ {t.generator.retry}

@@ -63,12 +63,13 @@ const upload = multer({
 router.post('/files/analyze-multi', upload.array('files', 5), async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
+    const language = req.body.language || 'ko'; // Default to Korean
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
     }
 
-    console.log(`📁 파일 분석 시작: ${files.length}개 파일 업로드됨`);
+    console.log(`📁 파일 분석 시작: ${files.length}개 파일 업로드됨 (language: ${language})`);
 
     // 총 파일 크기 체크 (50MB)
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
