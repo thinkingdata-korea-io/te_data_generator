@@ -30,7 +30,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
 
     // ThinkingEngine configuration
     const receiverUrl = process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/';
-    const logbusPath = path.resolve(__dirname, '../../../logbus 2/logbus');
+    const logbusPath = path.resolve(__dirname, '../../../../logbus 2/logbus');
 
     if (!appId) {
       throw new Error('TE_APP_ID not configured');

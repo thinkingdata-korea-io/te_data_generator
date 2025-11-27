@@ -104,6 +104,49 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
         </div>
       )}
 
+      {/* LogBus Transfer Logs (for sending status) */}
+      {progress.logs && progress.logs.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={() => setIsDetailsExpanded(!isDetailsExpanded)}
+            className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--text-primary)] bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] border border-[var(--border)] hover:border-[var(--accent-magenta)] rounded font-mono transition-all cursor-pointer"
+          >
+            <span className="flex items-center gap-2">
+              <span className="text-[var(--accent-magenta)] text-xl">{isDetailsExpanded ? '▼' : '▶'}</span>
+              📡 LogBus 전송 로그
+            </span>
+            <span className="text-xs text-[var(--text-dimmed)]">
+              {isDetailsExpanded ? '접기' : '펼치기'}
+            </span>
+          </button>
+          {isDetailsExpanded && (
+            <>
+              <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
+                <div className="space-y-0.5">
+                  {progress.logs.map((log: any, idx: number) => (
+                    <div key={idx} className="text-xs font-mono animate-fade-in">
+                      <span className={`${
+                        log.level === 'info' ? 'text-[var(--accent-cyan)]' :
+                        log.level === 'warn' ? 'text-[var(--accent-yellow)]' :
+                        log.level === 'error' ? 'text-[var(--error-red)]' :
+                        log.level === 'success' ? 'text-[var(--accent-green)]' :
+                        'text-[var(--text-secondary)]'
+                      }`}>
+                        {log.timestamp && `[${new Date(log.timestamp).toLocaleTimeString()}] `}
+                        {log.message || log.raw || JSON.stringify(log)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                {progress.logs.length}개 로그 항목 (실시간 업데이트)
+              </p>
+            </>
+          )}
+        </div>
+      )}
+
       <style jsx>{`
         @keyframes bounce-dot {
           0%, 80%, 100% {
