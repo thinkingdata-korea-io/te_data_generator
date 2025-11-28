@@ -4,6 +4,7 @@
  */
 
 import { Pool, QueryResult } from 'pg';
+import { logger } from '../utils/logger';
 
 // Database connection pool
 let pool: Pool | null = null;
@@ -19,7 +20,7 @@ export function initializeDatabase(): Pool {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    console.warn('⚠️  DATABASE_URL not set. Using mock data instead.');
+    logger.warn('⚠️  DATABASE_URL not set. Using mock data instead.');
     // Return a dummy pool that won't be used
     pool = new Pool({ max: 0 });
     return pool;
@@ -33,10 +34,10 @@ export function initializeDatabase(): Pool {
   });
 
   pool.on('error', (err) => {
-    console.error('Unexpected database error:', err);
+    logger.error('Unexpected database error:', err);
   });
 
-  console.log('✅ PostgreSQL connection pool initialized');
+  logger.info('✅ PostgreSQL connection pool initialized');
   return pool;
 }
 
@@ -66,12 +67,12 @@ export async function query<T = any>(
     const duration = Date.now() - start;
 
     if (duration > 1000) {
-      console.warn(`⚠️  Slow query (${duration}ms): ${text.substring(0, 100)}`);
+      logger.warn(`⚠️  Slow query (${duration}ms): ${text.substring(0, 100)}`);
     }
 
     return result;
   } catch (error) {
-    console.error('Database query error:', error);
+    logger.error('Database query error:', error);
     throw error;
   }
 }
@@ -82,15 +83,15 @@ export async function query<T = any>(
 export async function testConnection(): Promise<boolean> {
   try {
     if (!process.env.DATABASE_URL) {
-      console.log('ℹ️  DATABASE_URL not configured - using mock data');
+      logger.info('ℹ️  DATABASE_URL not configured - using mock data');
       return false;
     }
 
     const result = await query('SELECT NOW()');
-    console.log('✅ Database connection test successful:', result.rows[0]);
+    logger.info('✅ Database connection test successful:', result.rows[0]);
     return true;
   } catch (error) {
-    console.error('❌ Database connection test failed:', error);
+    logger.error('❌ Database connection test failed:', error);
     return false;
   }
 }
@@ -102,7 +103,7 @@ export async function closeDatabase(): Promise<void> {
   if (pool) {
     await pool.end();
     pool = null;
-    console.log('✅ Database connection closed');
+    logger.info('✅ Database connection closed');
   }
 }
 

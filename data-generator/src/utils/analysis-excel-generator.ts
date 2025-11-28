@@ -2,6 +2,7 @@ import * as XLSX from 'xlsx';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AIAnalysisResult } from '../types';
+import { logger } from './logger';
 
 /**
  * AI 분석 결과를 Excel 파일로 생성
@@ -58,7 +59,7 @@ export class AnalysisExcelGenerator {
     }
 
     XLSX.writeFile(workbook, fullPath);
-    console.log(`✅ AI 분석 결과 Excel 생성 완료: ${fullPath}`);
+    logger.info(`✅ AI 분석 결과 Excel 생성 완료: ${fullPath}`);
 
     return fullPath;
   }

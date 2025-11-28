@@ -1,5 +1,6 @@
 import * as path from 'path';
 import { DataGenerator, DataGeneratorConfig } from '../../data-generator';
+import { logger } from '../../utils/logger';
 
 /**
  * Data Generation Service
@@ -75,7 +76,7 @@ export async function generateDataAsync(runId: string, config: DataGeneratorConf
     });
 
   } catch (error: any) {
-    console.error('Error during data generation:', error);
+    logger.error('Error during data generation:', error);
     progressMap.set(runId, {
       status: 'error',
       progress: 0,

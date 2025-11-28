@@ -5,6 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createAuditLog } from '../db/repositories/audit-repository';
+import { logger } from '../utils/logger';
 
 /**
  * Extract IP address from request
@@ -49,7 +50,7 @@ export function auditLog(action: string, getResourceInfo?: (req: Request, res: R
         try {
           resourceInfo = getResourceInfo(req, res);
         } catch (error) {
-          console.error('Error getting resource info for audit:', error);
+          logger.error('Error getting resource info for audit:', error);
         }
       }
 
@@ -74,7 +75,7 @@ export function auditLog(action: string, getResourceInfo?: (req: Request, res: R
         ipAddress: getIpAddress(req),
         userAgent: getUserAgent(req),
       }).catch(err => {
-        console.error('Failed to create audit log:', err);
+        logger.error('Failed to create audit log:', err);
       });
 
       return originalSend.call(this, body);

@@ -4,6 +4,7 @@
  */
 
 import { query, isDatabaseConfigured } from '../connection';
+import { logger } from '../../utils/logger';
 
 export interface UserSettings {
   id: number;
@@ -94,7 +95,7 @@ export async function getUserSettings(userId: number): Promise<UserSettings | nu
     // Create default settings if none exist
     return await createDefaultSettings(userId);
   } catch (error) {
-    console.error('Error getting user settings:', error);
+    logger.error('Error getting user settings:', error);
     throw error;
   }
 }
@@ -139,7 +140,7 @@ async function createDefaultSettings(userId: number): Promise<UserSettings> {
 
     return result.rows[0];
   } catch (error) {
-    console.error('Error creating default settings:', error);
+    logger.error('Error creating default settings:', error);
     throw error;
   }
 }
@@ -251,7 +252,7 @@ export async function updateUserSettings(
 
     return result.rows[0];
   } catch (error) {
-    console.error('Error updating user settings:', error);
+    logger.error('Error updating user settings:', error);
     throw error;
   }
 }
@@ -268,7 +269,7 @@ export async function deleteUserSettings(userId: number): Promise<boolean> {
     const result = await query('DELETE FROM user_settings WHERE user_id = $1', [userId]);
     return (result.rowCount ?? 0) > 0;
   } catch (error) {
-    console.error('Error deleting user settings:', error);
+    logger.error('Error deleting user settings:', error);
     throw error;
   }
 }

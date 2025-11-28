@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -9,7 +10,7 @@ const router = Router();
  * Stream LogBus2 logs (transporter.log and daemon.log)
  */
 router.get('/logs', (req: Request, res: Response) => {
-  const logbusDir = path.resolve(__dirname, '../../../logbus 2');
+  const logbusDir = path.resolve(__dirname, '../../../logbus');
   const transporterLogPath = path.join(logbusDir, 'log', 'transporter.log');
   const daemonLogPath = path.join(logbusDir, 'log', 'daemon.log');
 
@@ -52,7 +53,7 @@ router.get('/logs', (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error(`Error reading LogBus2 logs:`, error);
+    logger.error(`Error reading LogBus2 logs:`, error);
     res.status(500).json({
       error: 'Failed to read log file',
       message: error.message
@@ -66,7 +67,7 @@ router.get('/logs', (req: Request, res: Response) => {
  */
 router.get('/status', async (req: Request, res: Response) => {
   try {
-    const logbusPath = path.resolve(__dirname, '../../../logbus 2/logbus');
+    const logbusPath = path.resolve(__dirname, '../../../logbus/logbus');
     const { execSync } = require('child_process');
 
     try {
@@ -85,7 +86,7 @@ router.get('/status', async (req: Request, res: Response) => {
     }
 
   } catch (error: any) {
-    console.error('Error checking LogBus2 status:', error);
+    logger.error('Error checking LogBus2 status:', error);
     res.status(500).json({
       error: 'Failed to check LogBus2 status',
       message: error.message

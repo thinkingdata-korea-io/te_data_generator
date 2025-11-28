@@ -1,5 +1,6 @@
 import { ParsedSchema, EventDefinition } from '../types';
 import { UserInput } from './client';
+import { logger } from '../utils/logger';
 
 /**
  * AI 프롬프트 빌더
@@ -69,6 +70,20 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
 - "개인화": topic_follow, notification_subscribe
 - "수익화": subscription, ad_impression
 
+### 5. ⭐ 마케팅 어트리뷰션 범위 정의 (중요!)
+**${userInput.industry} 도메인의 특성을 고려하여** 마케팅 데이터 범위를 정의하세요.
+
+**고려사항:**
+- 산업별 광고 메트릭 특성 (게임: 높은 CPI, 커머스: 높은 ROAS 등)
+- 주요 광고 소스 및 가중치 (Google, Facebook, TikTok, Unity 등)
+- 광고 수익 네트워크 (AdMob, Unity Ads, IronSource 등)
+- 광고 유닛 타입별 평균 수익 (Rewarded Video > Interstitial > Banner)
+
+**중요:** 각 산업마다 광고 메트릭의 현실적인 범위가 다릅니다!
+- 게임: 높은 노출수, 중간 CPI, 낮은 전환율
+- 커머스: 중간 노출수, 높은 전환율, 높은 ROAS
+- 금융: 낮은 노출수, 매우 높은 CPI, 높은 LTV
+
 다음 JSON 형식으로 응답해주세요:
 
 \`\`\`json
@@ -115,6 +130,38 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
       "활성 사용자": 15,
       "고가치 사용자": 30
     }
+  },
+  "marketingRanges": {
+    "metrics": {
+      "clicks": { "min": 100, "max": 10000 },
+      "impressions": { "min": 1000, "max": 100000 },
+      "cost": { "min": 100, "max": 10000, "currency": "USD" },
+      "conversions": { "min": 10, "max": 500 },
+      "installs": { "min": 10, "max": 1000 },
+      "revenue": { "min": 0, "max": 1000, "currency": "USD" }
+    },
+    "mediaSources": [
+      { "name": "google", "weight": 0.35, "description": "Google Ads (검색, 디스플레이, UAC)" },
+      { "name": "facebook", "weight": 0.25, "description": "Facebook/Instagram Ads" },
+      { "name": "apple_search_ads", "weight": 0.15 },
+      { "name": "tiktok", "weight": 0.10 },
+      { "name": "unity_ads", "weight": 0.05 },
+      { "name": "organic", "weight": 0.10 }
+    ],
+    "adRevenueNetworks": [
+      { "name": "admob", "weight": 0.4 },
+      { "name": "unity_ads", "weight": 0.3 },
+      { "name": "ironsource", "weight": 0.2 },
+      { "name": "applovin", "weight": 0.1 }
+    ],
+    "adUnitTypes": [
+      { "name": "rewarded_video", "weight": 0.5, "avgRevenue": { "min": 0.01, "max": 0.10 } },
+      { "name": "interstitial", "weight": 0.3, "avgRevenue": { "min": 0.005, "max": 0.05 } },
+      { "name": "banner", "weight": 0.15, "avgRevenue": { "min": 0.001, "max": 0.01 } },
+      { "name": "native", "weight": 0.05, "avgRevenue": { "min": 0.005, "max": 0.03 } }
+    ],
+    "agencies": ["Adways", "DMC Media", "Nasmedia", "Cheil Worldwide"],
+    "placements": ["youtube_instream", "facebook_feed", "instagram_story", "tiktok_feed"]
   }
 }
 \`\`\``;
@@ -181,7 +228,15 @@ ${userSegments.map(s => `- ${s}`).join('\n')}
 
    **속성 목록에서 "object group" 또는 "object" 타입을 찾아서 그 자식들만 처리하세요!**
 
-4. **Few-shot 예시:**
+4. **⭐ 속성 타입 일관성 유지 (매우 중요!):**
+   - **같은 이름의 속성은 모든 이벤트에서 동일한 타입을 사용해야 합니다!**
+   - 예시: "filter_applied"라는 속성이 여러 이벤트에 존재한다면:
+     - ❌ 잘못된 예: event1에서는 boolean, event2에서는 string
+     - ✅ 올바른 예: 모든 이벤트에서 동일하게 boolean 또는 choice 타입
+   - 불확실하면 **choice 타입을 사용**하세요 (예: ["yes", "no", "unknown"])
+   - Boolean으로 보이는 속성도 다른 값이 필요하면 choice로 정의하세요
+
+5. **Few-shot 예시:**
 
 \`\`\`json
 {
@@ -207,6 +262,16 @@ ${userSegments.map(s => `- ${s}`).join('\n')}
       "type": "choice",
       "values": ["Weapon", "Armor", "Potion", "Special"],
       "weights": [0.3, 0.25, 0.35, 0.1]
+    },
+    {
+      "property_name": "is_premium",
+      "type": "boolean"
+    },
+    {
+      "property_name": "filter_applied",
+      "type": "choice",
+      "values": ["true", "false"],
+      "weights": [0.3, 0.7]
     }
   ]
 }
@@ -262,7 +327,7 @@ export function convertAIGroupsToMap(
       if (event) {
         groupEvents.push(event);
       } else {
-        console.warn(`⚠️  Event '${eventName}' in group '${groupName}' not found in schema`);
+        logger.warn(`⚠️  Event '${eventName}' in group '${groupName}' not found in schema`);
       }
     });
 
@@ -279,7 +344,7 @@ export function convertAIGroupsToMap(
 
   const ungroupedEvents = events.filter(e => !groupedEventNames.has(e.event_name));
   if (ungroupedEvents.length > 0) {
-    console.warn(`⚠️  ${ungroupedEvents.length} events not grouped by AI:`, ungroupedEvents.map(e => e.event_name));
+    logger.warn(`⚠️  ${ungroupedEvents.length} events not grouped by AI:`, ungroupedEvents.map(e => e.event_name));
     groups.set('기타', ungroupedEvents);
   }
 
@@ -393,6 +458,24 @@ ${userSegments.map(s => `- ${s.name} (${(s.ratio * 100).toFixed(0)}%): ${s.chara
 - dormant는 낮게 (0.05-0.15) - 이탈 위험
 - churned는 매우 낮게 (0.01-0.05) - 거의 복귀 없음
 
+### 3-1. 생명주기 전환 임계값
+
+**산업별로 사용자가 각 단계로 전환되는 기준일을 정의하세요:**
+
+\`dormantAfterDays\`: 활성 → 휴면 전환 기준 (일 단위)
+- 게임: 3-7일 (빠른 이탈)
+- 금융/SaaS: 14-30일 (천천히 이탈)
+- 이커머스: 7-14일 (계절성 고려)
+- 소셜/미디어: 7-14일
+
+\`churnedAfterDays\`: 휴면 → 이탈 전환 기준 (일 단위)
+- 게임: 21-30일
+- 금융/SaaS: 60-90일 (긴 복귀 주기)
+- 이커머스: 30-60일
+- 소셜/미디어: 30-45일
+
+**중요**: 산업 특성에 맞게 현실적인 임계값을 설정하세요!
+
 ### 4. 특수 패턴
 
 \`weekendBoost\`: 주말 활동 증가율 (게임/이커머스: 1.2-1.5, 금융: 0.8-0.9)
@@ -420,6 +503,10 @@ ${userSegments.map(s => `- ${s.name} (${(s.ratio * 100).toFixed(0)}%): ${s.chara
       "returning": 0.5,
       "dormant": 0.1,
       "churned": 0.03
+    },
+    "lifecycleTransitionThresholds": {
+      "dormantAfterDays": 7,
+      "churnedAfterDays": 30
     },
     "weekendBoost": 1.3,
     "monthlyReturnPattern": false

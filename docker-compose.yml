@@ -36,6 +36,38 @@ services:
       -c max_connections=200
       -c work_mem=4MB
 
+  data-generator:
+    build:
+      context: .  # Build from root directory
+      dockerfile: data-generator/Dockerfile
+    container_name: te_data_generator
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://te_admin:te_password_2025@postgres:5432/te_platform
+      JWT_SECRET: te_platform_secret_key_change_in_production_2025
+      API_PORT: 3001
+    ports:
+      - "3001:3001"
+    volumes:
+      - ./data-generator/uploads:/workspace/data-generator/uploads
+      - ./output:/workspace/output
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: te_frontend
+    restart: unless-stopped
+    depends_on:
+      - data-generator
+    environment:
+      NEXT_PUBLIC_API_URL: http://data-generator:3001
+    ports:
+      - "3000:3000"
+
 volumes:
   postgres_data:
     driver: local

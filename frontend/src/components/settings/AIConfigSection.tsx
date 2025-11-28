@@ -2,17 +2,7 @@
 
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-
-interface Settings {
-  ANTHROPIC_API_KEY: string;
-  OPENAI_API_KEY: string;
-  GEMINI_API_KEY: string;
-  EXCEL_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
-  DATA_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
-  DATA_AI_MODEL: string;
-  VALIDATION_MODEL_TIER: 'fast' | 'balanced';
-  CUSTOM_VALIDATION_MODEL: string;
-}
+import { Settings } from '@/app/dashboard/generator/types';
 
 interface AIConfigSectionProps {
   settings: Settings;

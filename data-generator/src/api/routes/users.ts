@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAuth, requireAdmin } from '../middleware';
 import { findUserById, getAllUsers, createUser, updateUser, deleteUser } from '../auth';
 import { updateUser as updateUserRepo } from '../../db/repositories/user-repository';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -14,7 +15,7 @@ router.get('/', requireAdmin, async (req: Request, res: Response) => {
     const users = await getAllUsers();
     res.json({ users });
   } catch (error: any) {
-    console.error('Get users error:', error);
+    logger.error('Get users error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -34,7 +35,7 @@ router.post('/', requireAdmin, async (req: Request, res: Response) => {
     const user = await createUser({ username, email, password, fullName, role });
     res.status(201).json({ user });
   } catch (error: any) {
-    console.error('Create user error:', error);
+    logger.error('Create user error:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -55,7 +56,7 @@ router.put('/:id', requireAdmin, async (req: Request, res: Response) => {
 
     res.json({ user });
   } catch (error: any) {
-    console.error('Update user error:', error);
+    logger.error('Update user error:', error);
     res.status(400).json({ error: error.message });
   }
 });
@@ -80,7 +81,7 @@ router.delete('/:id', requireAdmin, (req: Request, res: Response) => {
 
     res.json({ message: 'User deleted successfully' });
   } catch (error: any) {
-    console.error('Delete user error:', error);
+    logger.error('Delete user error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -106,7 +107,7 @@ router.put('/profile', requireAuth, async (req: Request, res: Response) => {
 
     res.json({ user: updatedUser });
   } catch (error: any) {
-    console.error('Update profile error:', error);
+    logger.error('Update profile error:', error);
     res.status(400).json({ error: error.message });
   }
 });

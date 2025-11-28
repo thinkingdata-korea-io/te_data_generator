@@ -1,6 +1,7 @@
 import { EventData, User, TEEvent, TEUserSet, TEUserAdd } from '../types';
 import { toISO8601, toTimestamp } from '../utils/date';
 import { randomUUID } from 'crypto';
+import { flatToNested } from '../utils/object-utils';
 
 /**
  * ThinkingEngine 형식 변환기
@@ -10,6 +11,9 @@ export class TEFormatter {
    * EventData를 TE track 이벤트로 변환
    */
   formatTrackEvent(event: EventData): TEEvent {
+    // Convert flat dot-notation properties to nested objects
+    const nestedProperties = flatToNested(event.properties);
+
     const teEvent: TEEvent = {
       // Root Level: 메타데이터 (7개 필드)
       "#account_id": event.user.account_id,
@@ -31,8 +35,8 @@ export class TEFormatter {
         "#carrier": event.user.carrier,
         "#network_type": event.user.network_type,
 
-        // Custom Properties
-        ...event.properties
+        // Custom Properties (converted to nested objects)
+        ...nestedProperties
       }
     };
 
@@ -43,6 +47,9 @@ export class TEFormatter {
    * user_set 이벤트 생성
    */
   formatUserSet(user: User, timestamp: Date, properties: Record<string, any>): TEUserSet {
+    // Convert flat dot-notation properties to nested objects
+    const nestedProperties = flatToNested(properties);
+
     return {
       // Root Level: 메타데이터 (6개 필드 - event_name 제외)
       "#account_id": user.account_id,
@@ -60,7 +67,7 @@ export class TEFormatter {
         user_segment: user.segment,
         user_lifecycle_stage: user.lifecycle_stage,
         install_date: toISO8601(user.install_date),
-        ...properties
+        ...nestedProperties
       }
     };
   }

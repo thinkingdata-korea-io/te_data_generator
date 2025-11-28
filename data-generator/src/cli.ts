@@ -10,6 +10,7 @@ import * as fs from 'fs';
 import { DataGenerator, DataGeneratorConfig } from './data-generator';
 import { ExcelParser } from './excel/parser';
 import { DataValidator, formatValidationResult } from './validators/data-validator';
+import { logger } from './utils/logger';
 
 // 환경변수 로드
 dotenv.config();
@@ -34,11 +35,11 @@ async function main() {
       break;
 
     case 'upload':
-      console.log('Upload command - use LogBus2Controller directly');
+      logger.info('Upload command - use LogBus2Controller directly');
       break;
 
     default:
-      console.error(`Unknown command: ${command}`);
+      logger.error(`Unknown command: ${command}`);
       printHelp();
       process.exit(1);
   }
@@ -51,24 +52,24 @@ async function validateData(args: string[]) {
     const runId = getArg(args, '--run-id', '-r');
 
     if (!excelFile) {
-      console.error('❌ Excel schema file required');
-      console.log('\nUsage: data-generator validate --excel <path> [--data <path>] [--run-id <id>]');
-      console.log('\nOptions:');
-      console.log('  --excel, -e <path>    Excel schema file path (required)');
-      console.log('  --data, -d <path>     Data directory path [default: ../output/data]');
-      console.log('  --run-id, -r <id>     Specific run ID to validate');
-      console.log('\nExamples:');
-      console.log('  # Validate all data in directory');
-      console.log('  data-generator validate -e ./schema.xlsx');
-      console.log('\n  # Validate specific run');
-      console.log('  data-generator validate -e ./schema.xlsx --run-id 1762332591572');
+      logger.error('❌ Excel schema file required');
+      logger.info('\nUsage: data-generator validate --excel <path> [--data <path>] [--run-id <id>]');
+      logger.info('\nOptions:');
+      logger.info('  --excel, -e <path>    Excel schema file path (required)');
+      logger.info('  --data, -d <path>     Data directory path [default: ../output/data]');
+      logger.info('  --run-id, -r <id>     Specific run ID to validate');
+      logger.info('\nExamples:');
+      logger.info('  # Validate all data in directory');
+      logger.info('  data-generator validate -e ./schema.xlsx');
+      logger.info('\n  # Validate specific run');
+      logger.info('  data-generator validate -e ./schema.xlsx --run-id 1762332591572');
       process.exit(1);
     }
 
-    console.log('📖 Loading Excel schema...');
+    logger.info('📖 Loading Excel schema...');
     const parser = new ExcelParser();
     const schema = await parser.parseExcelFile(path.resolve(excelFile));
-    console.log(`✅ Loaded ${schema.events.length} events, ${schema.properties.length} properties`);
+    logger.info(`✅ Loaded ${schema.events.length} events, ${schema.properties.length} properties`);
 
     // Create validator
     const validator = new DataValidator(schema);
@@ -80,7 +81,7 @@ async function validateData(args: string[]) {
     }
 
     if (!fs.existsSync(targetPath)) {
-      console.error(`❌ Path not found: ${targetPath}`);
+      logger.error(`❌ Path not found: ${targetPath}`);
       process.exit(1);
     }
 
@@ -89,14 +90,14 @@ async function validateData(args: string[]) {
     let results: Map<string, any>;
 
     if (stat.isDirectory()) {
-      console.log(`\n🔍 Validating all JSONL files in: ${targetPath}\n`);
+      logger.info(`\n🔍 Validating all JSONL files in: ${targetPath}\n`);
       results = await validator.validateDirectory(targetPath);
     } else if (targetPath.endsWith('.jsonl')) {
-      console.log(`\n🔍 Validating file: ${targetPath}\n`);
+      logger.info(`\n🔍 Validating file: ${targetPath}\n`);
       const result = await validator.validateJSONLFile(targetPath);
       results = new Map([[path.basename(targetPath), result]]);
     } else {
-      console.error('❌ Path must be a directory or .jsonl file');
+      logger.error('❌ Path must be a directory or .jsonl file');
       process.exit(1);
     }
 
@@ -105,9 +106,9 @@ async function validateData(args: string[]) {
     let totalInvalid = 0;
 
     for (const [file, result] of results) {
-      console.log(`\n${'='.repeat(80)}`);
-      console.log(`📄 File: ${file}`);
-      console.log(formatValidationResult(result));
+      logger.info(`\n${'='.repeat(80)}`);
+      logger.info(`📄 File: ${file}`);
+      logger.info(formatValidationResult(result));
 
       if (result.isValid) {
         totalValid++;
@@ -117,22 +118,22 @@ async function validateData(args: string[]) {
     }
 
     // Summary
-    console.log(`\n${'='.repeat(80)}`);
-    console.log('📊 Validation Summary');
-    console.log(`${'='.repeat(80)}`);
-    console.log(`  Total Files: ${results.size}`);
-    console.log(`  ✅ Valid: ${totalValid}`);
-    console.log(`  ❌ Invalid: ${totalInvalid}`);
-    console.log(`${'='.repeat(80)}\n`);
+    logger.info(`\n${'='.repeat(80)}`);
+    logger.info('📊 Validation Summary');
+    logger.info(`${'='.repeat(80)}`);
+    logger.info(`  Total Files: ${results.size}`);
+    logger.info(`  ✅ Valid: ${totalValid}`);
+    logger.info(`  ❌ Invalid: ${totalInvalid}`);
+    logger.info(`${'='.repeat(80)}\n`);
 
     if (totalInvalid > 0) {
       process.exit(1);
     }
 
   } catch (error: any) {
-    console.error('❌ Validation Error:', error.message);
+    logger.error('❌ Validation Error:', error.message);
     if (process.env.DEBUG) {
-      console.error(error.stack);
+      logger.error(error.stack);
     }
     process.exit(1);
   }
@@ -150,7 +151,7 @@ async function generateData(args: string[]) {
     const dateEnd = getArg(args, '--date-end');
 
     if (!excelFile || !scenario || !dau || !industry || !dateStart || !dateEnd) {
-      console.error('Missing required arguments');
+      logger.error('Missing required arguments');
       printHelp();
       process.exit(1);
     }
@@ -160,7 +161,7 @@ async function generateData(args: string[]) {
     const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || '';
 
     if (!aiApiKey) {
-      console.error('AI API key not found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY');
+      logger.error('AI API key not found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY');
       process.exit(1);
     }
 
@@ -203,12 +204,12 @@ async function generateData(args: string[]) {
     const generator = new DataGenerator(config);
     const result = await generator.generate();
 
-    console.log('\n📊 Generation Summary:');
-    console.log(`  Run ID: ${result.runId}`);
-    console.log(`  Total Users: ${result.totalUsers}`);
-    console.log(`  Total Events: ${result.totalEvents}`);
-    console.log(`  Total Days: ${result.totalDays}`);
-    console.log(`  Files Generated: ${result.filesGenerated.length}`);
+    logger.info('\n📊 Generation Summary:');
+    logger.info(`  Run ID: ${result.runId}`);
+    logger.info(`  Total Users: ${result.totalUsers}`);
+    logger.info(`  Total Events: ${result.totalEvents}`);
+    logger.info(`  Total Days: ${result.totalDays}`);
+    logger.info(`  Files Generated: ${result.filesGenerated.length}`);
 
     // LogBus2 업로드 (설정된 경우)
     if (config.logbus && args.includes('--upload')) {
@@ -216,9 +217,9 @@ async function generateData(args: string[]) {
     }
 
   } catch (error: any) {
-    console.error('❌ Error:', error.message);
+    logger.error('❌ Error:', error.message);
     if (process.env.DEBUG) {
-      console.error(error.stack);
+      logger.error(error.stack);
     }
     process.exit(1);
   }
@@ -241,7 +242,7 @@ function getArg(args: string[], longFlag: string, shortFlag?: string): string {
 }
 
 function printHelp() {
-  console.log(`
+  logger.info(`
 ThinkingEngine Data Generator
 
 Commands:
@@ -306,7 +307,7 @@ Examples:
     --date-end 2025-01-07 \\
     --app-id YOUR_APP_ID \\
     --receiver-url https://te-receiver.thinkingdata.kr/ \\
-    --logbus-path "./logbus 2/logbus" \\
+    --logbus-path "./logbus/logbus" \\
     --upload
 
   # Validate all data
@@ -319,6 +320,6 @@ Examples:
 
 // Run main
 main().catch(error => {
-  console.error('Fatal error:', error);
+  logger.error('Fatal error:', error);
   process.exit(1);
 });

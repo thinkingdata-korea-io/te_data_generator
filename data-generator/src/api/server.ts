@@ -17,6 +17,7 @@ import { requireAuth } from './middleware';
 import { auditMiddleware } from './audit-middleware';
 import { initializeDatabase, testConnection } from '../db/connection';
 import { cleanupOldFiles } from './services/cleanup.service';
+import { logger } from '../utils/logger';
 
 // Import routers
 import filesRouter from './routes/files';
@@ -83,7 +84,7 @@ app.post('/api/auth/login', auditMiddleware.login, async (req, res) => {
       token,
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    logger.error('Login error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -106,7 +107,7 @@ app.get('/api/auth/me', requireAuth, async (req, res) => {
     const { passwordHash, ...userWithoutPassword } = user;
     res.json(userWithoutPassword);
   } catch (error: any) {
-    console.error('Get user error:', error);
+    logger.error('Get user error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -124,25 +125,25 @@ app.post('/api/auth/logout', requireAuth, auditMiddleware.logout, (req, res) => 
  * Server startup
  */
 const server = app.listen(PORT, async () => {
-  console.log(`🚀 API Server running on http://localhost:${PORT}`);
-  console.log(`📊 Excel files: http://localhost:${PORT}/api/excel/list`);
-  console.log(`🎯 Generate: http://localhost:${PORT}/api/generate/start`);
+  logger.info(`🚀 API Server running on http://localhost:${PORT}`);
+  logger.info(`📊 Excel files: http://localhost:${PORT}/api/excel/list`);
+  logger.info(`🎯 Generate: http://localhost:${PORT}/api/generate/start`);
 
   // Test database connection
-  console.log('\n🔌 Testing database connection...');
+  logger.info('\n🔌 Testing database connection...');
   const dbConnected = await testConnection();
   if (!dbConnected) {
-    console.log('⚠️  Running in MOCK mode (no database)');
-    console.log('ℹ️  Set DATABASE_URL to enable PostgreSQL features');
+    logger.info('⚠️  Running in MOCK mode (no database)');
+    logger.info('ℹ️  Set DATABASE_URL to enable PostgreSQL features');
   }
 
   // Initial cleanup
-  console.log('\n🧹 Running initial cleanup...');
+  logger.info('\n🧹 Running initial cleanup...');
   cleanupOldFiles();
 
   // Schedule cleanup every 24 hours
   setInterval(() => {
-    console.log('\n🧹 Running scheduled cleanup...');
+    logger.info('\n🧹 Running scheduled cleanup...');
     cleanupOldFiles();
   }, 24 * 60 * 60 * 1000); // 24 hours
 });

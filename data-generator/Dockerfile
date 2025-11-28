@@ -1,4 +1,10 @@
 # Multi-stage build for monorepo
+#
+# IMPORTANT: This Dockerfile must be built from the parent directory (demo_data_gen)
+# Build command:
+#   cd /path/to/demo_data_gen
+#   docker build -f data-generator/Dockerfile -t data-generator .
+#
 FROM node:20-alpine AS builder
 
 WORKDIR /workspace

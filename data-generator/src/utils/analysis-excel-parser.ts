@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import { AIAnalysisResult, UserSegment, Transaction } from '../types';
+import { logger } from './logger';
 
 /**
  * Parse AI analysis Excel files back into data structures
@@ -58,7 +59,7 @@ export class AnalysisExcelParser {
     }
 
     if (headerRowIndex === -1) {
-      console.warn('⚠️ User segment header not found');
+      logger.warn('⚠️ User segment header not found');
       return [];
     }
 
@@ -84,7 +85,7 @@ export class AnalysisExcelParser {
       }
     }
 
-    console.log(`📊 Parsed ${segments.length} user segments`);
+    logger.info(`📊 Parsed ${segments.length} user segments`);
     return segments;
   }
 
@@ -215,7 +216,7 @@ export class AnalysisExcelParser {
       }
     }
 
-    console.log(`📊 Parsed event sequencing:`, {
+    logger.info(`📊 Parsed event sequencing:`, {
       categories: Object.keys(sequencing.eventCategories).length,
       dependencies: Object.keys(sequencing.strictDependencies).length,
       constraints: Object.keys(sequencing.executionConstraints).length
@@ -241,7 +242,7 @@ export class AnalysisExcelParser {
     }
 
     if (headerRowIndex === -1) {
-      console.warn('⚠️ Transaction header not found');
+      logger.warn('⚠️ Transaction header not found');
       return [];
     }
 
@@ -272,7 +273,7 @@ export class AnalysisExcelParser {
       }
     }
 
-    console.log(`📊 Parsed ${transactions.length} transactions`);
+    logger.info(`📊 Parsed ${transactions.length} transactions`);
     return transactions;
   }
 }

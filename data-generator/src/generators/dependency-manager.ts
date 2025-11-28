@@ -1,4 +1,5 @@
 import { EventDefinition, ParsedSchema, AIAnalysisResult, Transaction } from '../types';
+import { logger } from '../utils/logger';
 
 /**
  * 이벤트 의존성 관리자
@@ -188,7 +189,7 @@ export class DependencyManager {
         if (this.completedTransactions.has(transaction.name)) {
           // allowInnerAfterEnd가 false면 차단!
           if (!transaction.allowInnerAfterEnd) {
-            console.log(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" already completed`);
+            logger.debug(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" already completed`);
             return false;
           }
         }
@@ -196,7 +197,7 @@ export class DependencyManager {
         // 트랜잭션이 시작되지 않았는가?
         if (!this.activeTransactions.has(transaction.name) && !this.completedTransactions.has(transaction.name)) {
           // 내부 이벤트는 트랜잭션 시작 전에는 발생 불가
-          console.log(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" not started`);
+          logger.debug(`🚫 [Transaction Block] "${eventName}" blocked: transaction "${transaction.name}" not started`);
           return false;
         }
       }
@@ -305,7 +306,7 @@ export class DependencyManager {
       if (visited.has(eventName)) return;
       if (visiting.has(eventName)) {
         // 순환 의존성 감지
-        console.warn(`Circular dependency detected for event: ${eventName}`);
+        logger.warn(`Circular dependency detected for event: ${eventName}`);
         return;
       }
 

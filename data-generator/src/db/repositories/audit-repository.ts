@@ -4,6 +4,7 @@
  */
 
 import { query, isDatabaseConfigured } from '../connection';
+import { logger } from '../../utils/logger';
 
 export interface AuditLog {
   id: number;
@@ -51,7 +52,7 @@ export interface AuditLogFilters {
 export async function createAuditLog(data: CreateAuditLogData): Promise<void> {
   if (!isDatabaseConfigured()) {
     // Log to console instead
-    console.log('[AUDIT]', JSON.stringify(data));
+    logger.info('[AUDIT]', JSON.stringify(data));
     return;
   }
 
@@ -74,7 +75,7 @@ export async function createAuditLog(data: CreateAuditLogData): Promise<void> {
       ]
     );
   } catch (error) {
-    console.error('Error creating audit log:', error);
+    logger.error('Error creating audit log:', error);
     // Don't throw - audit logging failures shouldn't break the app
   }
 }
@@ -174,7 +175,7 @@ export async function getAuditLogs(filters: AuditLogFilters = {}): Promise<{
       },
     };
   } catch (error) {
-    console.error('Error getting audit logs:', error);
+    logger.error('Error getting audit logs:', error);
     throw error;
   }
 }

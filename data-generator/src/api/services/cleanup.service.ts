@@ -1,5 +1,6 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '../../utils/logger';
 
 /**
  * Cleanup Service
@@ -25,7 +26,7 @@ export function cleanupOldFiles(): void {
       const ageInDays = (now - stat.mtimeMs) / (1000 * 60 * 60 * 24);
 
       if (ageInDays > dataRetentionDays) {
-        console.log(`🗑️  Removing old data directory: ${runDir} (${ageInDays.toFixed(1)} days old)`);
+        logger.info(`🗑️  Removing old data directory: ${runDir} (${ageInDays.toFixed(1)} days old)`);
         fs.rmSync(runPath, { recursive: true, force: true });
       }
     }
@@ -42,7 +43,7 @@ export function cleanupOldFiles(): void {
       const ageInDays = (now - stat.mtimeMs) / (1000 * 60 * 60 * 24);
 
       if (ageInDays > excelRetentionDays) {
-        console.log(`🗑️  Removing old Excel file: ${file} (${ageInDays.toFixed(1)} days old)`);
+        logger.info(`🗑️  Removing old Excel file: ${file} (${ageInDays.toFixed(1)} days old)`);
         fs.unlinkSync(filePath);
       }
     }
@@ -59,11 +60,11 @@ export function cleanupOldFiles(): void {
       const ageInDays = (now - stat.mtimeMs) / (1000 * 60 * 60 * 24);
 
       if (ageInDays > dataRetentionDays) {
-        console.log(`🗑️  Removing old metadata: ${runDir} (${ageInDays.toFixed(1)} days old)`);
+        logger.info(`🗑️  Removing old metadata: ${runDir} (${ageInDays.toFixed(1)} days old)`);
         fs.rmSync(runPath, { recursive: true, force: true });
       }
     }
   }
 
-  console.log(`✅ Cleanup completed (Data: ${dataRetentionDays}d, Excel: ${excelRetentionDays}d)`);
+  logger.info(`✅ Cleanup completed (Data: ${dataRetentionDays}d, Excel: ${excelRetentionDays}d)`);
 }

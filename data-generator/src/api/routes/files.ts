@@ -6,11 +6,12 @@ import multer from 'multer';
 import * as path from 'path';
 import * as fs from 'fs';
 import { FileAnalyzer } from '../services/file-analyzer';
+import { logger } from '../../utils/logger';
 
 const router = express.Router();
 
-// 업로드 디렉토리 설정
-const uploadDir = path.resolve(__dirname, '../../../../uploads/context-files');
+// 업로드 디렉토리 설정 - data-generator/uploads/context-files 사용으로 통일
+const uploadDir = path.resolve(__dirname, '../../../uploads/context-files');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -69,7 +70,7 @@ router.post('/files/analyze-multi', upload.array('files', 5), async (req: Reques
       return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
     }
 
-    console.log(`📁 파일 분석 시작: ${files.length}개 파일 업로드됨 (language: ${language})`);
+    logger.info(`📁 파일 분석 시작: ${files.length}개 파일 업로드됨 (language: ${language})`);
 
     // 총 파일 크기 체크 (50MB)
     const totalSize = files.reduce((sum, file) => sum + file.size, 0);
@@ -99,15 +100,15 @@ router.post('/files/analyze-multi', upload.array('files', 5), async (req: Reques
         const analyzer = new FileAnalyzer(apiKey, fileAnalysisModel, fileAnalysisMaxTokens);
         const filePaths = files.map(f => f.path);
 
-        console.log(`🤖 AI 파일 분석 시작 (model: ${fileAnalysisModel}, max_tokens: ${fileAnalysisMaxTokens})...`);
+        logger.info(`🤖 AI 파일 분석 시작 (model: ${fileAnalysisModel}, max_tokens: ${fileAnalysisMaxTokens})...`);
         analysisResult = await analyzer.analyzeMultipleFiles(filePaths);
-        console.log('✅ AI 파일 분석 완료');
+        logger.info('✅ AI 파일 분석 완료');
       } catch (error: any) {
-        console.error('⚠️  AI 분석 실패:', error.message);
+        logger.error('⚠️  AI 분석 실패:', error.message);
         // AI 분석 실패해도 파일은 업로드됨
       }
     } else {
-      console.warn('⚠️  ANTHROPIC_API_KEY가 설정되지 않아 AI 분석을 건너뜁니다.');
+      logger.warn('⚠️  ANTHROPIC_API_KEY가 설정되지 않아 AI 분석을 건너뜁니다.');
     }
 
     res.json({
@@ -118,7 +119,7 @@ router.post('/files/analyze-multi', upload.array('files', 5), async (req: Reques
     });
 
   } catch (error: any) {
-    console.error('파일 업로드 실패:', error);
+    logger.error('파일 업로드 실패:', error);
 
     // 업로드된 파일들 삭제
     if (req.files) {
@@ -152,7 +153,7 @@ router.delete('/files/:filename', (req: Request, res: Response) => {
 
     res.json({ success: true, message: '파일이 삭제되었습니다.' });
   } catch (error: any) {
-    console.error('파일 삭제 실패:', error);
+    logger.error('파일 삭제 실패:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -183,11 +184,11 @@ router.get('/files/cleanup', (req: Request, res: Response) => {
       }
     }
 
-    console.log(`🧹 오래된 파일 ${deletedCount}개 삭제됨`);
+    logger.info(`🧹 오래된 파일 ${deletedCount}개 삭제됨`);
 
     res.json({ success: true, deletedCount });
   } catch (error: any) {
-    console.error('파일 정리 실패:', error);
+    logger.error('파일 정리 실패:', error);
     res.status(500).json({ error: error.message });
   }
 });

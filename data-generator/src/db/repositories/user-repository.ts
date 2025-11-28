@@ -5,6 +5,7 @@
 
 import { query, isDatabaseConfigured } from '../connection';
 import { User, UserRole } from '../../api/auth';
+import { logger } from '../../utils/logger';
 
 export interface CreateUserData {
   username: string;
@@ -39,7 +40,7 @@ export async function findUserByUsername(username: string): Promise<User | null>
 
     return result.rows[0] || null;
   } catch (error) {
-    console.error('Error finding user by username:', error);
+    logger.error('Error finding user by username:', error);
     throw error;
   }
 }
@@ -60,7 +61,7 @@ export async function findUserById(id: number): Promise<User | null> {
 
     return result.rows[0] || null;
   } catch (error) {
-    console.error('Error finding user by ID:', error);
+    logger.error('Error finding user by ID:', error);
     throw error;
   }
 }
@@ -80,7 +81,7 @@ export async function getAllUsers(): Promise<Omit<User, 'passwordHash'>[]> {
 
     return result.rows;
   } catch (error) {
-    console.error('Error getting all users:', error);
+    logger.error('Error getting all users:', error);
     throw error;
   }
 }
@@ -107,7 +108,7 @@ export async function createUser(data: CreateUserData): Promise<Omit<User, 'pass
       // Unique violation
       throw new Error('Username or email already exists');
     }
-    console.error('Error creating user:', error);
+    logger.error('Error creating user:', error);
     throw error;
   }
 }
@@ -168,7 +169,7 @@ export async function updateUser(
     const result = await query(sql, values);
     return result.rows[0] || null;
   } catch (error) {
-    console.error('Error updating user:', error);
+    logger.error('Error updating user:', error);
     throw error;
   }
 }
@@ -185,7 +186,7 @@ export async function deleteUser(id: number): Promise<boolean> {
     const result = await query('DELETE FROM users WHERE id = $1', [id]);
     return (result.rowCount ?? 0) > 0;
   } catch (error) {
-    console.error('Error deleting user:', error);
+    logger.error('Error deleting user:', error);
     throw error;
   }
 }
@@ -201,7 +202,7 @@ export async function updateLastLogin(userId: number): Promise<void> {
   try {
     await query('UPDATE users SET last_login_at = NOW() WHERE id = $1', [userId]);
   } catch (error) {
-    console.error('Error updating last login:', error);
+    logger.error('Error updating last login:', error);
     // Non-critical error, don't throw
   }
 }

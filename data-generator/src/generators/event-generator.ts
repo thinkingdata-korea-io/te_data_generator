@@ -19,6 +19,7 @@ import {
 } from '../utils/random';
 import { addMilliseconds } from '../utils/date';
 import { exponentialDistribution } from '../utils/distribution';
+import { logger } from '../utils/logger';
 
 /**
  * 이벤트 생성기
@@ -281,7 +282,7 @@ export class EventGenerator {
       this.dependencyManager.recordEventExecution(endEvent);
     }
 
-    console.log(`✅ [Transaction Generated] "${transactionName}": ${transactionEvents.map(e => e.event_name).join(' → ')}`);
+    logger.debug(`✅ [Transaction Generated] "${transactionName}": ${transactionEvents.map(e => e.event_name).join(' → ')}`);
     return transactionEvents;
   }
 
@@ -403,47 +404,42 @@ export class EventGenerator {
 
     // 2. Object 속성 생성 (단일 객체)
     objectMap.forEach((childProps, parentName) => {
-      const nestedObject: Record<string, any> = {};
-
-      childProps.forEach(childProp => {
-        // "parent.child" -> "child" 추출
-        const childName = childProp.property_name.split('.')[1];
-        nestedObject[childName] = this.generatePropertyValue(
-          childProp.property_name,
-          eventRanges,
-          user
-        );
-      });
-
-      properties[parentName] = nestedObject;
+      properties[parentName] = this.generateNestedObject(childProps, eventRanges, user);
     });
 
     // 3. Object group 속성 생성 (객체 배열)
     objectGroupMap.forEach((childProps, parentName) => {
       // 배열 크기 결정 (1~3개 랜덤)
       const arraySize = Math.floor(Math.random() * 3) + 1;
-      const objectArray: Record<string, any>[] = [];
-
-      for (let i = 0; i < arraySize; i++) {
-        const nestedObject: Record<string, any> = {};
-
-        childProps.forEach(childProp => {
-          // "parent.child" -> "child" 추출
-          const childName = childProp.property_name.split('.')[1];
-          nestedObject[childName] = this.generatePropertyValue(
-            childProp.property_name,
-            eventRanges,
-            user
-          );
-        });
-
-        objectArray.push(nestedObject);
-      }
-
-      properties[parentName] = objectArray;
+      properties[parentName] = Array.from({ length: arraySize }, () =>
+        this.generateNestedObject(childProps, eventRanges, user)
+      );
     });
 
     return properties;
+  }
+
+  /**
+   * 중첩 객체 생성 공통 로직 (Object & Object Group 통합)
+   */
+  private generateNestedObject(
+    childProps: PropertyDefinition[],
+    eventRanges: any,
+    user: User
+  ): Record<string, any> {
+    const nestedObject: Record<string, any> = {};
+
+    childProps.forEach(childProp => {
+      // "parent.child" -> "child" 추출
+      const childName = childProp.property_name.split('.')[1];
+      nestedObject[childName] = this.generatePropertyValue(
+        childProp.property_name,
+        eventRanges,
+        user
+      );
+    });
+
+    return nestedObject;
   }
 
   /**

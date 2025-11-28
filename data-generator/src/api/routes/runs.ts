@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import * as path from 'path';
 import * as fs from 'fs';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -34,7 +35,7 @@ router.get('/list', (req: Request, res: Response) => {
 
     res.json({ runs });
   } catch (error: any) {
-    console.error('Error listing runs:', error);
+    logger.error('Error listing runs:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -55,7 +56,7 @@ router.get('/:runId', (req: Request, res: Response) => {
     const metadata = JSON.parse(fs.readFileSync(metadataPath, 'utf-8'));
     res.json(metadata);
   } catch (error: any) {
-    console.error('Error fetching run metadata:', error);
+    logger.error('Error fetching run metadata:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -77,14 +78,14 @@ router.delete('/:runId', (req: Request, res: Response) => {
     if (fs.existsSync(dataPath)) {
       fs.rmSync(dataPath, { recursive: true, force: true });
       deletedData = true;
-      console.log(`🗑️  Data directory deleted: ${runId}`);
+      logger.info(`🗑️  Data directory deleted: ${runId}`);
     }
 
     // Delete metadata directory
     if (fs.existsSync(metadataPath)) {
       fs.rmSync(metadataPath, { recursive: true, force: true });
       deletedMetadata = true;
-      console.log(`🗑️  Metadata directory deleted: ${runId}`);
+      logger.info(`🗑️  Metadata directory deleted: ${runId}`);
     }
 
     if (!deletedData && !deletedMetadata) {
@@ -98,7 +99,7 @@ router.delete('/:runId', (req: Request, res: Response) => {
       deletedMetadata
     });
   } catch (error: any) {
-    console.error('Error deleting run:', error);
+    logger.error('Error deleting run:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -130,7 +131,7 @@ router.put('/:runId/retention', (req: Request, res: Response) => {
       fs.utimesSync(metadataPath, now, now);
     }
 
-    console.log(`⏱️  Run retention extended: ${runId} (+${days} days)`);
+    logger.info(`⏱️  Run retention extended: ${runId} (+${days} days)`);
 
     res.json({
       success: true,
@@ -138,7 +139,7 @@ router.put('/:runId/retention', (req: Request, res: Response) => {
       newModifiedTime: now.toISOString()
     });
   } catch (error: any) {
-    console.error('Error extending run retention:', error);
+    logger.error('Error extending run retention:', error);
     res.status(500).json({ error: error.message });
   }
 });

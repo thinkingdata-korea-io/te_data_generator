@@ -5,13 +5,14 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { ExcelParser } from '../../excel/parser';
 import { ExcelSchemaGenerator } from '@excel-schema-generator/schema-generator';
+import { logger } from '../../utils/logger';
 
 const router = express.Router();
 
 const EXCEL_OUTPUT_DIR = path.resolve(__dirname, '../../../../excel-schema-generator/output/generated-schemas');
 
-// Multer 설정 (파일 업로드) - server.ts와 중복되므로 나중에 하나로 합치는 것을 고려
-const uploadDir = path.resolve(__dirname, '../../../../uploads');
+// Multer 설정 (파일 업로드) - data-generator/uploads 사용으로 통일
+const uploadDir = path.resolve(__dirname, '../../../uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
@@ -64,7 +65,7 @@ router.get('/excel/list', async (req: Request, res: Response) => {
 
     res.json({ files });
   } catch (error: any) {
-    console.error('Error listing Excel files:', error);
+    logger.error('Error listing Excel files:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -95,7 +96,7 @@ router.post('/excel/parse', async (req: Request, res: Response) => {
       }))
     });
   } catch (error: any) {
-    console.error('Error parsing Excel:', error);
+    logger.error('Error parsing Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -116,7 +117,7 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
     return res.status(400).json({ error: 'scenario, industry, and notes are required' });
   }
 
-  console.log(`📝 Excel generation requested with language: ${language}`);
+  logger.info(`📝 Excel generation requested with language: ${language}`);
 
   // Set up SSE
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -131,7 +132,7 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
 
   const sendProgress = (data: any) => {
     const message = `data: ${JSON.stringify(data)}\n\n`;
-    console.log('[SSE] Sending:', data.message || data.type);
+    logger.debug('[SSE] Sending:', data.message || data.type);
     res.write(message);
     // Explicitly tell Node to flush the write buffer
     if ((res as any).socket) {
@@ -192,7 +193,7 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
 
     res.end();
   } catch (error: any) {
-    console.error('Error generating Excel schema:', error);
+    logger.error('Error generating Excel schema:', error);
     sendProgress({
       type: 'error',
       error: error.message || 'Failed to generate Excel schema'
@@ -240,7 +241,7 @@ router.post('/excel/generate', async (req: Request, res: Response) => {
     const eventProperties = schema.properties.filter(p => p.event_name);
     const commonProperties = schema.properties.filter(p => !p.event_name);
 
-    console.log(`📊 Preview counts: events=${schema.events.length}, eventProps=${eventProperties.length}, commonProps=${commonProperties.length}, userData=${schema.userData.length}`);
+    logger.debug(`📊 Preview counts: events=${schema.events.length}, eventProps=${eventProperties.length}, commonProps=${commonProperties.length}, userData=${schema.userData.length}`);
 
     res.json({
       success: result.success,
@@ -260,7 +261,7 @@ router.post('/excel/generate', async (req: Request, res: Response) => {
       }
     });
   } catch (error: any) {
-    console.error('Error generating Excel schema:', error);
+    logger.error('Error generating Excel schema:', error);
     res.status(500).json({ error: error.message || 'Failed to generate Excel schema' });
   }
 });
@@ -306,7 +307,7 @@ router.post('/excel/upload', upload.single('file'), async (req: Request, res: Re
       }
     });
   } catch (error: any) {
-    console.error('Error uploading Excel:', error);
+    logger.error('Error uploading Excel:', error);
 
     // 업로드된 파일 삭제
     if (req.file) {
@@ -337,7 +338,7 @@ router.get('/excel/download/:filename', (req: Request, res: Response) => {
 
     res.download(filePath, safeFilename);
   } catch (error: any) {
-    console.error('Error downloading Excel:', error);
+    logger.error('Error downloading Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });

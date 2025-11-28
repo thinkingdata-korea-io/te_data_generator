@@ -6,6 +6,7 @@ import {
   FunnelDefinition,
   UserDataDefinition
 } from '../types';
+import { logger } from '../utils/logger';
 
 /**
  * Excel 파일에서 스키마 파싱
@@ -51,7 +52,7 @@ export class ExcelParser {
     // 디버그: 속성 분류 확인
     const eventProps = properties.filter(p => p.event_name);
     const commonProps = properties.filter(p => !p.event_name);
-    console.log(`📊 Parsed from Excel: events=${events.length}, eventProps=${eventProps.length}, commonProps=${commonProps.length}, userData=${userData.length}`);
+    logger.info(`📊 Parsed from Excel: events=${events.length}, eventProps=${eventProps.length}, commonProps=${commonProps.length}, userData=${userData.length}`);
 
     // 마케팅 스키마 병합은 데이터 생성 시점에만 수행
     // Excel 파싱은 파일 내용만 반환
@@ -126,7 +127,7 @@ export class ExcelParser {
           }
         }
       } catch (rowError: any) {
-        console.warn(`⚠️  Skipping row ${i + 1}:`, rowError.message);
+        logger.warn(`⚠️  Skipping row ${i + 1}:`, rowError.message);
       }
     }
 

@@ -10,6 +10,7 @@ import {
   validateRetentionWithRules,
   validateEventSequencingWithRules
 } from './rule-validators';
+import { logger } from '../utils/logger';
 
 interface ValidationResult {
   valid: boolean;
@@ -64,7 +65,7 @@ export class ValidationPipeline {
       // 사용자가 직접 지정한 모델 사용
       this.validatorModel = customValidationModel;
       this.fixerModel = customValidationModel;
-      console.log(`🔍 ValidationPipeline initialized with custom model: ${customValidationModel}`);
+      logger.info(`🔍 ValidationPipeline initialized with custom model: ${customValidationModel}`);
     } else {
       // Provider에 따라 기본 모델 선택
       const provider = (aiClient as any).config.provider;
@@ -73,7 +74,7 @@ export class ValidationPipeline {
       this.validatorModel = modelMap[validationModelTier] || modelMap.fast;
       this.fixerModel = modelMap[validationModelTier] || modelMap.fast;
 
-      console.log(`🔍 ValidationPipeline initialized with ${provider} / ${this.validatorModel}`);
+      logger.info(`🔍 ValidationPipeline initialized with ${provider} / ${this.validatorModel}`);
     }
   }
 
@@ -86,14 +87,14 @@ export class ValidationPipeline {
     maxRetries: number = 3
   ): Promise<{ curve: RetentionCurve; summary: ValidationSummary }> {
 
-    console.log('\n🔍 Validating Retention Curve...');
+    logger.info('\n🔍 Validating Retention Curve...');
 
     // 1. 규칙 기반 검증 (무료!)
-    console.log('  📏 Rule-based validation...');
+    logger.info('  📏 Rule-based validation...');
     const ruleValidation = validateRetentionWithRules(proposedCurve, userInput.industry);
 
     if (ruleValidation.valid) {
-      console.log('  ✅ Rule-based validation passed! Skipping AI validation.');
+      logger.info('  ✅ Rule-based validation passed! Skipping AI validation.');
       return {
         curve: proposedCurve,
         summary: {
@@ -107,8 +108,8 @@ export class ValidationPipeline {
       };
     }
 
-    console.log(`  ⚠️  Rule-based validation found ${ruleValidation.errors.length} error(s). Using AI validation...`);
-    ruleValidation.errors.forEach(e => console.log(`    - ${e}`));
+    logger.warn(`  ⚠️  Rule-based validation found ${ruleValidation.errors.length} error(s). Using AI validation...`);
+    ruleValidation.errors.forEach(e => logger.info(`    - ${e}`));
 
     // 2. AI 검증 + 수정 루프
     let currentCurve = proposedCurve;
@@ -122,11 +123,11 @@ export class ValidationPipeline {
         ruleValidation.errors
       );
 
-      console.log(`  Attempt ${attempt}: ${aiValidation.recommendation}`);
+      logger.info(`  Attempt ${attempt}: ${aiValidation.recommendation}`);
 
       // 통과
       if (aiValidation.recommendation === 'accept') {
-        console.log('  ✅ AI validation passed!');
+        logger.info('  ✅ AI validation passed!');
         return {
           curve: currentCurve,
           summary: {
@@ -144,7 +145,7 @@ export class ValidationPipeline {
 
       // 수정 시도
       if (attempt < maxRetries) {
-        console.log('  🔧 Attempting to fix...');
+        logger.info('  🔧 Attempting to fix...');
         const criticalIssues = aiValidation.issues
           .filter(i => i.severity === 'critical')
           .map(i => i.message);
@@ -156,7 +157,7 @@ export class ValidationPipeline {
         );
         fixAttempts++;
 
-        console.log('  🔄 Re-validating fixed version...');
+        logger.info('  🔄 Re-validating fixed version...');
       }
     }
 
@@ -177,14 +178,14 @@ export class ValidationPipeline {
     maxRetries: number = 3
   ): Promise<{ sequencing: EventSequencing; summary: ValidationSummary }> {
 
-    console.log('\n🔍 Validating Event Sequencing...');
+    logger.info('\n🔍 Validating Event Sequencing...');
 
     // 1. 규칙 기반 검증
-    console.log('  📏 Rule-based validation...');
+    logger.info('  📏 Rule-based validation...');
     const ruleValidation = validateEventSequencingWithRules(proposedSequencing, schema);
 
     if (ruleValidation.valid) {
-      console.log('  ✅ Rule-based validation passed! Skipping AI validation.');
+      logger.info('  ✅ Rule-based validation passed! Skipping AI validation.');
       return {
         sequencing: proposedSequencing,
         summary: {
@@ -198,8 +199,8 @@ export class ValidationPipeline {
       };
     }
 
-    console.log(`  ⚠️  Rule-based validation found ${ruleValidation.errors.length} error(s). Using AI validation...`);
-    ruleValidation.errors.forEach(e => console.log(`    - ${e}`));
+    logger.warn(`  ⚠️  Rule-based validation found ${ruleValidation.errors.length} error(s). Using AI validation...`);
+    ruleValidation.errors.forEach(e => logger.info(`    - ${e}`));
 
     // 2. AI 검증 + 수정 루프
     let currentSequencing = proposedSequencing;
@@ -213,10 +214,10 @@ export class ValidationPipeline {
         ruleValidation.errors
       );
 
-      console.log(`  Attempt ${attempt}: ${aiValidation.recommendation}`);
+      logger.info(`  Attempt ${attempt}: ${aiValidation.recommendation}`);
 
       if (aiValidation.recommendation === 'accept') {
-        console.log('  ✅ AI validation passed!');
+        logger.info('  ✅ AI validation passed!');
         return {
           sequencing: currentSequencing,
           summary: {
@@ -233,7 +234,7 @@ export class ValidationPipeline {
       }
 
       if (attempt < maxRetries) {
-        console.log('  🔧 Attempting to fix...');
+        logger.info('  🔧 Attempting to fix...');
         const criticalIssues = aiValidation.issues
           .filter(i => i.severity === 'critical')
           .map(i => i.message);
@@ -245,7 +246,7 @@ export class ValidationPipeline {
         );
         fixAttempts++;
 
-        console.log('  🔄 Re-validating fixed version...');
+        logger.info('  🔄 Re-validating fixed version...');
       }
     }
 

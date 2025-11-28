@@ -263,10 +263,15 @@ export class CohortGenerator {
     currentStage: UserLifecycleStage,
     daysSinceLastActive: number
   ): UserLifecycleStage {
+    // AI 정의 임계값 사용 (fallback: 기본값)
+    const retentionCurve = this.aiAnalysis.retentionCurve;
+    const dormantThreshold = retentionCurve?.lifecycleTransitionThresholds?.dormantAfterDays || 7;
+    const churnedThreshold = retentionCurve?.lifecycleTransitionThresholds?.churnedAfterDays || 30;
+
     // 장기간 비활성 시 단계 변경
-    if (daysSinceLastActive > 30) {
+    if (daysSinceLastActive > churnedThreshold) {
       return 'churned';
-    } else if (daysSinceLastActive > 7 && currentStage !== 'new') {
+    } else if (daysSinceLastActive > dormantThreshold && currentStage !== 'new') {
       return 'dormant';
     } else if (daysSinceLastActive === 0 && currentStage === 'dormant') {
       return 'returning';

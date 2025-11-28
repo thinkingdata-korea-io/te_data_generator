@@ -2,6 +2,7 @@ import * as path from 'path';
 import { ExcelParser } from '../../excel/parser';
 import { DataGenerator, DataGeneratorConfig } from '../../data-generator';
 import { AnalysisExcelGenerator } from '../../utils/analysis-excel-generator';
+import { logger } from '../../utils/logger';
 
 /**
  * AI Analysis Service
@@ -182,11 +183,11 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
       completedAt: new Date().toISOString()
     });
 
-    console.log(`✅ AI 분석 완료 (${analysisId}): ${aiAnalysis.userSegments?.length || 0} 세그먼트, ${aiAnalysis.eventRanges?.length || 0} 이벤트 범위`);
-    console.log(`📄 AI 분석 Excel: ${analysisExcelFileName}`);
+    logger.info(`✅ AI 분석 완료 (${analysisId}): ${aiAnalysis.userSegments?.length || 0} 세그먼트, ${aiAnalysis.eventRanges?.length || 0} 이벤트 범위`);
+    logger.info(`📄 AI 분석 Excel: ${analysisExcelFileName}`);
 
   } catch (error: any) {
-    console.error('Error during AI analysis:', error);
+    logger.error('Error during AI analysis:', error);
     analysisMap.set(analysisId, {
       ...analysisMap.get(analysisId)!,
       status: 'error',

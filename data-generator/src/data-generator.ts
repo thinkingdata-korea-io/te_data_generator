@@ -19,6 +19,7 @@ import {
 import { generateUUID, randomInt, probabilityCheck } from './utils/random';
 import { formatDateYYYYMMDD, addMilliseconds } from './utils/date';
 import { exponentialDistribution } from './utils/distribution';
+import { logger } from './utils/logger';
 
 /**
  * 진행 상황 콜백 타입
@@ -99,8 +100,8 @@ export class DataGenerator {
    * 전체 데이터 생성 프로세스 실행
    */
   async generate(): Promise<GenerationResult> {
-    console.log('🚀 Starting data generation...');
-    console.log(`Run ID: ${this.runId}`);
+    logger.info('🚀 Starting data generation...');
+    logger.info(`Run ID: ${this.runId}`);
 
     // 1. Excel 파싱
     this.config.onProgress?.({
@@ -109,9 +110,9 @@ export class DataGenerator {
       message: `Excel 파일에서 ${path.basename(this.config.excelFilePath)} 로드 중...`,
       step: '1/5'
     });
-    console.log('\n📋 Step 1: Parsing Excel schema...');
+    logger.info('\n📋 Step 1: Parsing Excel schema...');
     const schema = await this.parseExcel();
-    console.log(`✅ Parsed ${schema.events.length} events, ${schema.properties.length} properties`);
+    logger.info(`✅ Parsed ${schema.events.length} events, ${schema.properties.length} properties`);
 
     this.config.onProgress?.({
       status: 'parsing',
@@ -129,7 +130,7 @@ export class DataGenerator {
       step: '2/5',
       details: ['🤖 AI 분석 시작', `📋 이벤트 수: ${schema.events.length}개`, `📋 속성 수: ${schema.properties.length}개`]
     });
-    console.log('\n🤖 Step 2: AI analysis...');
+    logger.info('\n🤖 Step 2: AI analysis...');
 
     // AI 분석 전에 어떤 모드인지 알림
     if (schema.events.length > 15) {
@@ -154,13 +155,13 @@ export class DataGenerator {
     }
 
     const aiAnalysis = await this.analyzeWithAI(schema);
-    console.log(`✅ Generated ${aiAnalysis.userSegments.length} user segments`);
+    logger.info(`✅ Generated ${aiAnalysis.userSegments.length} user segments`);
 
     // AI 분석 결과 상세 로깅
-    console.log('\n📊 AI Analysis Summary:');
-    console.log(`  - User Segments: ${aiAnalysis.userSegments.length}`);
-    console.log(`  - Event Ranges: ${aiAnalysis.eventRanges.length}`);
-    console.log(`  - Total Properties with Ranges: ${aiAnalysis.eventRanges.reduce((sum, e) => sum + e.properties.length, 0)}`);
+    logger.info('\n📊 AI Analysis Summary:');
+    logger.info(`  - User Segments: ${aiAnalysis.userSegments.length}`);
+    logger.info(`  - Event Ranges: ${aiAnalysis.eventRanges.length}`);
+    logger.info(`  - Total Properties with Ranges: ${aiAnalysis.eventRanges.reduce((sum, e) => sum + e.properties.length, 0)}`);
 
     // AI 분석 결과를 details에 추가
     aiDetails.push(`✅ AI 분석 완료`);
@@ -174,22 +175,22 @@ export class DataGenerator {
     aiDetails.push(`🔢 AI 생성 속성: ${totalProps}개`);
 
     if (aiAnalysis.eventRanges.length > 0) {
-      console.log('\n📋 Event Ranges Detail:');
+      logger.debug('\n📋 Event Ranges Detail:');
       aiDetails.push(`📋 주요 이벤트 범위:`);
       aiAnalysis.eventRanges.slice(0, 5).forEach(er => {
-        console.log(`  - ${er.event_name}: ${er.properties.length} properties`);
+        logger.debug(`  - ${er.event_name}: ${er.properties.length} properties`);
         aiDetails.push(`  - ${er.event_name}: ${er.properties.length} 속성`);
         er.properties.slice(0, 2).forEach(p => {
-          console.log(`    • ${p.property_name} (${p.type})`);
+          logger.debug(`    • ${p.property_name} (${p.type})`);
           aiDetails.push(`    • ${p.property_name} (${p.type})`);
         });
       });
       if (aiAnalysis.eventRanges.length > 5) {
-        console.log(`  ... and ${aiAnalysis.eventRanges.length - 5} more events`);
+        logger.debug(`  ... and ${aiAnalysis.eventRanges.length - 5} more events`);
         aiDetails.push(`  ... 외 ${aiAnalysis.eventRanges.length - 5}개 이벤트`);
       }
     } else {
-      console.warn('⚠️  WARNING: No event ranges generated! All properties will use Faker.js fallback.');
+      logger.warn('⚠️  WARNING: No event ranges generated! All properties will use Faker.js fallback.');
       aiDetails.push('⚠️ 경고: AI 범위 미생성, Faker.js 폴백 사용');
     }
 
@@ -216,9 +217,9 @@ export class DataGenerator {
       message: '사용자 코호트 생성 중...',
       step: '3/5'
     });
-    console.log('\n👥 Step 3: Generating user cohorts...');
+    logger.info('\n👥 Step 3: Generating user cohorts...');
     const cohorts = await this.generateCohorts(aiAnalysis);
-    console.log(`✅ Generated cohorts for ${cohorts.size} days`);
+    logger.info(`✅ Generated cohorts for ${cohorts.size} days`);
 
     this.config.onProgress?.({
       status: 'generating',
@@ -234,13 +235,13 @@ export class DataGenerator {
       message: '일별 이벤트 데이터 생성 시작...',
       step: '4/5'
     });
-    console.log('\n📊 Step 4: Generating events...');
+    logger.info('\n📊 Step 4: Generating events...');
     const { filesGenerated, totalEvents } = await this.generateEvents(
       schema,
       aiAnalysis,
       cohorts
     );
-    console.log(`✅ Generated ${totalEvents} events in ${filesGenerated.length} files`);
+    logger.info(`✅ Generated ${totalEvents} events in ${filesGenerated.length} files`);
 
     this.config.onProgress?.({
       status: 'generating',
@@ -256,7 +257,7 @@ export class DataGenerator {
       message: '메타데이터 및 파일 저장 중...',
       step: '5/5'
     });
-    console.log('\n💾 Step 5: Saving metadata...');
+    logger.info('\n💾 Step 5: Saving metadata...');
     const metadata = this.saveMetadata(schema, aiAnalysis, filesGenerated, totalEvents);
 
     const result: GenerationResult = {
@@ -276,8 +277,8 @@ export class DataGenerator {
       step: '5/5'
     });
 
-    console.log('\n✅ Data generation completed!');
-    console.log(`📁 Output: ${this.config.outputDataPath}`);
+    logger.info('\n✅ Data generation completed!');
+    logger.info(`📁 Output: ${this.config.outputDataPath}`);
 
     return result;
   }
@@ -327,10 +328,10 @@ export class DataGenerator {
 
     // 다단계 분석 사용 (이벤트가 많을 때 정확도 향상)
     if (schema.events.length > 15) {
-      console.log('  📊 Using Multi-Phase Analysis (30+ events)');
+      logger.debug('  📊 Using Multi-Phase Analysis (30+ events)');
       return await aiClient.analyzeSchemaMultiPhase(schema, this.config.userInput);
     } else {
-      console.log('  📊 Using Single-Phase Analysis (<15 events)');
+      logger.debug('  📊 Using Single-Phase Analysis (<15 events)');
       return await aiClient.analyzeSchema(schema, this.config.userInput);
     }
   }
@@ -383,7 +384,7 @@ export class DataGenerator {
 
     for (const [dateKey, users] of cohorts.entries()) {
       dayIndex++;
-      console.log(`  📅 Processing ${dateKey} (${users.length} users)...`);
+      logger.debug(`  📅 Processing ${dateKey} (${users.length} users)...`);
 
       // 진행 상황 업데이트 (60% ~ 85% 구간을 일별로 분할)
       const dayProgress = 60 + ((dayIndex - 1) / totalDays) * 25;
@@ -488,7 +489,7 @@ export class DataGenerator {
         filesGenerated.push(filePath);
         totalEvents += dailyEvents.length;
 
-        console.log(`    ✅ ${dailyEvents.length} events → ${fileName}`);
+        logger.debug(`    ✅ ${dailyEvents.length} events → ${fileName}`);
 
         // 파일 저장 후 진행 상황 업데이트
         const completedProgress = 60 + (dayIndex / totalDays) * 25;
@@ -659,7 +660,7 @@ export class DataGenerator {
     // metadata.json 저장
     const metadataPath = path.join(metadataDir, 'metadata.json');
     fs.writeFileSync(metadataPath, JSON.stringify(metadata, null, 2), 'utf-8');
-    console.log(`  ✅ Metadata saved: ${metadataPath}`);
+    logger.info(`  ✅ Metadata saved: ${metadataPath}`);
 
     return metadata;
   }
@@ -683,7 +684,7 @@ export class DataGenerator {
       throw new Error('LogBus2 configuration not provided');
     }
 
-    console.log('\n📤 Uploading to ThinkingEngine via LogBus2...');
+    logger.info('\n📤 Uploading to ThinkingEngine via LogBus2...');
 
     const controller = new LogBus2Controller({
       appId: this.config.logbus.appId,
@@ -710,6 +711,6 @@ export class DataGenerator {
       // Progress callback
     });
 
-    console.log('✅ Upload completed!');
+    logger.info('✅ Upload completed!');
   }
 }

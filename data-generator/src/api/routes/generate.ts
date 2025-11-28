@@ -9,6 +9,7 @@ import { sendDataAsync } from '../services/logbus.service';
 import { AnalysisExcelGenerator } from '../../utils/analysis-excel-generator';
 import { AnalysisExcelParser } from '../../utils/analysis-excel-parser';
 import * as fs from 'fs';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -70,7 +71,7 @@ router.post('/start', async (req: Request, res: Response) => {
     let enhancedNotes = notes || '';
     if (fileAnalysisContext) {
       enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
-      console.log('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
+      logger.info('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
     }
 
     // Check AI API Key
@@ -118,7 +119,7 @@ router.post('/start', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error starting generation:', error);
+    logger.error('Error starting generation:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -167,8 +168,8 @@ router.post('/analyze', async (req: Request, res: Response) => {
     if (!dateEnd) missing.push('dateEnd');
 
     if (missing.length > 0) {
-      console.error('❌ Missing required fields:', missing);
-      console.error('Received body:', { excelPath, scenario, dau, industry, dateStart, dateEnd });
+      logger.error('❌ Missing required fields:', missing);
+      logger.error('Received body:', { excelPath, scenario, dau, industry, dateStart, dateEnd });
       return res.status(400).json({
         error: 'Missing required fields',
         missing,
@@ -194,7 +195,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
     // Generate Analysis ID
     const analysisId = `analysis_${Date.now()}`;
 
-    console.log(`🤖 AI analysis requested with language: ${language}`);
+    logger.info(`🤖 AI analysis requested with language: ${language}`);
 
     // Start async AI analysis
     analyzeOnlyAsync(analysisId, {
@@ -218,7 +219,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error starting AI analysis:', error);
+    logger.error('Error starting AI analysis:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -331,7 +332,7 @@ router.post('/start-with-analysis', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error starting generation with analysis:', error);
+    logger.error('Error starting generation with analysis:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -382,7 +383,7 @@ router.post('/analysis-excel', async (req: Request, res: Response) => {
     });
 
   } catch (error: any) {
-    console.error('Error generating analysis Excel:', error);
+    logger.error('Error generating analysis Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -404,7 +405,7 @@ router.get('/analysis-excel/download/:filename', (req: Request, res: Response) =
 
     res.download(filePath, safeFilename, (err) => {
       if (err) {
-        console.error('Download error:', err);
+        logger.error('Download error:', err);
         if (!res.headersSent) {
           res.status(500).json({ error: 'Download failed' });
         }
@@ -412,7 +413,7 @@ router.get('/analysis-excel/download/:filename', (req: Request, res: Response) =
     });
 
   } catch (error: any) {
-    console.error('Error downloading analysis Excel:', error);
+    logger.error('Error downloading analysis Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -440,7 +441,7 @@ router.post('/send-data/:runId', async (req: Request, res: Response) => {
       statusUrl: `/api/generate/status/${runId}`
     });
   } catch (error: any) {
-    console.error('Error starting data transmission:', error);
+    logger.error('Error starting data transmission:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -466,7 +467,7 @@ router.get('/analysis-excel/:filename', (req: Request, res: Response) => {
 
     res.download(filePath, safeFilename);
   } catch (error: any) {
-    console.error('Error downloading analysis Excel:', error);
+    logger.error('Error downloading analysis Excel:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -481,13 +482,13 @@ router.post('/upload-analysis', upload.single('file'), async (req: Request, res:
       return res.status(400).json({ error: 'No file uploaded' });
     }
 
-    console.log(`📤 Processing AI analysis Excel upload: ${req.file.originalname}`);
+    logger.info(`📤 Processing AI analysis Excel upload: ${req.file.originalname}`);
 
     // Parse the uploaded Excel file
     const parser = new AnalysisExcelParser();
     const parsedData = await parser.parseAnalysisExcel(req.file.path);
 
-    console.log(`✅ Parsed AI analysis Excel:`, {
+    logger.info(`✅ Parsed AI analysis Excel:`, {
       userSegments: parsedData.userSegments?.length || 0,
       eventSequencing: parsedData.eventSequencing ? 'present' : 'missing',
       transactions: parsedData.eventSequencing?.transactions?.length || 0
@@ -511,7 +512,7 @@ router.post('/upload-analysis', upload.single('file'), async (req: Request, res:
     });
 
   } catch (error: any) {
-    console.error('Error uploading AI analysis Excel:', error);
+    logger.error('Error uploading AI analysis Excel:', error);
 
     // Clean up uploaded file if it exists
     if (req.file && fs.existsSync(req.file.path)) {
@@ -551,13 +552,13 @@ router.post('/update-analysis-excel', upload.single('file'), async (req: Request
       return res.status(400).json({ error: 'Analysis not yet completed' });
     }
 
-    console.log(`📤 Processing uploaded Excel for analysis: ${analysisId}`);
+    logger.info(`📤 Processing uploaded Excel for analysis: ${analysisId}`);
 
     // Parse the uploaded Excel file
     const parser = new AnalysisExcelParser();
     const parsedData = await parser.parseAnalysisExcel(req.file.path);
 
-    console.log(`✅ Parsed Excel data:`, {
+    logger.info(`✅ Parsed Excel data:`, {
       userSegments: parsedData.userSegments?.length || 0,
       eventSequencing: parsedData.eventSequencing ? 'present' : 'missing',
       transactions: parsedData.eventSequencing?.transactions?.length || 0
@@ -579,7 +580,7 @@ router.post('/update-analysis-excel', upload.single('file'), async (req: Request
     });
 
   } catch (error: any) {
-    console.error('Error updating analysis from Excel:', error);
+    logger.error('Error updating analysis from Excel:', error);
 
     // Clean up uploaded file if it exists
     if (req.file && fs.existsSync(req.file.path)) {
@@ -598,17 +599,19 @@ router.get('/download-data/:runId', async (req: Request, res: Response) => {
   try {
     const { runId } = req.params;
 
-    // Find data directory for the runId
-    const dataDir = path.resolve(__dirname, `../../../runs/${runId}`);
+    // Find data directory for the runId (correct path: output/data/{runId})
+    const dataDir = path.resolve(__dirname, `../../../output/data/${runId}`);
 
     if (!fs.existsSync(dataDir)) {
-      return res.status(404).json({ error: 'Run ID not found' });
+      logger.error(`❌ Data directory not found: ${dataDir}`);
+      return res.status(404).json({ error: 'Run ID not found or data directory does not exist' });
     }
 
     // Check if there are JSONL files
     const files = fs.readdirSync(dataDir).filter(f => f.endsWith('.jsonl'));
 
     if (files.length === 0) {
+      logger.error(`❌ No JSONL files found in: ${dataDir}`);
       return res.status(404).json({ error: 'No data files found' });
     }
 
@@ -633,11 +636,13 @@ router.get('/download-data/:runId', async (req: Request, res: Response) => {
     // Finalize the archive
     await archive.finalize();
 
-    console.log(`📦 Sent ${files.length} data files as ZIP for run ${runId}`);
+    logger.info(`📦 Sent ${files.length} data files as ZIP for run ${runId}`);
 
   } catch (error: any) {
-    console.error('Error downloading data files:', error);
-    res.status(500).json({ error: error.message });
+    logger.error('Error downloading data files:', error);
+    if (!res.headersSent) {
+      res.status(500).json({ error: error.message });
+    }
   }
 });
 

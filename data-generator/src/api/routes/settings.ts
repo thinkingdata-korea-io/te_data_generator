@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { requireAuth } from '../middleware';
 import { getUserSettings, updateUserSettings } from '../../db/repositories/user-settings-repository';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -36,7 +37,7 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
 
     res.json(settings);
   } catch (error: any) {
-    console.error('Error fetching settings:', error);
+    logger.error('Error fetching settings:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -86,7 +87,7 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
 
     res.json({ success: true, message: 'Settings saved successfully' });
   } catch (error: any) {
-    console.error('Error saving settings:', error);
+    logger.error('Error saving settings:', error);
     res.status(500).json({ error: error.message });
   }
 });

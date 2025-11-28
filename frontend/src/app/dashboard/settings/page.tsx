@@ -6,32 +6,12 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { TypingAnimation } from '@/components/effects/TypingAnimation';
 import AIConfigSection from '@/components/settings/AIConfigSection';
+import { Settings } from '@/app/dashboard/generator/types';
 
 /**
  * Settings Page
  * @brief: Terminal-style settings interface for platform configuration
  */
-
-interface Settings {
-  // AI Provider Settings
-  ANTHROPIC_API_KEY: string;
-  OPENAI_API_KEY: string;
-  GEMINI_API_KEY: string;
-  EXCEL_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
-  DATA_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
-  DATA_AI_MODEL: string;  // Custom data generation model (optional)
-  VALIDATION_MODEL_TIER: 'fast' | 'balanced';  // Validation model tier
-  CUSTOM_VALIDATION_MODEL: string;  // Custom validation model (optional)
-
-  // ThinkingEngine Settings
-  TE_APP_ID: string;
-  TE_RECEIVER_URL: string;
-
-  // File Retention Settings
-  DATA_RETENTION_DAYS: string;
-  EXCEL_RETENTION_DAYS: string;
-  AUTO_DELETE_AFTER_SEND: string;
-}
 
 interface UserProfile {
   fullName: string;

@@ -76,7 +76,8 @@ async function initializeMockUsers() {
 }
 
 // Call initialization
-initializeMockUsers().catch(console.error);
+import { logger } from '../utils/logger';
+initializeMockUsers().catch((err) => logger.error('Failed to initialize mock users:', err));
 
 /**
  * Hash password with bcrypt

@@ -1,6 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { getGenerationProgress, updateGenerationProgress } from './data-generation.service';
+import { logger } from '../../utils/logger';
 
 /**
  * LogBus2 Service
@@ -14,7 +15,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
   let logbusController: any = null;
 
   try {
-    console.log(`📤 Starting data transmission for ${runId} with APP_ID: ${appId}...`);
+    logger.info(`📤 Starting data transmission for ${runId} with APP_ID: ${appId}...`);
 
     // Verify data directory
     const dataDir = path.resolve(__dirname, `../../../output/data/${runId}`);
@@ -30,7 +31,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
 
     // ThinkingEngine configuration
     const receiverUrl = process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/';
-    const logbusPath = path.resolve(__dirname, '../../../../logbus 2/logbus');
+    const logbusPath = path.resolve(__dirname, '../../../../logbus/logbus');
 
     if (!appId) {
       throw new Error('TE_APP_ID not configured');
@@ -73,7 +74,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
 
     // Full initialization: cleanup + regenerate daemon.json + create meta directory
     await logbusController.cleanAndPrepare();
-    console.log(`✅ LogBus2 cleaned and configured for ${runId}`);
+    logger.info(`✅ LogBus2 cleaned and configured for ${runId}`);
 
     updateGenerationProgress(runId, {
       status: 'sending',
@@ -83,7 +84,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
 
     // Start LogBus2
     await logbusController.start();
-    console.log(`✅ LogBus2 started for ${runId}`);
+    logger.info(`✅ LogBus2 started for ${runId}`);
 
     updateGenerationProgress(runId, {
       status: 'sending',
@@ -120,7 +121,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
           });
         }
       } catch (logError: any) {
-        console.warn('Failed to read LogBus2 logs:', logError.message);
+        logger.warn('Failed to read LogBus2 logs:', logError.message);
       }
 
       if (currentProgress > lastProgress) {
@@ -137,7 +138,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
 
     // Stop LogBus2
     await logbusController.stop();
-    console.log(`✅ LogBus2 stopped for ${runId}`);
+    logger.info(`✅ LogBus2 stopped for ${runId}`);
 
     // Transmission complete
     updateGenerationProgress(runId, {
@@ -155,34 +156,34 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
       }
     });
 
-    console.log(`✅ Data transmission completed for ${runId}`);
+    logger.info(`✅ Data transmission completed for ${runId}`);
 
     // Auto-delete after send (if enabled)
     const autoDelete = process.env.AUTO_DELETE_AFTER_SEND === 'true';
     if (autoDelete) {
       try {
-        console.log(`🗑️  Auto-delete enabled, removing data files for ${runId}...`);
+        logger.info(`🗑️  Auto-delete enabled, removing data files for ${runId}...`);
 
         if (fs.existsSync(dataDir)) {
           fs.rmSync(dataDir, { recursive: true, force: true });
-          console.log(`✅ Data files deleted: ${dataDir}`);
+          logger.info(`✅ Data files deleted: ${dataDir}`);
         }
       } catch (deleteError: any) {
-        console.error(`❌ Failed to delete data files: ${deleteError.message}`);
+        logger.error(`❌ Failed to delete data files: ${deleteError.message}`);
       }
     }
 
   } catch (error: any) {
-    console.error('Error during data transmission:', error);
+    logger.error('Error during data transmission:', error);
 
     // Stop LogBus2 on error
     if (logbusController) {
       try {
-        console.log('⚠️  Stopping LogBus2 due to error...');
+        logger.info('⚠️  Stopping LogBus2 due to error...');
         await logbusController.stop();
-        console.log('✅ LogBus2 stopped after error');
+        logger.info('✅ LogBus2 stopped after error');
       } catch (stopError: any) {
-        console.error('❌ Failed to stop LogBus2:', stopError.message);
+        logger.error('❌ Failed to stop LogBus2:', stopError.message);
       }
     }
 

@@ -23,16 +23,21 @@ export type ProcessStep =
   | 'sent';
 
 export interface Settings {
+  // AI Provider Settings
   ANTHROPIC_API_KEY: string;
   OPENAI_API_KEY: string;
   GEMINI_API_KEY: string;
-  EXCEL_AI_PROVIDER: string;
-  DATA_AI_PROVIDER: string;
+  EXCEL_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
+  DATA_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
   DATA_AI_MODEL: string;
-  VALIDATION_MODEL_TIER: string;
+  VALIDATION_MODEL_TIER: 'fast' | 'balanced';
   CUSTOM_VALIDATION_MODEL: string;
+
+  // ThinkingEngine Settings
   TE_APP_ID: string;
   TE_RECEIVER_URL: string;
+
+  // File Retention Settings
   DATA_RETENTION_DAYS: string;
   EXCEL_RETENTION_DAYS: string;
   AUTO_DELETE_AFTER_SEND: string;

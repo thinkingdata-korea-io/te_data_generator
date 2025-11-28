@@ -7,6 +7,7 @@
 
 import * as dotenv from 'dotenv';
 import { Pool } from 'pg';
+import { logger } from '../utils/logger';
 
 // Load environment variables
 dotenv.config();
@@ -15,14 +16,14 @@ async function runMigration() {
   const databaseUrl = process.env.DATABASE_URL;
 
   if (!databaseUrl) {
-    console.error('❌ DATABASE_URL environment variable is not set');
+    logger.error('❌ DATABASE_URL environment variable is not set');
     process.exit(1);
   }
 
   const pool = new Pool({ connectionString: databaseUrl });
 
   try {
-    console.log('🚀 Starting user settings migration...\n');
+    logger.info('🚀 Starting user settings migration...\n');
 
     // Check if profile_image column exists
     const columnCheck = await pool.query(`
@@ -32,11 +33,11 @@ async function runMigration() {
     `);
 
     if (columnCheck.rows.length === 0) {
-      console.log('📋 Adding profile_image column to users table...');
+      logger.info('📋 Adding profile_image column to users table...');
       await pool.query('ALTER TABLE users ADD COLUMN profile_image TEXT');
-      console.log('✅ profile_image column added\n');
+      logger.info('✅ profile_image column added\n');
     } else {
-      console.log('ℹ️  profile_image column already exists\n');
+      logger.info('ℹ️  profile_image column already exists\n');
     }
 
     // Check if user_settings table exists
@@ -47,7 +48,7 @@ async function runMigration() {
     `);
 
     if (tableCheck.rows.length === 0) {
-      console.log('📋 Creating user_settings table...');
+      logger.info('📋 Creating user_settings table...');
       await pool.query(`
         CREATE TABLE user_settings (
           id SERIAL PRIMARY KEY,
@@ -76,29 +77,29 @@ async function runMigration() {
           updated_at TIMESTAMP DEFAULT NOW()
         )
       `);
-      console.log('✅ user_settings table created\n');
+      logger.info('✅ user_settings table created\n');
 
       // Create index
-      console.log('📋 Creating indexes...');
+      logger.info('📋 Creating indexes...');
       await pool.query('CREATE INDEX idx_user_settings_user_id ON user_settings(user_id)');
-      console.log('✅ Indexes created\n');
+      logger.info('✅ Indexes created\n');
 
       // Create trigger
-      console.log('📋 Creating trigger...');
+      logger.info('📋 Creating trigger...');
       await pool.query(`
         CREATE TRIGGER update_user_settings_updated_at
         BEFORE UPDATE ON user_settings
         FOR EACH ROW EXECUTE FUNCTION update_updated_at_column()
       `);
-      console.log('✅ Trigger created\n');
+      logger.info('✅ Trigger created\n');
     } else {
-      console.log('ℹ️  user_settings table already exists\n');
+      logger.info('ℹ️  user_settings table already exists\n');
     }
 
-    console.log('✅ Migration completed successfully!');
+    logger.info('✅ Migration completed successfully!');
 
   } catch (error) {
-    console.error('\n❌ Migration failed:', error);
+    logger.error('\n❌ Migration failed:', error);
     process.exit(1);
   } finally {
     await pool.end();

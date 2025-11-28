@@ -4,6 +4,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 import * as fs from 'fs';
 import * as path from 'path';
+import { logger } from '../../utils/logger';
 
 export interface FileAnalysisResult {
   fileName: string;
@@ -190,7 +191,7 @@ ${textContent.substring(0, 8000)}
         insights: {},
       };
     } catch (error: any) {
-      console.error(`파일 분석 실패 (${fileName}):`, error);
+      logger.error(`파일 분석 실패 (${fileName}):`, error);
       return {
         fileName,
         fileType,

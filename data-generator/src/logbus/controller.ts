@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { logger } from '../utils/logger';
 
 const execAsync = promisify(exec);
 
@@ -74,7 +75,7 @@ export class LogBus2Controller {
       'utf-8'
     );
 
-    console.log(`✅ daemon.json created: ${this.daemonConfigPath}`);
+    logger.info(`✅ daemon.json created: ${this.daemonConfigPath}`);
   }
 
   /**
@@ -83,10 +84,10 @@ export class LogBus2Controller {
   async validateConfig(): Promise<boolean> {
     try {
       const { stdout } = await execAsync(`"${this.config.logbusPath}" env`);
-      console.log('LogBus2 환경 확인:', stdout);
+      logger.info('LogBus2 환경 확인:', stdout);
       return true;
     } catch (error: any) {
-      console.error('LogBus2 환경 확인 실패:', error.message);
+      logger.error('LogBus2 환경 확인 실패:', error.message);
       return false;
     }
   }
@@ -108,13 +109,13 @@ export class LogBus2Controller {
       });
 
       if (stderr && !stderr.includes('success')) {
-        console.warn('LogBus2 start warning:', stderr);
+        logger.warn('LogBus2 start warning:', stderr);
       }
 
-      console.log('✅ LogBus2 started');
-      console.log(stdout);
+      logger.info('✅ LogBus2 started');
+      logger.info(stdout);
     } catch (error: any) {
-      console.error('❌ LogBus2 start failed:', error.message);
+      logger.error('❌ LogBus2 start failed:', error.message);
       throw error;
     }
   }
@@ -128,10 +129,10 @@ export class LogBus2Controller {
       const { stdout } = await execAsync(`"${this.config.logbusPath}" stop`, {
         cwd: logbusDir
       });
-      console.log('✅ LogBus2 stopped');
-      console.log(stdout);
+      logger.info('✅ LogBus2 stopped');
+      logger.info(stdout);
     } catch (error: any) {
-      console.error('❌ LogBus2 stop failed:', error.message);
+      logger.error('❌ LogBus2 stop failed:', error.message);
       throw error;
     }
   }
@@ -145,12 +146,12 @@ export class LogBus2Controller {
       await new Promise(resolve => setTimeout(resolve, 2000)); // 2초 대기
 
       // 이전 파일 offset 기록 초기화 (새로운 run 시작 시 필수)
-      console.log('🔄 Resetting LogBus2 offset records...');
+      logger.info('🔄 Resetting LogBus2 offset records...');
       await this.reset();
 
       await this.start();
     } catch (error) {
-      console.error('❌ LogBus2 restart failed');
+      logger.error('❌ LogBus2 restart failed');
       throw error;
     }
   }
@@ -164,10 +165,10 @@ export class LogBus2Controller {
       const { stdout } = await execAsync(`"${this.config.logbusPath}" update`, {
         cwd: logbusDir
       });
-      console.log('✅ LogBus2 configuration updated');
-      console.log(stdout);
+      logger.info('✅ LogBus2 configuration updated');
+      logger.info(stdout);
     } catch (error: any) {
-      console.error('❌ LogBus2 update failed:', error.message);
+      logger.error('❌ LogBus2 update failed:', error.message);
       throw error;
     }
   }
@@ -223,7 +224,7 @@ export class LogBus2Controller {
             onProgress(status);
           }
 
-          console.log(
+          logger.info(
             `📊 Progress: ${status.uploadedFiles || 0}/${status.totalFiles || 0} files ` +
             `(${(status.progress || 0).toFixed(1)}%)`
           );
@@ -235,7 +236,7 @@ export class LogBus2Controller {
             status.uploadedFiles > 0
           ) {
             clearInterval(interval);
-            console.log('✅ All files uploaded successfully');
+            logger.info('✅ All files uploaded successfully');
             resolve();
           }
 
@@ -261,10 +262,10 @@ export class LogBus2Controller {
       const { stdout } = await execAsync(`"${this.config.logbusPath}" reset`, {
         cwd: logbusDir
       });
-      console.log('✅ LogBus2 reset completed');
-      console.log(stdout);
+      logger.info('✅ LogBus2 reset completed');
+      logger.info(stdout);
     } catch (error: any) {
-      console.error('❌ LogBus2 reset failed:', error.message);
+      logger.error('❌ LogBus2 reset failed:', error.message);
       throw error;
     }
   }
@@ -278,20 +279,20 @@ export class LogBus2Controller {
       const logDir = path.join(logbusDir, 'log');
 
       if (fs.existsSync(logDir)) {
-        console.log('🧹 Cleaning LogBus2 log files...');
+        logger.info('🧹 Cleaning LogBus2 log files...');
         const logFiles = fs.readdirSync(logDir);
 
         for (const file of logFiles) {
           const filePath = path.join(logDir, file);
           // 로그 파일 내용 비우기 (파일은 유지)
           fs.writeFileSync(filePath, '', 'utf-8');
-          console.log(`   - Cleared: ${file}`);
+          logger.info(`   - Cleared: ${file}`);
         }
 
-        console.log('✅ Log files cleaned successfully');
+        logger.info('✅ Log files cleaned successfully');
       }
     } catch (error: any) {
-      console.error('❌ Log cleanup failed:', error.message);
+      logger.error('❌ Log cleanup failed:', error.message);
       throw error;
     }
   }
@@ -306,13 +307,13 @@ export class LogBus2Controller {
    */
   async cleanAndPrepare(): Promise<void> {
     try {
-      console.log('🧹 Starting complete LogBus2 cleanup...');
+      logger.info('🧹 Starting complete LogBus2 cleanup...');
 
       // 1. LogBus2 중지 (실행 중이지 않아도 에러 무시)
       try {
         await this.stop();
       } catch (error: any) {
-        console.log('⚠️ LogBus2 was not running (OK)');
+        logger.info('⚠️ LogBus2 was not running (OK)');
       }
 
       await new Promise(resolve => setTimeout(resolve, 1000));
@@ -322,12 +323,12 @@ export class LogBus2Controller {
       const metaDir = path.join(logbusDir, 'runtime', 'meta');
 
       if (fs.existsSync(metaDir)) {
-        console.log(`🗑️ Removing old metadata: ${metaDir}`);
+        logger.info(`🗑️ Removing old metadata: ${metaDir}`);
         const oldDirs = fs.readdirSync(metaDir);
         for (const dir of oldDirs) {
           const dirPath = path.join(metaDir, dir);
           fs.rmSync(dirPath, { recursive: true, force: true });
-          console.log(`   - Removed: ${dir}`);
+          logger.info(`   - Removed: ${dir}`);
         }
       }
 
@@ -337,15 +338,15 @@ export class LogBus2Controller {
       // 4. 새 app_id를 위한 메타 디렉토리 생성
       const newMetaDir = path.join(metaDir, this.config.appId);
       fs.mkdirSync(newMetaDir, { recursive: true });
-      console.log(`✅ Created fresh metadata directory for app_id: ${this.config.appId}`);
+      logger.info(`✅ Created fresh metadata directory for app_id: ${this.config.appId}`);
 
       // 5. daemon.json 재생성 (새로운 경로와 app_id로)
       await this.createDaemonConfig();
-      console.log('✅ daemon.json updated with new configuration');
+      logger.info('✅ daemon.json updated with new configuration');
 
-      console.log('✅ LogBus2 cleanup and preparation completed');
+      logger.info('✅ LogBus2 cleanup and preparation completed');
     } catch (error: any) {
-      console.error('❌ LogBus2 cleanup failed:', error.message);
+      logger.error('❌ LogBus2 cleanup failed:', error.message);
       throw error;
     }
   }

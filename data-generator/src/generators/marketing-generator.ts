@@ -201,9 +201,14 @@ export class MarketingGenerator {
   }
 
   /**
-   * install 이벤트 속성 생성
+   * 공통 마케팅 속성 생성 (DRY 원칙)
+   * install과 ad_revenue에서 공통으로 사용
    */
-  generateInstallEvent(user: User, timestamp: Date): Record<string, any> {
+  private generateBaseMarketingProperties(user: User, timestamp: Date): {
+    basic: Record<string, any>;
+    teAdsObject: Record<string, any>;
+    campaignInfo: { mediaSource: string; campaignName: string; adGroupName: string; adName: string };
+  } {
     const mediaSource = weightedRandom(
       MEDIA_SOURCES.map(m => m.name),
       MEDIA_SOURCES.map(m => m.weight)
@@ -213,45 +218,59 @@ export class MarketingGenerator {
     const adName = this.generateAdName();
 
     return {
-      // 기본 Adjust 속성
-      activity_kind: 'install',
-      adgroup_name: adGroupName,
-      app_id: this.appId,
-      app_name: this.appName,
-      app_version: '1.0.0',
-      campaign_name: campaignName,
-      country: user.countryCode,
-      created_at_milli: timestamp.getTime().toString(),
-      creative_name: adName,
-      network_name: NETWORK_NAMES[mediaSource] || 'Unknown',
-      os_name: user.os.toLowerCase(),
-      publisher_parameters: JSON.stringify({}),
-      ta_account_id: user.account_id,
-      ta_distinct_id: user.distinct_id,
-      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      basic: {
+        app_id: this.appId,
+        app_name: this.appName,
+        app_version: '1.0.0',
+        campaign_name: campaignName,
+        country: user.countryCode,
+        created_at_milli: timestamp.getTime().toString(),
+        network_name: NETWORK_NAMES[mediaSource] || 'Unknown',
+        os_name: user.os.toLowerCase(),
+        publisher_parameters: JSON.stringify({}),
+        ta_account_id: user.account_id,
+        ta_distinct_id: user.distinct_id,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      },
+      teAdsObject: {
+        'te_ads_object.ad_account_id': `acc_${faker.string.alphanumeric(10)}`,
+        'te_ads_object.ad_group_id': `adg_${faker.string.alphanumeric(10)}`,
+        'te_ads_object.ad_group_name': adGroupName,
+        'te_ads_object.ad_id': `ad_${faker.string.alphanumeric(10)}`,
+        'te_ads_object.ad_name': adName,
+        'te_ads_object.agency': randomChoice(AGENCIES),
+        'te_ads_object.app_id': this.appId,
+        'te_ads_object.app_name': this.appName,
+        'te_ads_object.campaign_id': `cmp_${faker.string.alphanumeric(10)}`,
+        'te_ads_object.campaign_name': campaignName,
+        'te_ads_object.clicks': faker.number.int({ min: 100, max: 10000 }),
+        'te_ads_object.conversions': faker.number.int({ min: 10, max: 500 }),
+        'te_ads_object.cost': faker.number.float({ min: 100, max: 10000, fractionDigits: 2 }),
+        'te_ads_object.country': user.countryCode,
+        'te_ads_object.currency': 'USD',
+        'te_ads_object.impressions': faker.number.int({ min: 1000, max: 100000 }),
+        'te_ads_object.installs': faker.number.int({ min: 10, max: 1000 }),
+        'te_ads_object.media_source': mediaSource,
+        'te_ads_object.placement': randomChoice(PLACEMENTS),
+        'te_ads_object.platform': user.os.toLowerCase(),
+        'te_ads_object.revenue': faker.number.float({ min: 0, max: 1000, fractionDigits: 2 })
+      },
+      campaignInfo: { mediaSource, campaignName, adGroupName, adName }
+    };
+  }
 
-      // te_ads_object (광고 상세 정보) - flat 구조로 변환
-      'te_ads_object.ad_account_id': `acc_${faker.string.alphanumeric(10)}`,
-      'te_ads_object.ad_group_id': `adg_${faker.string.alphanumeric(10)}`,
-      'te_ads_object.ad_group_name': adGroupName,
-      'te_ads_object.ad_id': `ad_${faker.string.alphanumeric(10)}`,
-      'te_ads_object.ad_name': adName,
-      'te_ads_object.agency': randomChoice(AGENCIES),
-      'te_ads_object.app_id': this.appId,
-      'te_ads_object.app_name': this.appName,
-      'te_ads_object.campaign_id': `cmp_${faker.string.alphanumeric(10)}`,
-      'te_ads_object.campaign_name': campaignName,
-      'te_ads_object.clicks': faker.number.int({ min: 100, max: 10000 }),
-      'te_ads_object.conversions': faker.number.int({ min: 10, max: 500 }),
-      'te_ads_object.cost': faker.number.float({ min: 100, max: 10000, fractionDigits: 2 }),
-      'te_ads_object.country': user.countryCode,
-      'te_ads_object.currency': 'USD',
-      'te_ads_object.impressions': faker.number.int({ min: 1000, max: 100000 }),
-      'te_ads_object.installs': faker.number.int({ min: 10, max: 1000 }),
-      'te_ads_object.media_source': mediaSource,
-      'te_ads_object.placement': randomChoice(PLACEMENTS),
-      'te_ads_object.platform': user.os.toLowerCase(),
-      'te_ads_object.revenue': faker.number.float({ min: 0, max: 1000, fractionDigits: 2 })
+  /**
+   * install 이벤트 속성 생성
+   */
+  generateInstallEvent(user: User, timestamp: Date): Record<string, any> {
+    const { basic, teAdsObject, campaignInfo } = this.generateBaseMarketingProperties(user, timestamp);
+
+    return {
+      ...basic,
+      activity_kind: 'install',
+      adgroup_name: campaignInfo.adGroupName,
+      creative_name: campaignInfo.adName,
+      ...teAdsObject
     };
   }
 
@@ -259,7 +278,8 @@ export class MarketingGenerator {
    * adjust_ad_revenue 이벤트 속성 생성
    */
   generateAdRevenueEvent(user: User, timestamp: Date): Record<string, any> {
-    const installEvent = this.generateInstallEvent(user, timestamp);
+    const { basic, teAdsObject, campaignInfo } = this.generateBaseMarketingProperties(user, timestamp);
+
     const adRevenueNetwork = weightedRandom(
       AD_REVENUE_NETWORKS.map(n => n.name),
       AD_REVENUE_NETWORKS.map(n => n.weight)
@@ -269,11 +289,13 @@ export class MarketingGenerator {
       AD_UNIT_TYPES.map(u => u.weight)
     );
 
-    // install 이벤트의 모든 속성 + 추가 속성
     return {
-      ...installEvent,
-
-      // adjust_ad_revenue 전용 속성
+      ...basic,
+      activity_kind: 'ad_revenue',
+      adgroup_name: campaignInfo.adGroupName,
+      creative_name: campaignInfo.adName,
+      ...teAdsObject,
+      // Ad Revenue 전용 속성
       ad_revenue_network: adRevenueNetwork,
       ad_revenue_unit: `${adUnitType}_${faker.string.alphanumeric(6)}`,
       currency: 'USD',

@@ -21,6 +21,7 @@ import {
   formatPhase4CompletionDetail,
   formatPhase5CompletionDetail
 } from '../utils/language-helper';
+import { logger } from '../utils/logger';
 
 export type AIProgressCallback = (progress: {
   phase: string;
@@ -99,7 +100,7 @@ export class AIClient {
 
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        console.log(`AI 분석 시도 ${attempt}/${maxRetries}...`);
+        logger.info(`AI 분석 시도 ${attempt}/${maxRetries}...`);
 
         const prompt = this.buildPrompt(schema, userInput);
         let response: string;
@@ -118,17 +119,17 @@ export class AIClient {
         // 필수 필드 검증
         this.validateAIResult(result);
 
-        console.log(`✅ AI 분석 성공 (시도 ${attempt}/${maxRetries})`);
+        logger.info(`✅ AI 분석 성공 (시도 ${attempt}/${maxRetries})`);
         return result;
 
       } catch (error) {
         lastError = error as Error;
-        console.error(`❌ AI 분석 실패 (시도 ${attempt}/${maxRetries}):`, error instanceof Error ? error.message : error);
+        logger.error(`❌ AI 분석 실패 (시도 ${attempt}/${maxRetries}):`, error instanceof Error ? error.message : error);
 
         if (attempt < maxRetries) {
           // 재시도 전 대기 (exponential backoff)
           const waitTime = Math.pow(2, attempt - 1) * 1000; // 1s, 2s, 4s
-          console.log(`⏳ ${waitTime}ms 후 재시도...`);
+          logger.info(`⏳ ${waitTime}ms 후 재시도...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
         }
       }
@@ -274,7 +275,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     // Haiku 모델명 매핑
     const modelName = model === 'haiku' ? 'claude-3-5-haiku-20241022' : model;
 
-    console.log(`  📊 Claude API 호출 (model: ${modelName}, max_tokens: ${maxTokens})...`);
+    logger.info(`  📊 Claude API 호출 (model: ${modelName}, max_tokens: ${maxTokens})...`);
 
     const message = await this.anthropic.messages.create({
       model: modelName,
@@ -292,7 +293,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       // 응답이 잘렸는지 확인
       const text = content.text;
       if (message.stop_reason === 'max_tokens') {
-        console.warn(`  ⚠️  응답이 max_tokens 제한으로 잘렸습니다 (${maxTokens} tokens)`);
+        logger.warn(`  ⚠️  응답이 max_tokens 제한으로 잘렸습니다 (${maxTokens} tokens)`);
         throw new Error('AI response truncated due to max_tokens limit');
       }
       return text;
@@ -312,7 +313,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     // 모델 선택: override가 있으면 사용, 없으면 config
     const model = modelOverride || this.config.model || 'gemini-2.5-pro-latest';
 
-    console.log(`  📊 Gemini API 호출 (model: ${model})...`);
+    logger.info(`  📊 Gemini API 호출 (model: ${model})...`);
 
     const generativeModel = this.gemini.getGenerativeModel({
       model,
@@ -364,9 +365,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       const parsed = JSON.parse(jsonText);
       return parsed as AIAnalysisResult;
     } catch (error) {
-      console.error('❌ JSON 파싱 실패:', error instanceof Error ? error.message : error);
-      console.error('📄 응답 (처음 500자):', response.substring(0, 500));
-      console.error('📄 응답 (마지막 200자):', response.substring(Math.max(0, response.length - 200)));
+      logger.error('❌ JSON 파싱 실패:', error instanceof Error ? error.message : error);
+      logger.error('📄 응답 (처음 500자):', response.substring(0, 500));
+      logger.error('📄 응답 (마지막 200자):', response.substring(Math.max(0, response.length - 200)));
       throw new Error(`Invalid JSON format: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
@@ -391,7 +392,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     // userSegments 검증
     const totalRatio = result.userSegments.reduce((sum, seg) => sum + seg.ratio, 0);
     if (Math.abs(totalRatio - 1.0) > 0.01) {
-      console.warn(`⚠️  User segment ratios don't sum to 1.0: ${totalRatio}`);
+      logger.warn(`⚠️  User segment ratios don't sum to 1.0: ${totalRatio}`);
     }
 
     // sessionPatterns 필수 필드 확인
@@ -401,7 +402,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       throw new Error('Missing required fields in sessionPatterns');
     }
 
-    console.log(`  ✅ AI 결과 검증 완료: ${result.userSegments.length}개 세그먼트, ${result.eventRanges.length}개 이벤트 범위`);
+    logger.info(`  ✅ AI 결과 검증 완료: ${result.userSegments.length}개 세그먼트, ${result.eventRanges.length}개 이벤트 범위`);
   }
 
   /**
@@ -412,7 +413,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     schema: ParsedSchema,
     userInput: UserInput
   ): Promise<AIAnalysisResult> {
-    console.log('\n🎯 Starting Multi-Phase AI Analysis...');
+    logger.info('\n🎯 Starting Multi-Phase AI Analysis...');
 
     const lang = this.config.language || 'ko';
 
@@ -423,13 +424,13 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       message: getMessage(lang, 'phase1_analyzing'),
       detail: getMessage(lang, 'phase1_detail')
     });
-    console.log('\n📋 Phase 1: Strategy Analysis');
+    logger.info('\n📋 Phase 1: Strategy Analysis');
     const strategy = await this.analyzeStrategy(schema, userInput);
 
-    console.log(`  ✅ Strategy: ${strategy.userSegments.length} segments defined`);
-    console.log(`  ✅ Session patterns configured`);
-    console.log(`  ✅ Event dependencies: ${Object.keys(strategy.eventDependencies || {}).length} rules`);
-    console.log(`  ✅ Event groups: ${Object.keys(strategy.eventGroups || {}).length} categories (AI-based)`);
+    logger.info(`  ✅ Strategy: ${strategy.userSegments.length} segments defined`);
+    logger.info(`  ✅ Session patterns configured`);
+    logger.info(`  ✅ Event dependencies: ${Object.keys(strategy.eventDependencies || {}).length} rules`);
+    logger.info(`  ✅ Event groups: ${Object.keys(strategy.eventGroups || {}).length} categories (AI-based)`);
 
     this.config.onProgress?.({
       phase: 'phase1',
@@ -445,9 +446,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       message: getMessage(lang, 'phase2_analyzing'),
       detail: getMessage(lang, 'phase2_detail')
     });
-    console.log('\n📈 Phase 1.5: Retention Curve Analysis');
+    logger.info('\n📈 Phase 1.5: Retention Curve Analysis');
     const { retentionCurve, validationSummary: retentionSummary } = await this.analyzeRetention(userInput, strategy.userSegments);
-    console.log(`  ✅ Retention: Day1=${(retentionCurve.day1Retention * 100).toFixed(1)}%, Day7=${(retentionCurve.day7Retention * 100).toFixed(1)}%, Day30=${(retentionCurve.day30Retention * 100).toFixed(1)}%`);
+    logger.info(`  ✅ Retention: Day1=${(retentionCurve.day1Retention * 100).toFixed(1)}%, Day7=${(retentionCurve.day7Retention * 100).toFixed(1)}%, Day30=${(retentionCurve.day30Retention * 100).toFixed(1)}%`);
 
     this.config.onProgress?.({
       phase: 'phase2',
@@ -466,11 +467,11 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       message: getMessage(lang, 'phase3_analyzing'),
       detail: getMessage(lang, 'phase3_detail')
     });
-    console.log('\n🔗 Phase 1.6: Event Sequencing Analysis');
+    logger.info('\n🔗 Phase 1.6: Event Sequencing Analysis');
     const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput);
-    console.log(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories.lifecycle.length}, onboarding=${eventSequencing.eventCategories.onboarding.length}, core=${eventSequencing.eventCategories.core.length}`);
-    console.log(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies).length} rules`);
-    console.log(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
+    logger.info(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories.lifecycle.length}, onboarding=${eventSequencing.eventCategories.onboarding.length}, core=${eventSequencing.eventCategories.core.length}`);
+    logger.info(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies).length} rules`);
+    logger.info(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
 
     this.config.onProgress?.({
       phase: 'phase3',
@@ -488,11 +489,11 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       message: getMessage(lang, 'phase4_preparing', schema.events.length),
       detail: formatPhase4GroupDetail(lang, schema.events.length)
     });
-    console.log(`\n📊 Phase 2: Event Group Analysis (${schema.events.length} events)`);
+    logger.info(`\n📊 Phase 2: Event Group Analysis (${schema.events.length} events)`);
 
     // AI가 반환한 eventGroups 사용
     if (!strategy.eventGroups || Object.keys(strategy.eventGroups).length === 0) {
-      console.warn('⚠️  AI did not return eventGroups, using fallback grouping');
+      logger.warn('⚠️  AI did not return eventGroups, using fallback grouping');
       // 폴백: Excel의 category 기반 그룹핑
       const fallbackGroups = new Map<string, EventDefinition[]>();
       schema.events.forEach(e => {
@@ -504,12 +505,12 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     } else {
       // AI가 반환한 그룹 사용
       var groups = convertAIGroupsToMap(strategy.eventGroups, schema.events);
-      console.log(`  📁 AI grouped into ${groups.size} categories`);
+      logger.info(`  📁 AI grouped into ${groups.size} categories`);
     }
 
     // 큰 그룹 분할 (최대 10개씩)
     groups = splitLargeGroups(groups, 10);
-    console.log(`  📁 Final groups: ${groups.size} (max 10 events per group)`);
+    logger.info(`  📁 Final groups: ${groups.size} (max 10 events per group)`);
 
     this.config.onProgress?.({
       phase: 'phase4',
@@ -534,7 +535,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
         detail: getMessage(lang, 'phase4_detail', events.length)
       });
 
-      console.log(`\n  📦 Group ${groupIndex}/${groups.size}: ${groupName} (${events.length} events)`);
+      logger.info(`\n  📦 Group ${groupIndex}/${groups.size}: ${groupName} (${events.length} events)`);
 
       try {
         const groupRanges = await this.analyzeEventGroup(
@@ -546,10 +547,10 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
         );
 
         allEventRanges.push(...groupRanges.eventRanges);
-        console.log(`    ✅ Generated ranges for ${groupRanges.eventRanges.length} events`);
+        logger.info(`    ✅ Generated ranges for ${groupRanges.eventRanges.length} events`);
       } catch (error) {
-        console.error(`    ❌ Failed to analyze group ${groupName}:`, error instanceof Error ? error.message : error);
-        console.warn(`    ⚠️  Continuing with other groups...`);
+        logger.error(`    ❌ Failed to analyze group ${groupName}:`, error instanceof Error ? error.message : error);
+        logger.warn(`    ⚠️  Continuing with other groups...`);
       }
 
       // API rate limit 방지를 위한 짧은 대기
@@ -565,7 +566,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       message: getMessage(lang, 'phase5_validating'),
       detail: getMessage(lang, 'phase5_detail')
     });
-    console.log(`\n🔗 Phase 5: Merging Results & Validation`);
+    logger.info(`\n🔗 Phase 5: Merging Results & Validation`);
     const result: AIAnalysisResult = {
       userSegments: strategy.userSegments,
       eventDependencies: strategy.eventDependencies || {},
@@ -579,8 +580,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       }
     };
 
-    console.log(`  ✅ Total event ranges: ${allEventRanges.length}`);
-    console.log(`  ✅ Total properties with ranges: ${allEventRanges.reduce((sum, e) => sum + e.properties.length, 0)}`);
+    logger.info(`  ✅ Total event ranges: ${allEventRanges.length}`);
+    logger.info(`  ✅ Total properties with ranges: ${allEventRanges.reduce((sum, e) => sum + e.properties.length, 0)}`);
 
     // 검증
     this.validateAIResult(result);
@@ -592,7 +593,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       detail: formatPhase5CompletionDetail(lang, result.userSegments.length, result.eventRanges.length)
     });
 
-    console.log('\n✅ Multi-Phase AI Analysis Completed!');
+    logger.info('\n✅ Multi-Phase AI Analysis Completed!');
     return result;
   }
 
@@ -688,20 +689,20 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
 
       // 검증 결과 로깅
       if (summary.ruleBasedPassed) {
-        console.log('  💚 Passed rule-based validation (no AI validation needed)');
+        logger.info('  💚 Passed rule-based validation (no AI validation needed)');
       } else if (summary.aiValidationUsed) {
-        console.log(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
+        logger.info(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
       }
 
       if (summary.warnings.length > 0) {
-        console.log('  ⚠️  Warnings:', summary.warnings.join(', '));
+        logger.warn('  ⚠️  Warnings:', summary.warnings.join(', '));
       }
 
       return { retentionCurve: curve, validationSummary: summary };
 
     } catch (error) {
-      console.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
-      console.warn('  🔄 Using fallback retention curve');
+      logger.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
+      logger.warn('  🔄 Using fallback retention curve');
 
       const fallbackCurve = this.generateFallbackRetentionCurve(userInput.industry);
       const fallbackSummary = {
@@ -749,20 +750,20 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
 
       // 검증 결과 로깅
       if (summary.ruleBasedPassed) {
-        console.log('  💚 Passed rule-based validation (no AI validation needed)');
+        logger.info('  💚 Passed rule-based validation (no AI validation needed)');
       } else if (summary.aiValidationUsed) {
-        console.log(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
+        logger.info(`  💛 Passed AI validation (${summary.fixAttempts} fix attempt(s))`);
       }
 
       if (summary.warnings.length > 0) {
-        console.log('  ⚠️  Warnings:', summary.warnings.join(', '));
+        logger.warn('  ⚠️  Warnings:', summary.warnings.join(', '));
       }
 
       return { eventSequencing: sequencing, validationSummary: summary };
 
     } catch (error) {
-      console.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
-      console.warn('  🔄 Using fallback event sequencing');
+      logger.error('  ❌ Validation failed:', error instanceof Error ? error.message : error);
+      logger.warn('  🔄 Using fallback event sequencing');
 
       const fallbackSequencing = this.generateFallbackEventSequencing(schema);
       const fallbackSummary = {

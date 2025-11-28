@@ -68,6 +68,12 @@ export interface RetentionCurve {
     churned: number;     // 이탈 유저
   };
 
+  // 생명주기 전환 임계값 (일 단위)
+  lifecycleTransitionThresholds?: {
+    dormantAfterDays: number;    // 활성 → 휴면 (예: 7일)
+    churnedAfterDays: number;    // 휴면 → 이탈 (예: 30일)
+  };
+
   // 특수 패턴
   weekendBoost?: number;      // 주말 활동 증가율 (1.0 = 변화없음, 1.5 = 50% 증가)
   monthlyReturnPattern?: boolean;  // 월간 복귀 패턴 (커머스 등)
@@ -187,4 +193,49 @@ export interface AIAnalysisResult {
     retention?: ValidationSummary;
     sequencing?: ValidationSummary;
   };
+
+  // 🆕 마케팅 데이터 범위 (AI 분석 - 산업별 맞춤)
+  marketingRanges?: MarketingRanges;
+}
+
+/**
+ * 마케팅 데이터 범위 (AI 분석 결과)
+ * 산업별 맞춤 광고 메트릭 범위
+ */
+export interface MarketingRanges {
+  // 광고 메트릭 범위
+  metrics: {
+    clicks: { min: number; max: number };
+    impressions: { min: number; max: number };
+    cost: { min: number; max: number; currency: string };
+    conversions: { min: number; max: number };
+    installs: { min: number; max: number };
+    revenue: { min: number; max: number; currency: string };
+  };
+
+  // 광고 소스 가중치 (AI가 산업별로 조정)
+  mediaSources: Array<{
+    name: string;
+    weight: number;
+    description?: string;
+  }>;
+
+  // 광고 네트워크 (ad_revenue용)
+  adRevenueNetworks?: Array<{
+    name: string;
+    weight: number;
+  }>;
+
+  // 광고 유닛 타입
+  adUnitTypes?: Array<{
+    name: string;
+    weight: number;
+    avgRevenue?: { min: number; max: number };
+  }>;
+
+  // 광고 대행사
+  agencies?: string[];
+
+  // 광고 게재 위치
+  placements?: string[];
 }

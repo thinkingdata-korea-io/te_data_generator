@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { requireAdmin } from '../middleware';
 import { auditMiddleware } from '../audit-middleware';
 import { getAuditLogs } from '../../db/repositories/audit-repository';
+import { logger } from '../../utils/logger';
 
 const router = Router();
 
@@ -27,7 +28,7 @@ router.get('/', requireAdmin, auditMiddleware.viewAuditLogs, async (req: Request
 
     res.json(result);
   } catch (error: any) {
-    console.error('Get audit logs error:', error);
+    logger.error('Get audit logs error:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -127,7 +128,7 @@ router.get('/mock', requireAdmin, (req: Request, res: Response) => {
       },
     });
   } catch (error: any) {
-    console.error('Get audit logs error:', error);
+    logger.error('Get audit logs error:', error);
     res.status(500).json({ error: error.message });
   }
 });

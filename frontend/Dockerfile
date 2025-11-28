@@ -1,4 +1,9 @@
 # Frontend Dockerfile
+#
+# Build command:
+#   docker build -f frontend/Dockerfile -t frontend ./frontend
+#   OR use docker-compose from the root directory
+#
 FROM node:20-alpine AS base
 
 # 의존성 설치 단계
