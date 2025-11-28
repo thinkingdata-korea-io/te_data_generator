@@ -411,17 +411,8 @@ export default function SettingsPage() {
               className="space-y-6"
             >
               <AIConfigSection
-                settings={{
-                  ANTHROPIC_API_KEY: settings.ANTHROPIC_API_KEY,
-                  OPENAI_API_KEY: settings.OPENAI_API_KEY,
-                  GEMINI_API_KEY: settings.GEMINI_API_KEY,
-                  EXCEL_AI_PROVIDER: settings.EXCEL_AI_PROVIDER,
-                  DATA_AI_PROVIDER: settings.DATA_AI_PROVIDER,
-                  DATA_AI_MODEL: settings.DATA_AI_MODEL,
-                  VALIDATION_MODEL_TIER: settings.VALIDATION_MODEL_TIER,
-                  CUSTOM_VALIDATION_MODEL: settings.CUSTOM_VALIDATION_MODEL
-                }}
-                setSettings={(newSettings) => setSettings({ ...settings, ...newSettings })}
+                settings={settings}
+                setSettings={setSettings}
               />
 
               <div className="flex justify-end pt-4 border-t border-[var(--border)]">
