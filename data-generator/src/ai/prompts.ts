@@ -72,6 +72,46 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
 - 광고 수익 네트워크 (있는 경우)
 - 광고 유닛 타입별 평균 수익
 
+### 6. ⭐ 속성 간 상관관계 정의 (현실성 향상!)
+**속성들 간의 논리적 관계**를 정의하여 데이터의 현실성을 높이세요.
+
+**상관관계 타입:**
+- **positive**: 한 속성 증가 → 다른 속성 증가 (예: 광고 노출수 ↑ → 클릭수 ↑)
+- **negative**: 한 속성 증가 → 다른 속성 감소 (예: 가격 ↑ → 할인율 ↓)
+- **conditional**: 조건부 관계 (예: 국가="한국" → 언어="ko")
+
+**예시:**
+\`\`\`json
+{
+  "sourceProperty": "price",
+  "targetProperty": "discount_rate",
+  "correlationType": "negative",
+  "strength": 0.7,
+  "description": "높은 가격 상품은 낮은 할인율"
+}
+\`\`\`
+
+**도메인별 고려사항:**
+- 지역 ↔ 언어 ↔ 통화 (conditional)
+- 가격 ↔ 구매 확률 (negative)
+- 광고 노출 ↔ 클릭 (positive, strength=0.3~0.5)
+- 재방문 횟수 ↔ 만족도 (positive)
+
+### 7. ⭐ 시간 분포 패턴 정의 (현실성 향상!)
+**${userInput.industry} 산업의 시간대별 활동 패턴**을 정의하세요.
+
+**hourlyWeights** (필수):
+- 0~23시 각 시간대의 활동 가중치 (합계 1.0)
+- 산업 특성 반영 (게임: 저녁~밤, 금융: 출근/점심, 커머스: 점심/저녁)
+
+**segmentPeakHours** (선택):
+- 세그먼트별로 다른 피크 시간 정의 가능
+- VIP/프리미엄 유저는 낮 시간대 활동 가능
+
+**weekdayMultipliers** (선택):
+- 요일별 가중치 [일, 월, 화, 수, 목, 금, 토]
+- 주말 증가/감소, 평일 패턴 반영
+
 다음 JSON 형식으로 응답해주세요:
 
 \`\`\`json
@@ -162,6 +202,35 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
     ],
     "agencies": ["Adways", "DMC Media", "Nasmedia", "Cheil Worldwide"],
     "placements": ["youtube_instream", "facebook_feed", "instagram_story", "tiktok_feed"]
+  },
+  "propertyCorrelations": [
+    {
+      "sourceProperty": "price",
+      "targetProperty": "discount_rate",
+      "correlationType": "negative",
+      "strength": 0.7,
+      "description": "고가 상품일수록 할인율이 낮음"
+    },
+    {
+      "sourceProperty": "country",
+      "targetProperty": "language",
+      "correlationType": "conditional",
+      "strength": 1.0,
+      "description": "국가에 따라 언어 자동 매핑",
+      "conditions": [
+        { "sourceValue": "KR", "targetValues": ["ko"] },
+        { "sourceValue": "US", "targetValues": ["en"] },
+        { "sourceValue": "JP", "targetValues": ["ja"] }
+      ]
+    }
+  ],
+  "timingDistribution": {
+    "hourlyWeights": [0.01, 0.01, 0.01, 0.01, 0.02, 0.03, 0.04, 0.05, 0.06, 0.05, 0.04, 0.05, 0.06, 0.05, 0.04, 0.05, 0.06, 0.07, 0.08, 0.09, 0.08, 0.06, 0.04, 0.02],
+    "segmentPeakHours": {
+      "VIP 사용자": { "start": 10, "end": 22 },
+      "일반 사용자": { "start": 19, "end": 23 }
+    },
+    "weekdayMultipliers": [1.0, 0.9, 0.9, 0.9, 0.9, 1.0, 1.2]
   }
 }
 \`\`\``;

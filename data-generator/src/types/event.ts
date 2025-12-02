@@ -209,6 +209,44 @@ export interface AIAnalysisResult {
 
   // 🆕 마케팅 데이터 범위 (AI 분석 - 산업별 맞춤)
   marketingRanges?: MarketingRanges;
+
+  // 🆕 속성 간 상관관계 (AI 분석)
+  propertyCorrelations?: PropertyCorrelation[];
+
+  // 🆕 시간 분포 패턴 (AI 분석)
+  timingDistribution?: TimingDistribution;
+}
+
+/**
+ * 시간 분포 패턴 (AI가 산업/세그먼트별로 정의)
+ */
+export interface TimingDistribution {
+  // 시간대별 활동 가중치 (0~23시)
+  hourlyWeights: number[];  // 길이 24, 합계 1.0
+
+  // 세그먼트별 피크 시간 (선택사항)
+  segmentPeakHours?: Record<string, { start: number; end: number }>;
+
+  // 요일별 가중치 (0=일요일, 6=토요일)
+  weekdayMultipliers?: number[];  // 길이 7, 기본값 1.0
+}
+
+/**
+ * 속성 간 상관관계 정의
+ */
+export interface PropertyCorrelation {
+  sourceProperty: string;          // 기준 속성 (예: "price")
+  targetProperty: string;           // 영향받는 속성 (예: "discount_rate")
+  correlationType: 'positive' | 'negative' | 'conditional';
+  strength: number;                 // 0.0 ~ 1.0 (상관 강도)
+  description?: string;             // 설명
+
+  // conditional일 때 사용
+  conditions?: Array<{
+    sourceValue: any;               // 조건 값
+    targetRange?: { min: number; max: number };
+    targetValues?: any[];
+  }>;
 }
 
 /**

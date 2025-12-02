@@ -416,7 +416,65 @@ export class EventGenerator {
       );
     });
 
+    // 4. 🆕 속성 간 상관관계 적용
+    this.applyPropertyCorrelations(properties, user);
+
     return properties;
+  }
+
+  /**
+   * 🆕 속성 간 상관관계 적용
+   */
+  private applyPropertyCorrelations(properties: Record<string, any>, user: User): void {
+    const correlations = this.aiAnalysis.propertyCorrelations;
+    if (!correlations || correlations.length === 0) return;
+
+    for (const correlation of correlations) {
+      const sourceValue = properties[correlation.sourceProperty];
+      if (sourceValue === undefined) continue;
+
+      // 상관관계 타입별 처리
+      switch (correlation.correlationType) {
+        case 'positive':
+          // 양의 상관: source 증가 → target 증가
+          if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
+            // strength만큼 sourceValue에 영향받도록 조정
+            const adjustment = sourceValue * correlation.strength;
+            properties[correlation.targetProperty] += adjustment;
+          }
+          break;
+
+        case 'negative':
+          // 음의 상관: source 증가 → target 감소
+          if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
+            const adjustment = sourceValue * correlation.strength;
+            properties[correlation.targetProperty] = Math.max(0, properties[correlation.targetProperty] - adjustment);
+          }
+          break;
+
+        case 'conditional':
+          // 조건부: source 값에 따라 target 값 결정
+          if (correlation.conditions) {
+            const matchedCondition = correlation.conditions.find(
+              cond => cond.sourceValue === sourceValue
+            );
+            if (matchedCondition) {
+              if (matchedCondition.targetValues && matchedCondition.targetValues.length > 0) {
+                // targetValues 중 랜덤 선택
+                properties[correlation.targetProperty] =
+                  matchedCondition.targetValues[Math.floor(Math.random() * matchedCondition.targetValues.length)];
+              } else if (matchedCondition.targetRange) {
+                // targetRange에서 랜덤 값 생성
+                properties[correlation.targetProperty] = randomInt(
+                  matchedCondition.targetRange.min,
+                  matchedCondition.targetRange.max
+                );
+              }
+            }
+          }
+          break;
+      }
+    }
   }
 
   /**

@@ -525,8 +525,8 @@ export class DataGenerator {
     // 세그먼트별 평균 세션 시간
     const avgDuration = aiAnalysis.sessionPatterns.avgSessionDuration[user.segment] || 300000;
 
-    // 산업 및 세그먼트별 접속 시간대 결정
-    const peakHours = this.getPeakHours(user.segment);
+    // 산업 및 세그먼트별 접속 시간대 결정 (AI 정의 우선)
+    const peakHours = this.getPeakHours(user.segment, aiAnalysis);
 
     let currentTime = new Date(date);
     currentTime.setHours(peakHours.start + Math.floor(Math.random() * (peakHours.end - peakHours.start)));
@@ -564,39 +564,23 @@ export class DataGenerator {
   }
 
   /**
-   * 산업 및 세그먼트별 피크 시간대 반환
+   * 🆕 AI 정의 또는 폴백으로 피크 시간대 반환
    */
-  private getPeakHours(segment: string): { start: number; end: number } {
-    const industry = this.config.userInput.industry.toLowerCase();
-
-    // VIP/고급 사용자는 일반적으로 낮 시간대 사용
-    if (segment.toLowerCase().includes('vip') || segment.toLowerCase().includes('whale') || segment.toLowerCase().includes('프리미엄')) {
-      return { start: 10, end: 22 }; // 10:00 ~ 22:00
+  private getPeakHours(segment: string, aiAnalysis: AIAnalysisResult): { start: number; end: number } {
+    // AI가 시간 분포를 정의했으면 사용
+    const timingDist = aiAnalysis.timingDistribution;
+    if (timingDist?.segmentPeakHours?.[segment]) {
+      return timingDist.segmentPeakHours[segment];
     }
 
-    // 산업별 피크 시간
-    if (industry.includes('게임') || industry.includes('game')) {
-      // 게임: 저녁~밤
-      return { start: 19, end: 23 }; // 19:00 ~ 23:00
+    // AI가 hourlyWeights만 정의한 경우: 가장 높은 가중치 시간대를 피크로 사용
+    if (timingDist?.hourlyWeights && timingDist.hourlyWeights.length === 24) {
+      const peakHour = timingDist.hourlyWeights.indexOf(Math.max(...timingDist.hourlyWeights));
+      return { start: Math.max(0, peakHour - 2), end: Math.min(23, peakHour + 2) };
     }
 
-    if (industry.includes('금융') || industry.includes('finance') || industry.includes('bank')) {
-      // 금융: 아침 출근, 점심
-      const random = Math.random();
-      if (random < 0.4) return { start: 9, end: 10 };   // 09:00 ~ 10:00
-      if (random < 0.7) return { start: 12, end: 13 };  // 12:00 ~ 13:00
-      return { start: 20, end: 22 };                     // 20:00 ~ 22:00
-    }
-
-    if (industry.includes('쇼핑') || industry.includes('commerce') || industry.includes('이커머스')) {
-      // 쇼핑: 점심, 저녁
-      const random = Math.random();
-      if (random < 0.4) return { start: 12, end: 14 };  // 12:00 ~ 14:00
-      return { start: 20, end: 22 };                     // 20:00 ~ 22:00
-    }
-
-    // 기본값: 업무 외 시간
-    return { start: 18, end: 22 }; // 18:00 ~ 22:00
+    // 폴백: 기본값
+    return { start: 18, end: 22 };
   }
 
   /**
