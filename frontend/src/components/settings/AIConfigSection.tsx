@@ -159,13 +159,13 @@ export default function AIConfigSection({ settings, setSettings }: AIConfigSecti
             <p>💡 {t.settings.leaveEmptyForDefault}</p>
             <ul className="list-disc list-inside ml-4 space-y-0.5">
               <li>Anthropic: claude-sonnet-4-5 (권장)</li>
-              <li>OpenAI: gpt-4o</li>
+              <li>OpenAI: gpt-4o (권장)</li>
               <li>Gemini: gemini-2.5-pro</li>
             </ul>
             <p className="mt-2">🎯 {t.settings.availableModels}</p>
             <ul className="list-disc list-inside ml-4 space-y-0.5">
               <li>Claude: <code className="bg-[var(--bg-tertiary)] px-1">claude-sonnet-4-5</code>, <code className="bg-[var(--bg-tertiary)] px-1">claude-opus-4-1</code></li>
-              <li>OpenAI: <code className="bg-[var(--bg-tertiary)] px-1">gpt-4o</code>, <code className="bg-[var(--bg-tertiary)] px-1">gpt-4-turbo</code></li>
+              <li>OpenAI: <code className="bg-[var(--bg-tertiary)] px-1">gpt-4o</code>, <code className="bg-[var(--bg-tertiary)] px-1">gpt-4o-mini</code>, <code className="bg-[var(--bg-tertiary)] px-1">gpt-4-turbo</code></li>
               <li>Gemini: <code className="bg-[var(--bg-tertiary)] px-1">gemini-2.5-pro</code>, <code className="bg-[var(--bg-tertiary)] px-1">gemini-2.5-flash</code></li>
             </ul>
           </div>

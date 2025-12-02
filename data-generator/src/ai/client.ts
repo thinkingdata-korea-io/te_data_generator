@@ -236,7 +236,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       throw new Error('OpenAI client not initialized');
     }
 
-    const model = this.config.model || 'gpt-4-turbo-preview';
+    const model = this.config.model || 'gpt-4o';
     const completion = await this.openai.chat.completions.create({
       model,
       messages: [
@@ -469,9 +469,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     });
     logger.info('\n🔗 Phase 1.6: Event Sequencing Analysis');
     const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput);
-    logger.info(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories.lifecycle.length}, onboarding=${eventSequencing.eventCategories.onboarding.length}, core=${eventSequencing.eventCategories.core.length}`);
-    logger.info(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies).length} rules`);
-    logger.info(`  ✅ Logical sequences: ${eventSequencing.logicalSequences.length} funnels`);
+    logger.info(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories?.lifecycle?.length || 0}, onboarding=${eventSequencing.eventCategories?.onboarding?.length || 0}, core=${eventSequencing.eventCategories?.core?.length || 0}`);
+    logger.info(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies || {}).length} rules`);
+    logger.info(`  ✅ Logical sequences: ${eventSequencing.logicalSequences?.length || 0} funnels`);
 
     this.config.onProgress?.({
       phase: 'phase3',
@@ -620,7 +620,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       userSegments: result.userSegments,
       eventDependencies: result.eventDependencies || {},
       eventGroups: result.eventGroups || {},
-      sessionPatterns: result.sessionPatterns
+      sessionPatterns: result.sessionPatterns,
+      propertyCorrelations: result.propertyCorrelations || [],
+      timingDistribution: result.timingDistribution || undefined
     };
   }
 

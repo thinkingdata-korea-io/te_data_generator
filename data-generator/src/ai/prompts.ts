@@ -814,6 +814,7 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
       "endEvents": ["game_end", "battle_end"],
       "innerEvents": ["death", "kill", "score_update", "item_use"],
       "allowInnerAfterEnd": false,
+      "passThroughProperties": ["game_id", "session_id", "match_id", "room_id"],
       "innerEventSequence": [
         {
           "events": ["score_update", "item_use", "kill", "death"],
@@ -828,6 +829,15 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 **allowInnerAfterEnd**:
 - \`false\` (기본값): 종료 후 내부 이벤트 **절대 불가** (게임, 결제, 거래 등)
 - \`true\`: 종료 후에도 가능 (드문 경우, 예: 부활 시스템이 있는 게임)
+
+**🆕 passThroughProperties** (매우 중요!):
+- 트랜잭션 시작 이벤트에서 생성된 값이 **내부/종료 이벤트에 그대로 전달**되어야 하는 속성들
+- 예시:
+  - 게임: \`game_id\`, \`match_id\`, \`room_id\` → 라운드 내 모든 이벤트가 동일한 ID 공유
+  - 결제: \`cart_id\`, \`transaction_id\` → 장바구니 담기~결제 완료까지 동일 ID
+  - 쇼핑: \`product_id\` → 상품 조회~구매까지 동일 상품 ID 유지
+- **누락 시**: \`game_start\`에서 생성한 \`game_id="AAA"\`인데 \`game_end\`에서 \`game_id="BBB"\`로 생성되어 데이터 불일치 발생
+- **정의 시**: 시작 이벤트의 속성값이 내부/종료 이벤트에 복사되어 데이터 일관성 보장
 
 **🆕 innerEventSequence** (선택사항):
 - 트랜잭션 내부 이벤트들의 **논리적 순서**를 정의합니다
@@ -910,6 +920,7 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
         "endEvents": ["end_event"],
         "innerEvents": ["inner1", "inner2"],
         "allowInnerAfterEnd": false,
+        "passThroughProperties": ["transaction_id", "session_id"],
         "innerEventSequence": [
           {
             "events": ["inner1", "inner2"],
