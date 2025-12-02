@@ -105,15 +105,49 @@ export class DependencyManager {
   }
 
   /**
+   * 세그먼트별 이벤트 실행 가능 여부 확인
+   */
+  canExecuteForSegment(eventName: string, userSegment: string): boolean {
+    const constraints = this.aiAnalysis.segmentEventConstraints;
+    if (!constraints || constraints.length === 0) {
+      return true;  // 제약이 없으면 모두 허용
+    }
+
+    for (const constraint of constraints) {
+      if (constraint.segmentName === userSegment) {
+        // 차단된 이벤트 체크
+        if (constraint.blockedEvents && constraint.blockedEvents.includes(eventName)) {
+          return false;  // 🚫 차단!
+        }
+      }
+
+      // 다른 세그먼트 전용 이벤트 체크
+      if (constraint.segmentName !== userSegment) {
+        if (constraint.allowedEvents && constraint.allowedEvents.includes(eventName)) {
+          return false;  // 🚫 다른 세그먼트 전용 이벤트
+        }
+      }
+    }
+
+    return true;  // ✅ 허용
+  }
+
+  /**
    * 이벤트 실행 가능 여부 확인 (강화된 버전)
    */
   canExecuteEvent(
     eventName: string,
     executedEvents: Set<string>,
     isFirstSession: boolean = false,
-    sessionNumber: number = 1
+    sessionNumber: number = 1,
+    userSegment?: string  // 🆕 추가
   ): boolean {
-    // 🆕 0. 트랜잭션 차단 체크 (최우선!)
+    // 🆕 0-1. 세그먼트 체크 (최우선!)
+    if (userSegment && !this.canExecuteForSegment(eventName, userSegment)) {
+      return false;  // 🚫 세그먼트 제약 위반
+    }
+
+    // 🆕 0-2. 트랜잭션 차단 체크
     if (!this.canExecuteInTransaction(eventName)) {
       return false;
     }

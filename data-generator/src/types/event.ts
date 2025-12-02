@@ -98,6 +98,16 @@ export interface Transaction {
 }
 
 /**
+ * 세그먼트별 이벤트 제약
+ */
+export interface SegmentEventConstraint {
+  segmentName: string;                 // 세그먼트 이름 (예: "일반 시청자", "스트리머")
+  blockedEvents?: string[];            // 이 세그먼트는 절대 수행할 수 없는 이벤트
+  allowedEvents?: string[];            // 이 세그먼트만 독점적으로 수행 가능한 이벤트
+  preferredEvents?: string[];          // 이 세그먼트가 선호하는 이벤트 (가중치 증가)
+}
+
+/**
  * AI가 분석한 이벤트 순서 제약
  */
 export interface EventSequencing {
@@ -187,6 +197,9 @@ export interface AIAnalysisResult {
 
   // 🆕 이벤트 순서 제약 (AI 분석)
   eventSequencing?: EventSequencing;
+
+  // 🆕 세그먼트별 이벤트 제약 (AI 분석)
+  segmentEventConstraints?: SegmentEventConstraint[];
 
   // 🆕 검증 요약
   validationSummary?: {

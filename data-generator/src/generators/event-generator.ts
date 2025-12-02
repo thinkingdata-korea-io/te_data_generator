@@ -68,7 +68,7 @@ export class EventGenerator {
     if (isFirstSession) {
       const onboardingEvents = this.dependencyManager.getEventsByCategory('onboarding');
       for (const eventName of onboardingEvents) {
-        if (!this.dependencyManager.canExecuteEvent(eventName, executedEvents, isFirstSession, sessionNumber)) {
+        if (!this.dependencyManager.canExecuteEvent(eventName, executedEvents, isFirstSession, sessionNumber, session.user.segment)) {
           continue;
         }
 
@@ -165,7 +165,7 @@ export class EventGenerator {
     const availableTransactions = sequencing.transactions.filter(transaction => {
       // 시작 이벤트가 실행 가능한가?
       return transaction.startEvents.some(startEvent =>
-        this.dependencyManager.canExecuteEvent(startEvent, executedEvents, isFirstSession, sessionNumber)
+        this.dependencyManager.canExecuteEvent(startEvent, executedEvents, isFirstSession, sessionNumber, session.user.segment)
       );
     });
 
@@ -535,8 +535,8 @@ export class EventGenerator {
         return false;
       }
 
-      // 의존성 및 실행 제약 체크
-      if (!this.dependencyManager.canExecuteEvent(event.event_name, executedEvents, isFirstSession, sessionNumber)) {
+      // 의존성 및 실행 제약 체크 (세그먼트 포함)
+      if (!this.dependencyManager.canExecuteEvent(event.event_name, executedEvents, isFirstSession, sessionNumber, user.segment)) {
         return false;
       }
 
