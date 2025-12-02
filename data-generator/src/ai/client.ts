@@ -508,9 +508,9 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       logger.info(`  📁 AI grouped into ${groups.size} categories`);
     }
 
-    // 큰 그룹 분할 (최대 10개씩)
-    groups = splitLargeGroups(groups, 10);
-    logger.info(`  📁 Final groups: ${groups.size} (max 10 events per group)`);
+    // 큰 그룹 분할 (최대 5개씩)
+    groups = splitLargeGroups(groups, 5);
+    logger.info(`  📁 Final groups: ${groups.size} (max 5 events per group)`);
 
     this.config.onProgress?.({
       phase: 'phase4',

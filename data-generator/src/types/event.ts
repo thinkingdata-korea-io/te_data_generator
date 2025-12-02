@@ -90,11 +90,21 @@ export interface Transaction {
   innerEvents: string[];          // 트랜잭션 내부 이벤트들
   allowInnerAfterEnd: boolean;    // 종료 후 내부 이벤트 허용 여부 (기본: false)
 
+  // 🆕 상태 유지 속성 (Pass-through Properties)
+  passThroughProperties?: string[];  // 트랜잭션 내 모든 이벤트가 공유해야 하는 속성들
+
   // 🆕 내부 이벤트 순서 정의 (선택사항)
   innerEventSequence?: Array<{
     events: string[];             // 순서대로 실행할 이벤트 목록
     strictOrder: boolean;         // true: 반드시 순서 준수, false: 일부 생략 가능
   }>;
+
+  // 🆕 트랜잭션 상태 전이 (선택사항, 고급 기능)
+  transactionStates?: {
+    states: string[];             // 가능한 상태 목록 (예: ["active", "paused", "ended"])
+    allowedEvents: Record<string, string[]>;  // 각 상태에서 허용되는 이벤트들
+    stateTransitions: Record<string, string[]>;  // 각 상태에서 전환 가능한 다음 상태들
+  };
 }
 
 /**
@@ -105,6 +115,19 @@ export interface SegmentEventConstraint {
   blockedEvents?: string[];            // 이 세그먼트는 절대 수행할 수 없는 이벤트
   allowedEvents?: string[];            // 이 세그먼트만 독점적으로 수행 가능한 이벤트
   preferredEvents?: string[];          // 이 세그먼트가 선호하는 이벤트 (가중치 증가)
+}
+
+/**
+ * 세그먼트 전환(Migration) 정의
+ * 사용자가 시간이 지남에 따라 세그먼트 간 이동하는 규칙
+ */
+export interface SegmentMigration {
+  fromSegment: string;              // 출발 세그먼트
+  toSegment: string;                // 도착 세그먼트
+  trigger: 'time' | 'event' | 'lifecycle';  // 전환 트리거 타입
+  condition: string;                // 전환 조건 (예: "7일 경과 AND 5회 이상 접속")
+  probability: number;              // 전환 확률 (0.0 ~ 1.0)
+  description?: string;             // 설명
 }
 
 /**
@@ -142,6 +165,7 @@ export interface EventSequencing {
     distribution?: 'exponential' | 'normal' | 'uniform';  // 분포 타입 (기본: exponential)
     minSeconds?: number;          // 최소 시간 간격
     maxSeconds?: number;          // 최대 시간 간격
+    segmentMultipliers?: Record<string, number>;  // 세그먼트별 시간 가중치 (예: "신규 사용자": 2.0)
   }>;
 
   // 논리적 이벤트 순서 (funnel)
@@ -201,6 +225,9 @@ export interface AIAnalysisResult {
   // 🆕 세그먼트별 이벤트 제약 (AI 분석)
   segmentEventConstraints?: SegmentEventConstraint[];
 
+  // 🆕 세그먼트 전환 규칙 (AI 분석 - 동적 페르소나)
+  segmentMigrations?: SegmentMigration[];
+
   // 🆕 검증 요약
   validationSummary?: {
     retention?: ValidationSummary;
@@ -229,6 +256,12 @@ export interface TimingDistribution {
 
   // 요일별 가중치 (0=일요일, 6=토요일)
   weekdayMultipliers?: number[];  // 길이 7, 기본값 1.0
+
+  // 🆕 이벤트별 시간 패턴 오버라이드 (선택사항)
+  eventTimingOverrides?: Record<string, {
+    hourlyWeights: number[];  // 이벤트별 시간 가중치 (전역 패턴 덮어쓰기)
+    description?: string;     // 설명 (예: "아침 7-9시 집중")
+  }>;
 }
 
 /**
