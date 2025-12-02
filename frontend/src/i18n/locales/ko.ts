@@ -171,6 +171,16 @@ export const ko = {
     fullProcessStep3: 'AI 분석',
     fullProcessStep4: '데이터 생성',
 
+    sendOnlyTitle: '데이터 전송만',
+    sendOnlyDesc: '저장된 파일 업로드 → 전송',
+    sendStep1: '데이터 파일 업로드',
+    sendStep2: 'APP_ID 입력',
+    sendStep3: 'ThinkingEngine 전송',
+
+    advancedOptions: '고급 옵션',
+    showAdvancedOptions: '고급 옵션 보기',
+    hideAdvancedOptions: '고급 옵션 숨기기',
+
     // Mode selection
     newStart: '새로 시작하기',
     newStartDesc: '산업/서비스 정보를 입력하여\n엑셀 스키마부터 자동으로 생성합니다',

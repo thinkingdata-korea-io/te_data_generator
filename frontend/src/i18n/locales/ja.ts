@@ -171,6 +171,16 @@ export const ja = {
     fullProcessStep3: 'AI分析',
     fullProcessStep4: 'データ生成',
 
+    sendOnlyTitle: 'データ送信のみ',
+    sendOnlyDesc: '保存ファイルをアップロード → 送信',
+    sendStep1: 'データファイルアップロード',
+    sendStep2: 'APP_ID 入力',
+    sendStep3: 'ThinkingEngineに送信',
+
+    advancedOptions: '詳細オプション',
+    showAdvancedOptions: '詳細オプションを表示',
+    hideAdvancedOptions: '詳細オプションを非表示',
+
     // Mode selection
     newStart: '最初から開始',
     newStartDesc: '業界/サービス情報を入力して\nExcelスキーマを自動生成',

@@ -171,6 +171,16 @@ export const zh = {
     fullProcessStep3: 'AI分析',
     fullProcessStep4: '数据生成',
 
+    sendOnlyTitle: '仅发送数据',
+    sendOnlyDesc: '上传已保存文件 → 发送',
+    sendStep1: '上传数据文件',
+    sendStep2: '输入 APP_ID',
+    sendStep3: '发送到 ThinkingEngine',
+
+    advancedOptions: '高级选项',
+    showAdvancedOptions: '显示高级选项',
+    hideAdvancedOptions: '隐藏高级选项',
+
     // Mode selection
     newStart: '从头开始',
     newStartDesc: '输入行业/服务信息\n自动生成Excel架构',

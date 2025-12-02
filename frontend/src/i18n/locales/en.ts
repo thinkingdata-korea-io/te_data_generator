@@ -171,6 +171,16 @@ export const en = {
     fullProcessStep3: 'AI Analysis',
     fullProcessStep4: 'Data Generation',
 
+    sendOnlyTitle: 'Send Data Only',
+    sendOnlyDesc: 'Upload saved files → Send',
+    sendStep1: 'Upload Data Files',
+    sendStep2: 'Enter APP_ID',
+    sendStep3: 'Send to ThinkingEngine',
+
+    advancedOptions: 'Advanced Options',
+    showAdvancedOptions: 'Show Advanced Options',
+    hideAdvancedOptions: 'Hide Advanced Options',
+
     // Mode selection
     newStart: 'Start from Scratch',
     newStartDesc: 'Input industry/service information to\nautomatically generate Excel schema',
