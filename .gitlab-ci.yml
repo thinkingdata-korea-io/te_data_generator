@@ -13,6 +13,12 @@ build-backend:
   stage: build
   only:
     - main
+  timeout: 30m
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   script:
     - echo "Building backend Docker image..."
     - docker build -f data-generator/Dockerfile -t ${BACKEND_IMAGE}:${CI_COMMIT_SHORT_SHA} .
@@ -28,6 +34,12 @@ build-frontend:
   stage: build
   only:
     - main
+  timeout: 30m
+  retry:
+    max: 2
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   script:
     - echo "Building frontend Docker image..."
     - docker build -f frontend/Dockerfile -t ${FRONTEND_IMAGE}:${CI_COMMIT_SHORT_SHA} .
@@ -43,6 +55,12 @@ deploy-k8s:
   stage: deploy
   only:
     - main
+  timeout: 15m
+  retry:
+    max: 1
+    when:
+      - runner_system_failure
+      - stuck_or_timeout_failure
   dependencies:
     - build-backend
     - build-frontend
