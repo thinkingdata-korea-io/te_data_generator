@@ -10,6 +10,8 @@ import { AnalysisExcelGenerator } from '../../utils/analysis-excel-generator';
 import { AnalysisExcelParser } from '../../utils/analysis-excel-parser';
 import * as fs from 'fs';
 import { logger } from '../../utils/logger';
+import { requireAuth } from '../middleware';
+import { getUserSettings } from '../../db/repositories/user-settings-repository';
 
 const router = Router();
 
@@ -43,7 +45,7 @@ const upload = multer({
  * POST /api/generate/start
  * Start data generation
  */
-router.post('/start', async (req: Request, res: Response) => {
+router.post('/start', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
       excelPath,
@@ -74,19 +76,38 @@ router.post('/start', async (req: Request, res: Response) => {
       logger.info('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
     }
 
-    // Check AI API Key
-    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+    // Get user settings
+    const userId = (req as any).user.userId;
+    const userSettings = await getUserSettings(userId);
+
+    // Get AI API Key from user settings ONLY (no environment fallback)
+    let aiApiKey: string | undefined;
+    const requestedProvider = aiProvider || userSettings?.dataAiProvider || 'anthropic';
+
+    if (requestedProvider === 'anthropic') {
+      aiApiKey = userSettings?.anthropicApiKey;
+    } else if (requestedProvider === 'openai') {
+      aiApiKey = userSettings?.openaiApiKey;
+    } else if (requestedProvider === 'gemini') {
+      aiApiKey = userSettings?.geminiApiKey;
+    }
+
     if (!aiApiKey) {
-      return res.status(500).json({
+      return res.status(400).json({
         error: 'AI API key not configured',
-        message: 'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY in environment'
+        message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
+        redirectTo: '/dashboard/settings',
+        action: 'configure_api_key',
+        provider: requestedProvider
       });
     }
+
+    logger.info(`🔑 Using ${requestedProvider} API key from user settings`);
 
     // Generate Run ID
     const runId = `run_${Date.now()}`;
 
-    // Prepare config
+    // Prepare config with user settings
     const config: DataGeneratorConfig = {
       excelFilePath: excelPath,
       userInput: {
@@ -99,11 +120,11 @@ router.post('/start', async (req: Request, res: Response) => {
           end: dateEnd
         }
       },
-      aiProvider: (aiProvider || 'anthropic') as 'openai' | 'anthropic' | 'gemini',
+      aiProvider: requestedProvider as 'openai' | 'anthropic' | 'gemini',
       aiApiKey,
-      aiModel: process.env.DATA_AI_MODEL || undefined,
-      validationModelTier: (process.env.VALIDATION_MODEL_TIER as 'fast' | 'balanced') || 'fast',
-      customValidationModel: process.env.CUSTOM_VALIDATION_MODEL || undefined,
+      aiModel: userSettings?.dataAiModel || undefined,
+      validationModelTier: (userSettings?.validationModelTier || 'fast') as 'fast' | 'balanced',
+      customValidationModel: userSettings?.customValidationModel || undefined,
       outputDataPath: outputDataPath || path.resolve(__dirname, '../../../output/data'),
       outputMetadataPath: outputMetadataPath || path.resolve(__dirname, '../../../output/runs')
     };
@@ -143,7 +164,7 @@ router.get('/status/:runId', (req: Request, res: Response) => {
  * POST /api/generate/analyze
  * AI analysis only (no data generation)
  */
-router.post('/analyze', async (req: Request, res: Response) => {
+router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
   try {
     const {
       excelPath,
@@ -183,14 +204,33 @@ router.post('/analyze', async (req: Request, res: Response) => {
       enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
     }
 
-    // Check AI API Key
-    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+    // Get user settings
+    const userId = (req as any).user.userId;
+    const userSettings = await getUserSettings(userId);
+
+    // Get AI API Key from user settings ONLY (no environment fallback)
+    let aiApiKey: string | undefined;
+    const requestedProvider = aiProvider || userSettings?.dataAiProvider || 'anthropic';
+
+    if (requestedProvider === 'anthropic') {
+      aiApiKey = userSettings?.anthropicApiKey;
+    } else if (requestedProvider === 'openai') {
+      aiApiKey = userSettings?.openaiApiKey;
+    } else if (requestedProvider === 'gemini') {
+      aiApiKey = userSettings?.geminiApiKey;
+    }
+
     if (!aiApiKey) {
-      return res.status(500).json({
+      return res.status(400).json({
         error: 'AI API key not configured',
-        message: 'Set ANTHROPIC_API_KEY, OPENAI_API_KEY, or GEMINI_API_KEY in environment'
+        message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
+        redirectTo: '/dashboard/settings',
+        action: 'configure_api_key',
+        provider: requestedProvider
       });
     }
+
+    logger.info(`🔑 Using ${requestedProvider} API key from user settings`);
 
     // Generate Analysis ID
     const analysisId = `analysis_${Date.now()}`;
@@ -206,7 +246,7 @@ router.post('/analyze', async (req: Request, res: Response) => {
       notes: enhancedNotes,
       dateStart,
       dateEnd,
-      aiProvider: (aiProvider || 'anthropic') as 'openai' | 'anthropic' | 'gemini',
+      aiProvider: requestedProvider as 'openai' | 'anthropic' | 'gemini',
       aiApiKey,
       language
     });
@@ -269,7 +309,7 @@ router.put('/analysis/:analysisId', (req: Request, res: Response) => {
  * POST /api/generate/start-with-analysis
  * Start data generation with modified AI analysis
  */
-router.post('/start-with-analysis', async (req: Request, res: Response) => {
+router.post('/start-with-analysis', requireAuth, async (req: Request, res: Response) => {
   try {
     const { analysisId } = req.body;
 
@@ -287,16 +327,36 @@ router.post('/start-with-analysis', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Analysis not yet completed' });
     }
 
-    // Generate Run ID
-    const runId = `run_${Date.now()}`;
+    // Get user settings
+    const userId = (req as any).user.userId;
+    const userSettings = await getUserSettings(userId);
 
-    // Check AI API Key
-    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY;
+    // Get AI API Key from user settings ONLY (no environment fallback)
+    let aiApiKey: string | undefined;
+    const requestedProvider = analysis.config.aiProvider || userSettings?.dataAiProvider || 'anthropic';
+
+    if (requestedProvider === 'anthropic') {
+      aiApiKey = userSettings?.anthropicApiKey;
+    } else if (requestedProvider === 'openai') {
+      aiApiKey = userSettings?.openaiApiKey;
+    } else if (requestedProvider === 'gemini') {
+      aiApiKey = userSettings?.geminiApiKey;
+    }
+
     if (!aiApiKey) {
-      return res.status(500).json({
-        error: 'AI API key not configured'
+      return res.status(400).json({
+        error: 'AI API key not configured',
+        message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
+        redirectTo: '/dashboard/settings',
+        action: 'configure_api_key',
+        provider: requestedProvider
       });
     }
+
+    logger.info(`🔑 Using ${requestedProvider} API key from user settings`);
+
+    // Generate Run ID
+    const runId = `run_${Date.now()}`;
 
     // Prepare config with pre-analyzed result
     const config: DataGeneratorConfig = {
@@ -311,11 +371,11 @@ router.post('/start-with-analysis', async (req: Request, res: Response) => {
           end: analysis.config.dateEnd
         }
       },
-      aiProvider: analysis.config.aiProvider,
+      aiProvider: requestedProvider as 'openai' | 'anthropic' | 'gemini',
       aiApiKey,
-      aiModel: process.env.DATA_AI_MODEL || undefined,
-      validationModelTier: (process.env.VALIDATION_MODEL_TIER as 'fast' | 'balanced') || 'fast',
-      customValidationModel: process.env.CUSTOM_VALIDATION_MODEL || undefined,
+      aiModel: userSettings?.dataAiModel || undefined,
+      validationModelTier: (userSettings?.validationModelTier || 'fast') as 'fast' | 'balanced',
+      customValidationModel: userSettings?.customValidationModel || undefined,
       outputDataPath: path.resolve(__dirname, '../../../output/data'),
       outputMetadataPath: path.resolve(__dirname, '../../../output/runs'),
       preAnalyzedResult: analysis.result
@@ -422,18 +482,35 @@ router.get('/analysis-excel/download/:filename', (req: Request, res: Response) =
  * POST /api/send-data/:runId
  * Send data to ThinkingEngine
  */
-router.post('/send-data/:runId', async (req: Request, res: Response) => {
+router.post('/send-data/:runId', requireAuth, async (req: Request, res: Response) => {
   try {
     const { runId } = req.params;
     const { appId } = req.body;
 
-    // Validate appId
-    if (!appId || !appId.trim()) {
-      return res.status(400).json({ error: 'appId is required' });
+    // Get user settings
+    const userId = (req as any).user.userId;
+    const userSettings = await getUserSettings(userId);
+
+    // Get TE App ID from request body or user settings ONLY (no environment fallback)
+    const finalAppId = appId?.trim() || userSettings?.teAppId;
+
+    if (!finalAppId) {
+      return res.status(400).json({
+        error: 'TE App ID not configured',
+        message: 'Please configure TE App ID in Settings page',
+        redirectTo: '/dashboard/settings',
+        action: 'configure_te_app_id'
+      });
     }
 
-    // Start async data transmission
-    sendDataAsync(runId, appId.trim());
+    // Get TE Receiver URL from user settings ONLY (use default if not configured)
+    const receiverUrl = userSettings?.teReceiverUrl || 'https://te-receiver-naver.thinkingdata.kr/';
+
+    logger.info(`📤 Sending data with TE App ID: ${finalAppId} to ${receiverUrl}`);
+    logger.info(`🔧 TE settings from ${userSettings?.teAppId ? 'user settings' : 'request body'}`);
+
+    // Start async data transmission with receiverUrl
+    sendDataAsync(runId, finalAppId, receiverUrl);
 
     res.json({
       success: true,

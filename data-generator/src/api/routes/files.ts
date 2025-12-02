@@ -91,8 +91,8 @@ router.post('/files/analyze-multi', upload.array('files', 5), async (req: Reques
 
     // AI 분석 수행 (Anthropic API 키가 있을 경우)
     const apiKey = process.env.ANTHROPIC_API_KEY;
-    const fileAnalysisModel = process.env.FILE_ANALYSIS_MODEL || 'claude-3-5-sonnet-20241022';
-    const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '2000', 10);
+    const fileAnalysisModel = process.env.FILE_ANALYSIS_MODEL || 'claude-sonnet-4-5-20250929';
+    const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
     let analysisResult = null;
 
     if (apiKey) {

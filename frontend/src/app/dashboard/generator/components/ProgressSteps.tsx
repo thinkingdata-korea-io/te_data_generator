@@ -11,18 +11,53 @@ interface ProgressStepsProps {
 export default function ProgressSteps({ currentStep, startMode }: ProgressStepsProps) {
   const { t } = useLanguage();
 
-  // Determine first step label and icon based on task mode
-  const isGenerateMode = startMode === 'taxonomy-only' || startMode === 'full-process';
-  const isUploadMode = startMode === 'analysis-only' || startMode === 'data-only';
+  // Define steps based on task mode
+  let steps: Array<{ key: string; label: string; icon: string }> = [];
 
-  const steps = [
-    { key: 'input', label: isGenerateMode ? t.generator.stepInput : t.generator.stepUpload, icon: isGenerateMode ? '✎' : '⇪' },
-    { key: 'excel', label: isGenerateMode ? t.generator.stepExcel : t.generator.stepSettings, icon: isGenerateMode ? '▦' : '⚙' },
-    { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
-    { key: 'data', label: t.generator.stepData, icon: '⚡' },
-    { key: 'send', label: t.generator.stepSend, icon: '⇈' },
-    { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
-  ];
+  if (startMode === 'taxonomy-only') {
+    // Taxonomy Excel 생성만: Input → Excel 완료
+    steps = [
+      { key: 'input', label: t.generator.stepInput, icon: '✎' },
+      { key: 'excel', label: t.generator.stepExcel, icon: '▦' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  } else if (startMode === 'analysis-only') {
+    // AI 분석만: Upload → AI Analysis 완료
+    steps = [
+      { key: 'input', label: t.generator.stepUpload, icon: '⇪' },
+      { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  } else if (startMode === 'data-only') {
+    // 데이터만 생성: Upload → Settings → Data → Send 완료
+    steps = [
+      { key: 'input', label: t.generator.stepUpload, icon: '⇪' },
+      { key: 'excel', label: t.generator.stepSettings, icon: '⚙' },
+      { key: 'data', label: t.generator.stepData, icon: '⚡' },
+      { key: 'send', label: t.generator.stepSend, icon: '⇈' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  } else if (startMode === 'full-process') {
+    // 전체 프로세스: Input → Excel → AI Analysis → Data → Send 완료
+    steps = [
+      { key: 'input', label: t.generator.stepInput, icon: '✎' },
+      { key: 'excel', label: t.generator.stepExcel, icon: '▦' },
+      { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
+      { key: 'data', label: t.generator.stepData, icon: '⚡' },
+      { key: 'send', label: t.generator.stepSend, icon: '⇈' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  } else {
+    // Default: full process
+    steps = [
+      { key: 'input', label: t.generator.stepInput, icon: '✎' },
+      { key: 'excel', label: t.generator.stepExcel, icon: '▦' },
+      { key: 'ai-analysis', label: t.generator.stepAIAnalysis, icon: '🤖' },
+      { key: 'data', label: t.generator.stepData, icon: '⚡' },
+      { key: 'send', label: t.generator.stepSend, icon: '⇈' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  }
 
   return (
     <div className="mb-8">
@@ -61,7 +96,7 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
                   {step.label}
                 </span>
               </div>
-              {index < 5 && (
+              {index < steps.length - 1 && (
                 <div className={`h-0.5 flex-1 mx-2 transition-all ${
                   isCompleted ? 'bg-[var(--accent-green)]' : 'bg-[var(--border)]'
                 }`} />

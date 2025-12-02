@@ -72,7 +72,7 @@ export default function FileUploadZone({
 
   // 허용된 파일 확장자
   const allowedExtensions = [
-    '.pdf', '.txt', '.md', '.docx', '.xlsx', '.xls',
+    '.pdf',
     '.png', '.jpg', '.jpeg', '.gif', '.webp',
     '.json', '.js', '.ts', '.tsx', '.jsx', '.py', '.java', '.go', '.rs', '.swift', '.kt'
   ];

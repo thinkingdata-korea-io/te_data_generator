@@ -11,7 +11,7 @@ import { logger } from '../../utils/logger';
 /**
  * Send data async via LogBus2
  */
-export async function sendDataAsync(runId: string, appId: string): Promise<void> {
+export async function sendDataAsync(runId: string, appId: string, receiverUrl?: string): Promise<void> {
   let logbusController: any = null;
 
   try {
@@ -29,8 +29,8 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
       throw new Error(`No data files found in: ${dataDir}`);
     }
 
-    // ThinkingEngine configuration
-    const receiverUrl = process.env.TE_RECEIVER_URL || 'https://te-receiver-naver.thinkingdata.kr/';
+    // ThinkingEngine configuration (receiverUrl is required from caller)
+    const finalReceiverUrl = receiverUrl || 'https://te-receiver-naver.thinkingdata.kr/';
     const logbusPath = path.resolve(__dirname, '../../../../logbus/logbus');
 
     if (!appId) {
@@ -59,7 +59,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
     const { LogBus2Controller } = await import('../../logbus/controller');
     logbusController = new LogBus2Controller({
       appId,
-      receiverUrl,
+      receiverUrl: finalReceiverUrl,
       logbusPath,
       dataPath: dataDir,
       cpuLimit: 4,
@@ -149,7 +149,7 @@ export async function sendDataAsync(runId: string, appId: string): Promise<void>
       sentInfo: {
         appId,
         fileSizeMB,
-        receiverUrl,
+        receiverUrl: finalReceiverUrl,
         fileCount: files.length,
         files: files,
         method: 'LogBus2 (gzip compressed)'

@@ -246,6 +246,10 @@ export default function Home() {
   };
 
   const handleStartDataGeneration = async () => {
+    // Validate data settings before starting generation
+    if (!dataGeneration.validateDataSettings(formData)) {
+      return; // Validation failed, don't proceed
+    }
     await dataGeneration.startGeneration(generatedExcelPath, formData, settings, fileAnalysisResult);
   };
 
@@ -478,13 +482,14 @@ export default function Home() {
             onDownloadExcel={() => {
               const filename = generatedExcelPath.split('/').pop() || '';
               if (filename) {
-                window.open(`/api/excel/download/${encodeURIComponent(filename)}`, '_blank');
+                window.open(`http://localhost:3001/api/excel/download/${encodeURIComponent(filename)}`, '_blank');
               } else {
                 alert('Excel 파일 이름을 찾을 수 없습니다.');
               }
             }}
             onComplete={handleComplete}
             onStartAIAnalysis={handleStartAIAnalysis}
+            startMode={startMode}
           />
         )}
 
@@ -753,6 +758,10 @@ export default function Home() {
               </button>
               <button
                 onClick={async () => {
+                  // Validate BEFORE changing step to prevent UI from advancing on validation failure
+                  if (!dataGeneration.validateDataSettings(formData)) {
+                    return; // Validation failed, don't proceed
+                  }
                   await dataGeneration.startGeneration(uploadedExcelPath, formData, settings, fileAnalysisResult);
                 }}
                 className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
@@ -796,6 +805,7 @@ export default function Home() {
               setEditedEventSequences(updatedResult.eventSequences || []);
               setEditedTransactions(updatedResult.transactions || []);
             }}
+            startMode={startMode}
           />
         )}
 
@@ -843,6 +853,10 @@ export default function Home() {
               <button
                 onClick={async () => {
                   if (startMode === 'data-only') {
+                    // Validate BEFORE retrying to prevent UI from advancing on validation failure
+                    if (!dataGeneration.validateDataSettings(formData)) {
+                      return; // Validation failed, don't proceed
+                    }
                     await dataGeneration.startGeneration(uploadedExcelPath, formData, settings, fileAnalysisResult);
                   } else {
                     handleStartDataGeneration();

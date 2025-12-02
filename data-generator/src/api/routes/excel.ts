@@ -23,8 +23,10 @@ const storage = multer.diskStorage({
   },
   filename: (req, file, cb) => {
     const timestamp = Date.now();
+    const randomString = Math.random().toString(36).substring(2, 8);
     const originalName = Buffer.from(file.originalname, 'latin1').toString('utf8');
-    cb(null, `${timestamp}_${originalName}`);
+    const safeName = originalName.replace(/[^a-zA-Z0-9._-]/g, '_');
+    cb(null, `${timestamp}_${randomString}_${safeName}`);
   }
 });
 

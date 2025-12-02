@@ -33,7 +33,7 @@ export class FileAnalyzer {
   private model: string;
   private maxTokens: number;
 
-  constructor(apiKey?: string, model: string = 'claude-3-5-sonnet-20241022', maxTokens: number = 2000) {
+  constructor(apiKey?: string, model: string = 'claude-sonnet-4-5-20250929', maxTokens: number = 4000) {
     if (apiKey) {
       this.anthropic = new Anthropic({ apiKey });
     }
@@ -98,8 +98,8 @@ export class FileAnalyzer {
     const fileType = path.extname(filePath).toLowerCase();
 
     try {
-      // 이미지 또는 PDF 파일
-      if (this.isImageFile(filePath) || this.isPDFFile(filePath)) {
+      // 이미지 파일
+      if (this.isImageFile(filePath)) {
         const fileData = fs.readFileSync(filePath);
         const base64Data = fileData.toString('base64');
         const mediaType = this.getMediaType(filePath);
@@ -122,6 +122,53 @@ export class FileAnalyzer {
                 {
                   type: 'text',
                   text: `이 파일의 내용을 분석하여 요약해주세요.
+
+다음 관점에서 파일 내용을 파악하고 정리해주세요:
+1. **문서/파일 유형**: 무엇에 관한 자료인가? (예: 기획서, 화면설계서, API 명세, 데이터 스키마, 가이드라인 등)
+2. **주요 내용 요약**: 핵심적으로 다루는 내용이 무엇인가?
+3. **중요 키워드/개념**: 반복적으로 나오거나 중요한 용어, 기능명, 데이터 항목 등
+4. **추가 컨텍스트**: Taxonomy 설계나 데이터 생성 시 참고할 만한 특징이나 제약사항
+
+간결하고 명확하게 한국어로 답변해주세요.`,
+                },
+              ],
+            },
+          ],
+        });
+
+        const analysis = message.content[0].type === 'text' ? message.content[0].text : '';
+
+        return {
+          fileName,
+          fileType,
+          analysis,
+          insights: this.extractInsights(analysis),
+        };
+      }
+
+      // PDF 문서 파일
+      if (this.isPDFFile(filePath)) {
+        const fileData = fs.readFileSync(filePath);
+        const base64Data = fileData.toString('base64');
+
+        const message = await this.anthropic.messages.create({
+          model: this.model,
+          max_tokens: this.maxTokens,
+          messages: [
+            {
+              role: 'user',
+              content: [
+                {
+                  type: 'document',
+                  source: {
+                    type: 'base64',
+                    media_type: 'application/pdf',
+                    data: base64Data,
+                  },
+                },
+                {
+                  type: 'text',
+                  text: `이 문서의 내용을 분석하여 요약해주세요.
 
 다음 관점에서 파일 내용을 파악하고 정리해주세요:
 1. **문서/파일 유형**: 무엇에 관한 자료인가? (예: 기획서, 화면설계서, API 명세, 데이터 스키마, 가이드라인 등)

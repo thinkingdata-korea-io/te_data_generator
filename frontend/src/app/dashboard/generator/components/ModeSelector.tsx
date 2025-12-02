@@ -19,33 +19,33 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
       mode: 'taxonomy-only' as TaskMode,
       icon: '📋',
       color: 'cyan',
-      title: 'Taxonomy Excel 생성',
-      desc: 'AI 없이 이벤트 정의만',
-      steps: ['설정 입력', 'Excel 생성', '다운로드']
+      title: t.generator.taxonomyOnlyTitle,
+      desc: t.generator.taxonomyOnlyDesc,
+      steps: [t.generator.taxonomyStep1, t.generator.taxonomyStep2, t.generator.taxonomyStep3]
     },
     {
       mode: 'analysis-only' as TaskMode,
       icon: '🤖',
       color: 'purple',
-      title: 'AI 분석 Excel 생성',
-      desc: 'Taxonomy → AI 분석 변환',
-      steps: ['Taxonomy 업로드', 'AI 분석', '결과 다운로드']
+      title: t.generator.analysisOnlyTitle,
+      desc: t.generator.analysisOnlyDesc,
+      steps: [t.generator.analysisStep1, t.generator.analysisStep2, t.generator.analysisStep3]
     },
     {
       mode: 'data-only' as TaskMode,
       icon: '📊',
       color: 'green',
-      title: '데모 데이터 생성',
-      desc: 'AI 분석 Excel → 실제 데이터',
-      steps: ['Excel 2개 업로드', '검토/수정', '데이터 생성']
+      title: t.generator.dataOnlyTitle,
+      desc: t.generator.dataOnlyDesc,
+      steps: [t.generator.dataStep1, t.generator.dataStep2, t.generator.dataStep3]
     },
     {
       mode: 'full-process' as TaskMode,
       icon: '🚀',
       color: 'orange',
-      title: '전체 프로세스',
-      desc: '처음부터 끝까지 한번에',
-      steps: ['설정', 'Taxonomy', 'AI 분석', '데이터 생성']
+      title: t.generator.fullProcessTitle,
+      desc: t.generator.fullProcessDesc,
+      steps: [t.generator.fullProcessStep1, t.generator.fullProcessStep2, t.generator.fullProcessStep3, t.generator.fullProcessStep4]
     }
   ];
 
@@ -62,10 +62,10 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
   return (
     <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8">
       <h2 className="text-2xl font-bold mb-2 text-terminal-cyan font-mono">
-        &gt; 무엇을 하고 싶으신가요?
+        &gt; {t.generator.whatDoYouWant}
       </h2>
       <p className="text-[var(--text-dimmed)] text-sm mb-6 font-mono">
-        작업을 선택하세요. 각 작업은 독립적으로 수행할 수 있습니다.
+        {t.generator.selectTask}
       </p>
 
       {/* Language Selection */}
@@ -86,7 +86,7 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
           <option value="ja">🇯🇵 日本語 (Japanese)</option>
         </select>
         <p className="mt-3 text-xs text-[var(--text-dimmed)] font-mono">
-          💡 선택한 언어로 분석 결과와 데이터가 생성됩니다
+          💡 {t.generator.languageSelectionTip}
         </p>
       </div>
 

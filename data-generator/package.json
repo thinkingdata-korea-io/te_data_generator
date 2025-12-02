@@ -20,7 +20,7 @@
   "author": "ThinkingData Korea",
   "license": "MIT",
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.24.0",
+    "@anthropic-ai/sdk": "^0.71.0",
     "@faker-js/faker": "^8.4.1",
     "@google/generative-ai": "^0.24.1",
     "@types/bcrypt": "^6.0.0",

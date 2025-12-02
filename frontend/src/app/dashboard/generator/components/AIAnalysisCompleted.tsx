@@ -2,7 +2,7 @@
 
 import { useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { AIAnalysisResult } from '../types';
+import { AIAnalysisResult, TaskMode } from '../types';
 
 interface AIAnalysisCompletedProps {
   aiAnalysisResult: AIAnalysisResult;
@@ -11,6 +11,7 @@ interface AIAnalysisCompletedProps {
   onComplete: () => void;
   onProceedToGeneration: () => void;
   onAnalysisUpdate?: (updatedResult: AIAnalysisResult) => void;
+  startMode?: TaskMode | null;
 }
 
 export default function AIAnalysisCompleted({
@@ -19,7 +20,8 @@ export default function AIAnalysisCompleted({
   analysisId,
   onComplete,
   onProceedToGeneration,
-  onAnalysisUpdate
+  onAnalysisUpdate,
+  startMode
 }: AIAnalysisCompletedProps) {
   const { t } = useLanguage();
   const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
@@ -81,32 +83,92 @@ export default function AIAnalysisCompleted({
     }
   };
 
+  // Analysis-only 모드: 간단한 완료 화면
+  if (startMode === 'analysis-only') {
+    return (
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
+        <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
+          <span>✓</span> {t.generator.aiAnalysisTitle}
+        </h2>
+        <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
+          <p className="text-[var(--accent-green)] mb-4 font-mono">{t.generator.excelSchemaSuccess}</p>
+          <p className="text-sm text-[var(--text-secondary)] font-mono">{t.generator.analysisOnlyComplete}</p>
+        </div>
+
+        {aiAnalysisResult && (
+          <div className="mb-6 space-y-4">
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.userSegments}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {aiAnalysisResult.userSegments?.length ?? 0}{t.generator.segmentCount}
+                </p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventSequenceRules}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {aiAnalysisResult.eventSequencing?.transactions?.length ?? 0}{t.generator.sequenceCount}
+                </p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.transactionDefinitions}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
+                  {aiAnalysisResult.eventSequencing?.transactions?.length ?? 0}{t.generator.transactionsCount}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          {analysisExcelFileName && (
+            <button
+              type="button"
+              onClick={handleDownloadExcel}
+              className="py-4 rounded text-[var(--accent-green)] font-mono font-semibold bg-[var(--bg-tertiary)] border-2 border-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 transition-all"
+            >
+              ⇓ {t.generator.downloadExcel}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={onComplete}
+            className="py-4 rounded text-[var(--text-primary)] font-mono font-semibold bg-[var(--bg-tertiary)] border-2 border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-all"
+          >
+            ← {t.generator.backToHome}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Full Process 모드: 기존 화면 (수정/데이터 생성 진행)
   return (
     <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
       <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
-        <span>✓</span> AI 분석 완료!
+        <span>✓</span> {t.generator.aiAnalysisTitle}
       </h2>
 
       {/* Analysis Summary */}
       <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
-        <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">분석 결과 요약</h3>
+        <h3 className="font-bold text-[var(--accent-green)] mb-4 text-lg font-mono">{t.generator.analysisResultSummary}</h3>
         <div className="grid grid-cols-3 gap-4">
           <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-            <p className="text-xs text-[var(--text-dimmed)] font-mono">사용자 세그먼트</p>
+            <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.userSegments}</p>
             <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
-              {aiAnalysisResult?.userSegments?.length || 0}개
+              {aiAnalysisResult?.userSegments?.length || 0}{t.generator.segmentCount}
             </p>
           </div>
           <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-            <p className="text-xs text-[var(--text-dimmed)] font-mono">이벤트 시퀀스</p>
+            <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.eventSequenceRules}</p>
             <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
-              {aiAnalysisResult?.eventSequences?.length || 0}개
+              {aiAnalysisResult?.eventSequences?.length || 0}{t.generator.sequenceCount}
             </p>
           </div>
           <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] p-4 rounded">
-            <p className="text-xs text-[var(--text-dimmed)] font-mono">트랜잭션</p>
+            <p className="text-xs text-[var(--text-dimmed)] font-mono">{t.generator.transactionDefinitions}</p>
             <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
-              {aiAnalysisResult?.transactions?.length || 0}개
+              {aiAnalysisResult?.transactions?.length || 0}{t.generator.transactionsCount}
             </p>
           </div>
         </div>
@@ -116,12 +178,10 @@ export default function AIAnalysisCompleted({
       {analysisExcelFileName && (
         <div className="p-6 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded mb-6">
           <h3 className="font-semibold text-[var(--text-primary)] mb-3 font-mono">
-            📄 AI 분석 결과 Excel 파일
+            📄 {t.generator.aiAnalysisExcelFile}
           </h3>
           <p className="text-sm text-[var(--text-secondary)] mb-4 font-mono">
-            AI 분석 결과를 Excel 파일로 다운로드하여 검토하고 수정할 수 있습니다.
-            <br />
-            수정이 필요한 경우 Excel을 다운로드하여 수정 후 업로드하거나, 바로 데이터 생성을 진행할 수 있습니다.
+            {t.generator.aiAnalysisExcelDescription}
           </p>
 
           <div className="grid grid-cols-2 gap-3">
@@ -130,7 +190,7 @@ export default function AIAnalysisCompleted({
               onClick={handleDownloadExcel}
               className="py-3 rounded text-[var(--bg-primary)] font-mono font-semibold bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all"
             >
-              📥 Excel 다운로드
+              📥 {t.generator.downloadExcel}
             </button>
             <button
               type="button"
@@ -138,7 +198,7 @@ export default function AIAnalysisCompleted({
               disabled={isUploading}
               className="py-3 rounded text-[var(--bg-primary)] font-mono font-semibold bg-[var(--accent-magenta)] hover:bg-[var(--accent-magenta)]/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isUploading ? '업로드 중...' : '📤 수정한 Excel 업로드'}
+              {isUploading ? t.generator.uploading : `📤 ${t.generator.uploadModifiedExcel}`}
             </button>
           </div>
 
@@ -172,15 +232,14 @@ export default function AIAnalysisCompleted({
           onClick={onProceedToGeneration}
           className="py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-green)] hover:bg-[var(--accent-green)]/80 transition-all terminal-glow-green"
         >
-          데이터 생성 시작 &gt;
+          {t.generator.proceedToDataGeneration} &gt;
         </button>
       </div>
 
       {/* Info Note */}
       <div className="mt-4 p-4 bg-[var(--bg-tertiary)]/50 border border-[var(--border)] rounded">
         <p className="text-xs text-[var(--text-dimmed)] font-mono">
-          💡 팁: Excel 파일을 다운로드하여 세그먼트 비율, 이벤트 순서, 속성 범위 등을 수정할 수 있습니다.
-          수정 후 다시 업로드하려면 홈으로 돌아가 "Excel 업로드로 시작" 모드를 선택하세요.
+          💡 {t.generator.aiAnalysisTip}
         </p>
       </div>
     </div>

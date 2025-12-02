@@ -41,8 +41,12 @@ COPY --from=builder /workspace/data-generator/dist ./dist
 # excel-schema-generator 전체 복사 (상대 경로 참조를 위해 필요)
 COPY --from=builder /workspace/excel-schema-generator /workspace/excel-schema-generator
 
+# TypeScript 경로 별칭을 위한 심볼릭 링크 생성
+RUN mkdir -p node_modules/@excel-schema-generator && \
+    ln -sf /workspace/excel-schema-generator/dist node_modules/@excel-schema-generator/schema-generator
+
 # 포트 노출
 EXPOSE 3001
 
 # 프로덕션 모드로 실행
-CMD ["node", "dist/api/server.js"]
+CMD ["node", "dist/data-generator/src/api/server.js"]

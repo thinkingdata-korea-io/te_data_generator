@@ -1,3 +1,27 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: data-pvc
+  namespace: korea
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logbus-pvc
+  namespace: korea
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -23,65 +47,57 @@ spec:
         component: backend
     spec:
       containers:
-      - name: backend
-        image: docker-ta-inner.thinkingdata.cn/korea/data-generator-backend:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 3001
-          name: http
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: API_PORT
-          value: "3001"
-        - name: DATABASE_URL
-          valueFrom:
-            secretKeyRef:
-              name: te-data-generator-secrets
-              key: database-url
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: te-data-generator-secrets
-              key: jwt-secret
-        - name: ANTHROPIC_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: te-data-generator-secrets
-              key: anthropic-api-key
-        - name: OPENAI_API_KEY
-          valueFrom:
-            secretKeyRef:
-              name: te-data-generator-secrets
-              key: openai-api-key
-              optional: true
-        - name: TE_RECEIVER_URL
-          valueFrom:
-            configMapKeyRef:
-              name: te-data-generator-config
-              key: te-receiver-url
-        - name: TE_APP_ID
-          valueFrom:
-            configMapKeyRef:
-              name: te-data-generator-config
-              key: te-app-id
-        resources:
-          requests:
-            memory: "512Mi"
-            cpu: "500m"
-          limits:
-            memory: "2Gi"
-            cpu: "2000m"
-        volumeMounts:
-        - name: data
-          mountPath: /app/output
-        - name: logbus
-          mountPath: /app/../logbus 2
+        - name: backend
+          image: docker-ta-inner.thinkingdata.cn/korea/data-generator-backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3001
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: API_PORT
+              value: "3001"
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: te-data-generator-secrets
+                  key: database-url
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: te-data-generator-secrets
+                  key: jwt-secret
+            - name: ANTHROPIC_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: te-data-generator-secrets
+                  key: anthropic-api-key
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: te-data-generator-secrets
+                  key: openai-api-key
+                  optional: true
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          volumeMounts:
+            - name: data
+              mountPath: /app/output
+            - name: logbus
+              mountPath: /app/../logbus 2
       volumes:
-      - name: data
-        emptyDir: {}
-      - name: logbus
-        emptyDir: {}
+        - name: data
+          persistentVolumeClaim:
+            claimName: data-pvc
+        - name: logbus
+          persistentVolumeClaim:
+            claimName: logbus-pvc
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -112,21 +128,21 @@ spec:
         description: "This pod is used for korea team"
     spec:
       containers:
-      - name: frontend
-        image: docker-ta-inner.thinkingdata.cn/korea/data-generator-frontend:latest
-        imagePullPolicy: Always
-        ports:
-        - containerPort: 3000
-          name: http
-        env:
-        - name: NODE_ENV
-          value: "production"
-        - name: API_URL
-          value: "http://te-data-generator-backend:3001"
-        resources:
-          requests:
-            memory: "256Mi"
-            cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
+        - name: frontend
+          image: docker-ta-inner.thinkingdata.cn/korea/data-generator-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000
+              name: http
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: API_URL
+              value: "http://te-data-generator-backend:3001"
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"

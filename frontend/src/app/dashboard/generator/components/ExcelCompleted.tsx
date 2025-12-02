@@ -1,7 +1,7 @@
 'use client';
 
 import { useLanguage } from '@/contexts/LanguageContext';
-import { ExcelPreviewSummary, FormData } from '../types';
+import { ExcelPreviewSummary, FormData, TaskMode } from '../types';
 
 interface ExcelCompletedProps {
   excelPreview: ExcelPreviewSummary | null;
@@ -11,6 +11,7 @@ interface ExcelCompletedProps {
   onDownloadExcel: () => void;
   onComplete: () => void;
   onStartAIAnalysis: () => void;
+  startMode: TaskMode | null;
 }
 
 export default function ExcelCompleted({
@@ -20,10 +21,72 @@ export default function ExcelCompleted({
   onFormDataChange,
   onDownloadExcel,
   onComplete,
-  onStartAIAnalysis
+  onStartAIAnalysis,
+  startMode
 }: ExcelCompletedProps) {
   const { t } = useLanguage();
 
+  // Taxonomy 모드: 간단한 완료 화면
+  if (startMode === 'taxonomy-only') {
+    return (
+      <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
+        <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
+          <span>✓</span> {t.generator.excelSchemaComplete}
+        </h2>
+        <div className="p-6 bg-[var(--accent-green)]/10 rounded border border-[var(--accent-green)] mb-6">
+          <p className="text-[var(--accent-green)] mb-4 font-mono">{t.generator.excelSchemaSuccess}</p>
+          <p className="text-sm text-[var(--text-secondary)] font-mono">{t.generator.taxonomyOnlyComplete}</p>
+        </div>
+
+        {excelPreview && (
+          <div className="mb-6 space-y-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventCount}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.events ?? 0}</p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventProperties}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.eventProperties ?? 0}</p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.commonProperties}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.commonProperties ?? 0}</p>
+              </div>
+              <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
+                <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.userData}</p>
+                <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">{excelPreview.userData ?? 0}</p>
+              </div>
+            </div>
+            {excelPreview.provider && (
+              <p className="text-xs text-[var(--text-dimmed)] font-mono">
+                {t.generator.generationMethod}: {excelPreview.provider === 'fallback' ? 'Rule-based Template' : excelPreview.provider === 'anthropic' ? 'Claude' : 'GPT'} · {excelPreview.generatedAt ? new Date(excelPreview.generatedAt).toLocaleString() : ''}
+              </p>
+            )}
+          </div>
+        )}
+
+        <div className="grid grid-cols-2 gap-4">
+          <button
+            type="button"
+            onClick={onDownloadExcel}
+            className="py-4 rounded text-[var(--accent-green)] font-mono font-semibold bg-[var(--bg-tertiary)] border-2 border-[var(--accent-green)] hover:bg-[var(--accent-green)]/10 transition-all"
+          >
+            ⇓ {t.generator.downloadExcel}
+          </button>
+          <button
+            type="button"
+            onClick={onComplete}
+            className="py-4 rounded text-[var(--text-primary)] font-mono font-semibold bg-[var(--bg-tertiary)] border-2 border-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/10 transition-all"
+          >
+            ← {t.generator.backToHome}
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  // Full Process 모드: 기존 화면 (데이터 생성 설정 폼 포함)
   return (
     <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 terminal-glow">
       <h2 className="text-2xl font-bold mb-6 text-terminal-green font-mono flex items-center gap-2">
@@ -69,7 +132,7 @@ export default function ExcelCompleted({
         <div className="grid grid-cols-2 gap-6">
           <div>
             <label htmlFor="scenario-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-              시나리오 <span className="text-[var(--error-red)]">*</span>
+              {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
             </label>
             <input
               id="scenario-excel"
@@ -77,13 +140,13 @@ export default function ExcelCompleted({
               value={formData.scenario}
               onChange={(e) => onFormDataChange({ ...formData, scenario: e.target.value })}
               className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-              placeholder="예: RPG 게임, 쇼핑몰 앱"
+              placeholder={t.generator.scenarioPlaceholder}
               aria-required="true"
             />
           </div>
           <div>
             <label htmlFor="industry-excel" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-              산업 분야 <span className="text-[var(--error-red)]">*</span>
+              {t.generator.industry} <span className="text-[var(--error-red)]">*</span>
             </label>
             <input
               id="industry-excel"
@@ -91,7 +154,7 @@ export default function ExcelCompleted({
               value={formData.industry}
               onChange={(e) => onFormDataChange({ ...formData, industry: e.target.value })}
               className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono"
-              placeholder="예: 게임, 이커머스"
+              placeholder={t.generator.industryPlaceholder}
               aria-required="true"
             />
           </div>
@@ -165,7 +228,7 @@ export default function ExcelCompleted({
         onClick={onStartAIAnalysis}
         className="w-full mt-4 py-5 rounded text-[var(--bg-primary)] font-mono font-bold text-lg bg-[var(--accent-cyan)] hover:bg-[var(--accent-cyan)]/80 transition-all terminal-glow-cyan"
       >
-        &gt; AI 전략 분석 시작
+        &gt; {t.generator.startAIAnalysis}
       </button>
     </div>
   );
