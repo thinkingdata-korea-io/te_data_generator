@@ -14,6 +14,7 @@ import ServiceInfoForm from './components/forms/ServiceInfoForm';
 import CombinedConfigForm from './components/forms/CombinedConfigForm';
 import LoadingDots from './components/LoadingDots';
 import DualExcelUpload from './components/DualExcelUpload';
+import DataFileUpload from './components/DataFileUpload';
 import { useGeneratorState } from './hooks/useGeneratorState';
 import { useExcelGeneration } from './hooks/useExcelGeneration';
 import { useAIAnalysis } from './hooks/useAIAnalysis';
@@ -389,6 +390,9 @@ export default function Home() {
                 case 'data-only':
                   setCurrentStep('dual-upload');
                   break;
+                case 'send-only':
+                  setCurrentStep('upload-data-file');
+                  break;
               }
             }}
           />
@@ -615,6 +619,19 @@ export default function Home() {
               // TODO: Store analysisPath and analysisPreview for later use
               setCurrentStep('dual-upload-completed');
             }}
+            onCancel={() => {
+              setCurrentStep('select-mode');
+              setStartMode(null);
+            }}
+          />
+        )}
+
+        {/* Data File Upload Screen (for send-only mode) */}
+        {currentStep === 'upload-data-file' && (
+          <DataFileUpload
+            sendAppId={sendAppId}
+            onSendAppIdChange={setSendAppId}
+            onComplete={() => setCurrentStep('sent')}
             onCancel={() => {
               setCurrentStep('select-mode');
               setStartMode(null);

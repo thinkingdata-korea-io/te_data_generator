@@ -3,7 +3,7 @@
  * Centralized type definitions for the data generator workflow
  */
 
-export type TaskMode = 'taxonomy-only' | 'analysis-only' | 'data-only' | 'full-process';
+export type TaskMode = 'taxonomy-only' | 'analysis-only' | 'data-only' | 'send-only' | 'full-process';
 
 export type ProcessStep =
   | 'select-mode'
@@ -19,6 +19,8 @@ export type ProcessStep =
   | 'ai-analysis-review'
   | 'generating-data'
   | 'data-completed'
+  | 'upload-data-file'
+  | 'data-file-uploaded'
   | 'sending-data'
   | 'sent';
 

@@ -28,6 +28,7 @@ import settingsRouter from './routes/settings';
 import usersRouter from './routes/users';
 import auditRouter from './routes/audit';
 import logbusRouter from './routes/logbus';
+import dataRouter from './routes/data';
 
 // Load environment variables
 dotenv.config();
@@ -51,6 +52,7 @@ app.use('/api/settings', settingsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/audit-logs', auditRouter);
 app.use('/api/logbus', logbusRouter);
+app.use('/api/data', dataRouter);
 
 /**
  * Authentication Endpoints
