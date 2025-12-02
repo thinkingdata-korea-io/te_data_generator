@@ -31,11 +31,9 @@ export class AnalysisExcelGenerator {
     const sequencingSheet = this.createSequencingSheet(aiAnalysis);
     XLSX.utils.book_append_sheet(workbook, sequencingSheet, '2_이벤트_순서_규칙');
 
-    // Sheet 3: 트랜잭션 정의
-    if (aiAnalysis.eventSequencing?.transactions) {
-      const transactionSheet = this.createTransactionSheet(aiAnalysis);
-      XLSX.utils.book_append_sheet(workbook, transactionSheet, '3_트랜잭션_정의');
-    }
+    // Sheet 3: 트랜잭션 정의 (항상 생성)
+    const transactionSheet = this.createTransactionSheet(aiAnalysis);
+    XLSX.utils.book_append_sheet(workbook, transactionSheet, '3_트랜잭션_정의');
 
     // Sheet 4: 이벤트 속성 범위
     const propertySheet = this.createPropertyRangeSheet(aiAnalysis);
@@ -157,16 +155,31 @@ export class AnalysisExcelGenerator {
     ];
 
     const transactions = aiAnalysis.eventSequencing?.transactions || [];
-    transactions.forEach(transaction => {
-      data.push([
-        transaction.name,
-        transaction.description,
-        transaction.startEvents.join(', '),
-        transaction.endEvents.join(', '),
-        transaction.innerEvents.join(', '),
-        transaction.allowInnerAfterEnd ? '허용' : '차단'
-      ]);
-    });
+
+    if (transactions.length === 0) {
+      // 트랜잭션이 없는 경우 안내 메시지
+      data.push([]);
+      data.push(['⚠️ 안내', '감지된 트랜잭션이 없습니다.']);
+      data.push(['💡 설명', '이 도메인은 트랜잭션 패턴(시작-종료)이 없거나, 이벤트 이름에 start/end 패턴이 없을 수 있습니다.']);
+      data.push(['', '예: 단순 콘텐츠 소비 앱(뉴스, 블로그), 정보 조회 앱(날씨, 시계) 등']);
+      data.push([]);
+      data.push(['✏️ 추가 방법', '필요한 경우 아래 예시를 참고하여 수동으로 트랜잭션을 추가하고 재업로드하세요.']);
+      data.push([]);
+      data.push(['[예시]', '', '', '', '', '']);
+      data.push(['게임 라운드', '게임 시작부터 종료까지', 'game_start, battle_start', 'game_end, battle_end', 'death, kill, item_use', '차단']);
+      data.push(['구매 프로세스', '장바구니부터 구매 완료까지', 'checkout_start', 'purchase_complete', 'add_payment, apply_coupon', '차단']);
+    } else {
+      transactions.forEach(transaction => {
+        data.push([
+          transaction.name,
+          transaction.description,
+          transaction.startEvents.join(', '),
+          transaction.endEvents.join(', '),
+          transaction.innerEvents.join(', '),
+          transaction.allowInnerAfterEnd ? '허용' : '차단'
+        ]);
+      });
+    }
 
     data.push([]);
     data.push(['💡 핵심:', '종료 이벤트 발생 후 내부 이벤트가 차단되어 논리적으로 불가능한 시퀀스를 방지합니다.']);

@@ -759,6 +759,22 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
         logger.warn('  ⚠️  Warnings:', summary.warnings.join(', '));
       }
 
+      // 트랜잭션 검증 및 초기화
+      if (!sequencing.transactions) {
+        logger.warn('  ⚠️  트랜잭션 필드가 없습니다. 빈 배열로 초기화합니다.');
+        sequencing.transactions = [];
+      }
+
+      if (sequencing.transactions.length === 0) {
+        logger.warn('  ⚠️  감지된 트랜잭션이 없습니다.');
+        logger.info('  💡 가능한 원인:');
+        logger.info('     1. 이벤트 이름에 start/end 패턴이 없음');
+        logger.info('     2. 트랜잭션이 불필요한 도메인 (뉴스, 콘텐츠 소비 등)');
+        logger.info('     3. AI 감지 실패 → Excel에서 수동 추가 가능');
+      } else {
+        logger.info(`  ✅ 트랜잭션 ${sequencing.transactions.length}개 생성됨`);
+      }
+
       return { eventSequencing: sequencing, validationSummary: summary };
 
     } catch (error) {
@@ -847,6 +863,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     });
 
     return {
+      transactions: [], // 폴백에서도 빈 배열로 초기화
       strictDependencies: {},
       eventCategories: {
         lifecycle,

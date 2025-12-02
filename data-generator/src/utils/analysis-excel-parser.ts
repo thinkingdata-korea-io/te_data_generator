@@ -250,8 +250,16 @@ export class AnalysisExcelParser {
     for (let i = headerRowIndex + 1; i < data.length; i++) {
       const row = data[i];
 
-      if (!row || row.length === 0 || row[0]?.toString().startsWith('💡') || row[0]?.toString().startsWith('예시')) {
-        break;
+      // 빈 행이나 안내 메시지, 예시 행 건너뛰기
+      if (!row || row.length === 0) break;
+
+      const firstCell = row[0]?.toString() || '';
+      if (firstCell.startsWith('💡') ||
+          firstCell.startsWith('예시') ||
+          firstCell.startsWith('⚠️') ||
+          firstCell.startsWith('✏️') ||
+          firstCell.startsWith('[예시]')) {
+        continue; // 안내 메시지는 건너뛰고 계속 파싱
       }
 
       const name = row[0]?.toString();
@@ -273,7 +281,11 @@ export class AnalysisExcelParser {
       }
     }
 
-    logger.info(`📊 Parsed ${transactions.length} transactions`);
+    if (transactions.length === 0) {
+      logger.info(`📊 트랜잭션이 파싱되지 않음 (빈 시트 또는 안내 메시지만 존재)`);
+    } else {
+      logger.info(`📊 Parsed ${transactions.length} transactions`);
+    }
     return transactions;
   }
 }

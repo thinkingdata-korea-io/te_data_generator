@@ -153,6 +153,23 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
     };
 
     progressDetails.push('✅ 모든 AI 분석 완료!');
+
+    // AI 분석 결과 요약 로깅
+    const transactionCount = aiAnalysis.eventSequencing?.transactions?.length || 0;
+    logger.info(`\n📊 AI 분석 결과 요약:`);
+    logger.info(`  - 사용자 세그먼트: ${aiAnalysis.userSegments.length}개`);
+    logger.info(`  - 이벤트 범위: ${aiAnalysis.eventRanges.length}개`);
+    logger.info(`  - 트랜잭션: ${transactionCount}개`);
+
+    if (transactionCount === 0) {
+      logger.warn(`\n⚠️  트랜잭션이 생성되지 않았습니다.`);
+      logger.info(`💡 이는 정상일 수 있습니다:`);
+      logger.info(`   - 이벤트에 start/end 패턴이 없는 경우`);
+      logger.info(`   - 트랜잭션이 불필요한 도메인 (뉴스, 콘텐츠 소비 등)`);
+      logger.info(`   - Excel 파일에서 수동으로 트랜잭션 추가 가능`);
+    }
+
+    progressDetails.push(`📊 분석 결과: 세그먼트 ${aiAnalysis.userSegments.length}개, 트랜잭션 ${transactionCount}개`);
     progressDetails.push('📄 AI 분석 결과 Excel 파일 생성 중...');
 
     // Generate Analysis Excel

@@ -693,6 +693,19 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 
 ---
 
+**⚠️ 필수 요구사항:**
+1. 응답에는 **반드시 "transactions" 필드**가 포함되어야 합니다
+2. 트랜잭션 패턴이 없는 경우에도 **"transactions": []** 빈 배열로 응답하세요
+3. 모든 이벤트를 eventCategories에 분류하세요
+
+**트랜잭션이 없는 경우 예시:**
+- 단순 콘텐츠 소비: article_view, video_watch (시작/종료 없이 단일 이벤트)
+- 정보 조회: weather_check, news_read (완료 개념 없음)
+- 단순 액션: like, share, comment (독립적인 이벤트)
+→ 이런 경우: **"transactions": []** 로 응답
+
+---
+
 ### STEP 1: 트랜잭션/라운드 자동 감지 ⭐
 
 **트랜잭션이란?**
@@ -949,6 +962,7 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 {
   "eventSequencing": {
     "transactions": [
+      // ⚠️ 필수 필드! 트랜잭션이 없으면 빈 배열 [] 로 응답
       {
         "name": "트랜잭션명",
         "description": "설명",
