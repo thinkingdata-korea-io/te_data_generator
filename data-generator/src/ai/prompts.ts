@@ -45,29 +45,13 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
 **각 세그먼트가 절대 할 수 없는 이벤트**와 **독점적으로 할 수 있는 이벤트**를 정의하세요.
 
 **핵심 원칙:**
-- **blockedEvents**: 이 세그먼트는 절대 수행할 수 없는 이벤트
-- **allowedEvents**: 이 세그먼트만 독점적으로 수행 가능한 이벤트
+- **blockedEvents**: 이 세그먼트는 절대 수행할 수 없는 이벤트 (권한 부족, 역할 불일치)
+- **allowedEvents**: 이 세그먼트만 독점적으로 수행 가능한 이벤트 (관리자 전용 등)
 - **preferredEvents**: 이 세그먼트가 선호하는 이벤트 (가중치 증가)
 
-**도메인별 예시:**
+**예시:** 일반 사용자는 관리 기능을 수행할 수 없고, 관리자만 관리 이벤트 실행 가능
 
-**[라이브 스트리밍]**
-- 일반 시청자: blockedEvents=["라이브 시작", "방 생성", "방송 설정"]
-- 스트리머/크리에이터: allowedEvents=["라이브 시작", "방 생성"]
-
-**[커머스]**
-- 구매자: blockedEvents=["상품 등록", "재고 관리", "주문 관리"]
-- 판매자: allowedEvents=["상품 등록", "재고 관리", "주문 관리"]
-
-**[게임]**
-- 일반 유저: blockedEvents=["서버 관리", "밴 처리", "이벤트 생성"]
-- 관리자: allowedEvents=["서버 관리", "밴 처리", "이벤트 생성"]
-
-**[소셜미디어]**
-- 일반 사용자: blockedEvents=["콘텐츠 승인", "신고 처리", "통계 조회"]
-- 관리자: allowedEvents=["콘텐츠 승인", "신고 처리", "통계 조회"]
-
-**⚠️ 모든 세그먼트에 대해 정의하세요!**
+**⚠️ 도메인 특성에 맞게 모든 세그먼트에 대해 정의하세요!**
 
 ### 4. ⭐ 이벤트 자동 그룹핑 (중요!)
 **${userInput.industry} 도메인의 특성을 고려하여** 이벤트들을 5-8개의 의미있는 그룹으로 분류하세요.
@@ -79,38 +63,14 @@ ${schema.events.map(e => `- ${e.event_name} (${e.event_name_kr}): ${e.category |
 
 **그룹당 최대 10개 이벤트**를 포함하세요. 이벤트가 많으면 세분화하세요.
 
-**예시 (게임 산업):**
-- "온보딩/튜토리얼": install, signup, tutorial_start, tutorial_complete
-- "핵심 게임플레이": battle_start, battle_end, level_up, stage_clear
-- "소셜 기능": friend_add, chat_send, guild_join
-- "수익화": purchase, ad_view, subscription
-
-**예시 (커머스 산업):**
-- "사용자 획득": install, signup, onboarding_complete
-- "상품 탐색": search, category_view, product_view
-- "장바구니/위시리스트": cart_add, wishlist_add
-- "결제/구매": checkout_start, payment, purchase_complete
-- "고객 관리": review_write, customer_service_contact
-
-**예시 (뉴스/미디어 산업):**
-- "콘텐츠 소비": article_view, video_play, podcast_listen
-- "참여/상호작용": comment, share, like
-- "개인화": topic_follow, notification_subscribe
-- "수익화": subscription, ad_impression
-
 ### 5. ⭐ 마케팅 어트리뷰션 범위 정의 (중요!)
 **${userInput.industry} 도메인의 특성을 고려하여** 마케팅 데이터 범위를 정의하세요.
 
 **고려사항:**
-- 산업별 광고 메트릭 특성 (게임: 높은 CPI, 커머스: 높은 ROAS 등)
-- 주요 광고 소스 및 가중치 (Google, Facebook, TikTok, Unity 등)
-- 광고 수익 네트워크 (AdMob, Unity Ads, IronSource 등)
-- 광고 유닛 타입별 평균 수익 (Rewarded Video > Interstitial > Banner)
-
-**중요:** 각 산업마다 광고 메트릭의 현실적인 범위가 다릅니다!
-- 게임: 높은 노출수, 중간 CPI, 낮은 전환율
-- 커머스: 중간 노출수, 높은 전환율, 높은 ROAS
-- 금융: 낮은 노출수, 매우 높은 CPI, 높은 LTV
+- 산업별 광고 메트릭 특성 (CPI, 전환율, ROAS, LTV 등)
+- 주요 광고 소스 및 가중치
+- 광고 수익 네트워크 (있는 경우)
+- 광고 유닛 타입별 평균 수익
 
 다음 JSON 형식으로 응답해주세요:
 
@@ -285,90 +245,7 @@ ${userSegments.map(s => `- ${s}`).join('\n')}
    - 불확실하면 **choice 타입을 사용**하세요 (예: ["yes", "no", "unknown"])
    - Boolean으로 보이는 속성도 다른 값이 필요하면 choice로 정의하세요
 
-5. **Few-shot 예시 (도메인별):**
-
-**[라이브 스트리밍 도메인]**
-\`\`\`json
-{
-  "event_name": "라이브방 입장",
-  "properties": [
-    {
-      "property_name": "방 제목",
-      "type": "choice",
-      "values": ["게임 방송", "음악 방송", "토크쇼", "공부방", "일상 라이브"],
-      "weights": [0.4, 0.2, 0.15, 0.15, 0.1]
-    },
-    {
-      "property_name": "방 카테고리",
-      "type": "choice",
-      "values": ["Gaming", "Music", "Education", "Talk", "Entertainment"],
-      "weights": [0.35, 0.25, 0.15, 0.15, 0.1]
-    },
-    {
-      "property_name": "시청자수",
-      "type": "number",
-      "min": 1,
-      "max": 1000
-    }
-  ]
-}
-\`\`\`
-
-**[게임 도메인]**
-\`\`\`json
-{
-  "event_name": "아이템 구매",
-  "properties": [
-    {
-      "property_name": "아이템명",
-      "type": "choice",
-      "values": ["전설의 검", "마법 방패", "체력 포션", "마나 물약", "부활의 깃털"],
-      "weights": [0.1, 0.15, 0.35, 0.3, 0.1]
-    },
-    {
-      "property_name": "아이템 등급",
-      "type": "choice",
-      "values": ["일반", "고급", "희귀", "영웅", "전설"],
-      "weights": [0.4, 0.3, 0.2, 0.08, 0.02]
-    },
-    {
-      "property_name": "가격",
-      "type": "number",
-      "min": 100,
-      "max": 10000
-    }
-  ]
-}
-\`\`\`
-
-**[커머스 도메인]**
-\`\`\`json
-{
-  "event_name": "상품 조회",
-  "properties": [
-    {
-      "property_name": "상품명",
-      "type": "choice",
-      "values": ["스마트폰", "노트북", "태블릿", "무선 이어폰", "스마트워치"],
-      "weights": [0.3, 0.25, 0.2, 0.15, 0.1]
-    },
-    {
-      "property_name": "카테고리",
-      "type": "choice",
-      "values": ["전자기기", "패션", "식품", "가구", "도서"],
-      "weights": [0.4, 0.25, 0.15, 0.1, 0.1]
-    },
-    {
-      "property_name": "가격대",
-      "type": "choice",
-      "values": ["1만원 미만", "1-5만원", "5-10만원", "10-50만원", "50만원 이상"],
-      "weights": [0.2, 0.3, 0.25, 0.15, 0.1]
-    }
-  ]
-}
-\`\`\`
-
-**핵심 원칙:**
+5. **핵심 원칙:**
 - ✅ 텍스트 속성 = choice 타입 (AI가 현실적인 값 생성)
 - ✅ 숫자 속성 = number 타입 (min/max 범위)
 - ✅ values는 ${userInput.industry} 도메인에 맞게 생성
@@ -500,37 +377,16 @@ ${userSegments.map(s => `- ${s.name} (${(s.ratio * 100).toFixed(0)}%): ${s.chara
 
 다음 지침에 따라 리텐션 패턴을 정의해주세요:
 
-### 1. 산업별 벤치마크 참고
+### 1. 리텐션 커브 정의
 
-**게임 (Mobile Game):**
-- Day 1: 35-45%
-- Day 7: 15-25%
-- Day 30: 3-8%
-- 특징: 초반 급격한 이탈, 주말 활동 증가(1.3x), retentionDecay: 0.92-0.94
+**산업 특성을 고려하여** Day 1, Day 7, Day 30 리텐션을 정의하세요:
+- Day 0는 항상 1.0 (100%)
+- Day 1 > Day 7 > Day 30 (감소 패턴 준수)
+- retentionDecay: 0.90~0.98 (낮을수록 빠른 이탈, 높을수록 완만한 감소)
 
-**금융/핀테크 (Finance/Banking):**
-- Day 1: 55-70%
-- Day 7: 35-50%
-- Day 30: 20-35%
-- 특징: 완만한 감소, 주중 활동 증가, retentionDecay: 0.95-0.97
-
-**이커머스 (E-Commerce):**
-- Day 1: 40-55%
-- Day 7: 20-35%
-- Day 30: 10-20%
-- 특징: 월간 복귀 패턴(급여일), 주말 증가(1.2x), retentionDecay: 0.93-0.95
-
-**소셜/커뮤니티 (Social):**
-- Day 1: 50-65%
-- Day 7: 30-45%
-- Day 30: 15-25%
-- 특징: 네트워크 효과, 저녁 시간 활동 증가, retentionDecay: 0.94-0.96
-
-**뉴스/미디어 (News/Media):**
-- Day 1: 45-60%
-- Day 7: 25-40%
-- Day 30: 12-20%
-- 특징: 아침 출근 시간 피크, retentionDecay: 0.93-0.95
+**특수 패턴:**
+- weekendBoost: 주말 활동 증가율 (0.8~1.5)
+- monthlyReturnPattern: 월간 복귀 패턴 여부 (true/false)
 
 ### 2. 세그먼트별 차별화
 
@@ -557,26 +413,16 @@ ${userSegments.map(s => `- ${s.name} (${(s.ratio * 100).toFixed(0)}%): ${s.chara
 
 ### 3-1. 생명주기 전환 임계값
 
-**산업별로 사용자가 각 단계로 전환되는 기준일을 정의하세요:**
+**산업 특성에 맞게** 사용자가 각 단계로 전환되는 기준일을 정의하세요:
 
-\`dormantAfterDays\`: 활성 → 휴면 전환 기준 (일 단위)
-- 게임: 3-7일 (빠른 이탈)
-- 금융/SaaS: 14-30일 (천천히 이탈)
-- 이커머스: 7-14일 (계절성 고려)
-- 소셜/미디어: 7-14일
-
-\`churnedAfterDays\`: 휴면 → 이탈 전환 기준 (일 단위)
-- 게임: 21-30일
-- 금융/SaaS: 60-90일 (긴 복귀 주기)
-- 이커머스: 30-60일
-- 소셜/미디어: 30-45일
-
-**중요**: 산업 특성에 맞게 현실적인 임계값을 설정하세요!
+- \`dormantAfterDays\`: 활성 → 휴면 전환 기준 (일 단위, 보통 3-30일)
+- \`churnedAfterDays\`: 휴면 → 이탈 전환 기준 (일 단위, 보통 21-90일)
 
 ### 4. 특수 패턴
 
-\`weekendBoost\`: 주말 활동 증가율 (게임/이커머스: 1.2-1.5, 금융: 0.8-0.9)
-\`monthlyReturnPattern\`: 월간 복귀 패턴 여부 (이커머스/금융: true)
+산업 특성에 따라 정의하세요:
+- \`weekendBoost\`: 주말 활동 증가율 (0.8~1.5, 1.0 = 변화없음)
+- \`monthlyReturnPattern\`: 월간 복귀 패턴 여부 (true/false)
 
 ---
 
@@ -815,42 +661,13 @@ ${schema.funnels.map(f => `- ${f.name}: ${f.steps.join(' → ')}`).join('\n')}
 3. 동일한 접두사를 공유하는 이벤트들 → **트랜잭션 내부**
    - 예: \`game_start\`, \`game_end\` → \`game_*\` 이벤트들은 내부
 
-**도메인별 Few-shot 예시:**
-
-**[게임 도메인]**
+**예시:**
 \`\`\`
-트랜잭션: "게임 라운드"
-- 시작: game_start, battle_start, match_start
-- 내부: death, kill, score_update, item_use, level_up
-- 종료: game_end, battle_end, match_end
-❌ 차단: game_end 발생 후 death, kill 등 절대 불가!
-\`\`\`
-
-**[커머스 도메인]**
-\`\`\`
-트랜잭션: "구매 프로세스"
-- 시작: checkout_start, payment_start
-- 내부: add_payment_method, verify_address, apply_coupon
-- 종료: purchase_complete, payment_complete
-❌ 차단: purchase_complete 후 cart_add, checkout_start 절대 불가!
-\`\`\`
-
-**[금융 도메인]**
-\`\`\`
-트랜잭션: "거래"
-- 시작: transaction_start, transfer_start
-- 내부: verify_otp, check_balance, confirm_recipient
-- 종료: transaction_complete, transfer_complete
-❌ 차단: transaction_complete 후 verify_otp 절대 불가!
-\`\`\`
-
-**[콘텐츠/미디어 도메인]**
-\`\`\`
-트랜잭션: "콘텐츠 소비"
-- 시작: video_play_start, article_read_start
-- 내부: video_pause, video_seek, article_scroll
-- 종료: video_play_end, article_read_end
-❌ 차단: video_play_end 후 video_pause 절대 불가!
+트랜잭션: "프로세스명"
+- 시작: process_start
+- 내부: inner_action1, inner_action2
+- 종료: process_end
+❌ 차단: process_end 발생 후 inner_action 절대 불가!
 \`\`\`
 
 **당신의 작업:**
@@ -949,42 +766,6 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 - \`strictOrder: true\`: 반드시 이 순서대로 실행 (예: 결제 프로세스)
 - \`strictOrder: false\`: 순서는 권장이지만 일부 생략 가능 (예: 게임 플레이)
 
-**도메인별 innerEventSequence 예시:**
-
-**[게임 도메인]**
-\`\`\`json
-"innerEventSequence": [
-  {
-    "events": ["item_use", "kill", "death"],
-    "strictOrder": true
-  }
-]
-// ✅ 올바른 순서: item_use → kill → death
-// ❌ 잘못된 순서: death → kill (죽은 후 킬 불가능!)
-\`\`\`
-
-**[커머스 도메인]**
-\`\`\`json
-"innerEventSequence": [
-  {
-    "events": ["add_payment_method", "verify_address", "apply_coupon"],
-    "strictOrder": true
-  }
-]
-// ✅ 올바른 순서: 결제수단 → 주소확인 → 쿠폰적용
-\`\`\`
-
-**[금융 도메인]**
-\`\`\`json
-"innerEventSequence": [
-  {
-    "events": ["check_balance", "verify_otp", "confirm_recipient"],
-    "strictOrder": true
-  }
-]
-// ✅ 올바른 순서: 잔액확인 → OTP인증 → 수신인확인
-\`\`\`
-
 ---
 
 ### STEP 6: 논리적 시퀀스 (logicalSequences)
@@ -1034,22 +815,10 @@ STEP 1에서 식별한 트랜잭션을 다음 형식으로 정의하세요:
 }
 \`\`\`
 
-**도메인별 가이드라인:**
-
-**[게임 도메인]**
-- 빠른 액션: \`kill, death\` → 1-3초 (exponential)
-- 중간 액션: \`item_use, skill_cast\` → 3-5초 (exponential)
-- 느린 액션: \`level_up, achievement\` → 30-120초 (normal)
-
-**[커머스 도메인]**
-- 빠른 탐색: \`product_view, search\` → 2-5초 (exponential)
-- 고민 액션: \`cart_add, wishlist_add\` → 10-30초 (normal)
-- 신중한 결정: \`purchase, checkout\` → 30-180초 (normal)
-
-**[금융 도메인]**
-- 조회: \`balance_check, transaction_list\` → 2-5초 (exponential)
-- 인증: \`verify_otp, biometric_auth\` → 5-15초 (normal)
-- 거래: \`transfer, payment\` → 20-60초 (normal)
+**가이드라인:**
+- 빠른 액션 (클릭, 조회): 1-5초 (exponential)
+- 중간 액션 (선택, 입력): 5-30초 (exponential 또는 normal)
+- 느린 액션 (결정, 완료): 30-180초 (normal)
 
 **distribution 타입:**
 - \`exponential\`: 대부분의 이벤트 (빠른 액션, 클릭 등)
