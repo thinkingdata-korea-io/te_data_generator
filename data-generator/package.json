@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run postbuild",
+    "postbuild": "mkdir -p dist/logbus && cp -r ../logbus/logbus ../logbus/conf dist/logbus/",
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "api": "tsx src/api/server.ts",
