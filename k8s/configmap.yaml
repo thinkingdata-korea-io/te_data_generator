@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: te-data-generator-config
+  namespace: korea
+data:
+  # Backend configuration
+  BACKEND_API_URL: "http://te-data-generator-backend:3001"
+
+  # Frontend configuration
+  NEXT_PUBLIC_API_URL: "http://te-data-generator-backend:3001"
+
+  # Environment
+  NODE_ENV: "production"
