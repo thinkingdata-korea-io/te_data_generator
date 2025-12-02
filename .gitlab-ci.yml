@@ -1,3 +1,8 @@
+# GitLab CI 비활성화 - Jenkins 사용
+workflow:
+  rules:
+    - when: never
+
 stages:
   - build
   - deploy
