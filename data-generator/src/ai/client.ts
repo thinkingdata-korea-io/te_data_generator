@@ -604,7 +604,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     schema: ParsedSchema,
     userInput: UserInput
   ): Promise<Omit<AIAnalysisResult, 'eventRanges'> & { eventGroups?: Record<string, string[]> }> {
-    const prompt = buildStrategyPrompt(schema, userInput);
+    const lang = this.config.language || 'ko';
+    const prompt = buildStrategyPrompt(schema, userInput, lang);
     let response: string;
 
     if (this.config.provider === 'openai') {
@@ -636,12 +637,14 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     userInput: UserInput,
     groupName: string
   ): Promise<{ eventRanges: any[] }> {
+    const lang = this.config.language || 'ko';
     const prompt = buildEventGroupPrompt(
       events,
       properties,
       userSegments,
       userInput,
-      groupName
+      groupName,
+      lang
     );
 
     let response: string;
@@ -668,7 +671,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     userSegments: Array<{ name: string; ratio: number; characteristics: string }>
   ): Promise<any> {
     // 1. Generator: 초안 생성
-    const prompt = buildRetentionPrompt(userInput, userSegments);
+    const lang = this.config.language || 'ko';
+    const prompt = buildRetentionPrompt(userInput, userSegments, lang);
     let response: string;
 
     if (this.config.provider === 'openai') {
@@ -728,7 +732,8 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     userInput: UserInput
   ): Promise<any> {
     // 1. Generator: 초안 생성
-    const prompt = buildEventSequencingPrompt(schema, userInput);
+    const lang = this.config.language || 'ko';
+    const prompt = buildEventSequencingPrompt(schema, userInput, lang);
     let response: string;
 
     if (this.config.provider === 'openai') {

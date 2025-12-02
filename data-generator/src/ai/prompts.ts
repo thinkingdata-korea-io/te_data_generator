@@ -1,6 +1,7 @@
 import { ParsedSchema, EventDefinition } from '../types';
 import { UserInput } from './client';
 import { logger } from '../utils/logger';
+import { AnalysisLanguage } from '../utils/language-helper';
 
 /**
  * AI 프롬프트 빌더
@@ -8,11 +9,28 @@ import { logger } from '../utils/logger';
  */
 
 /**
+ * 언어별 AI 응답 지시문 생성
+ */
+function getLanguageInstruction(lang: AnalysisLanguage): string {
+  const instructions = {
+    ko: '모든 응답을 한국어로 작성해주세요.',
+    en: 'Please respond in English.',
+    zh: '请用中文回答。',
+    ja: '日本語で回答してください。'
+  };
+  return instructions[lang];
+}
+
+/**
  * Phase 1: 전략 분석 + 이벤트 자동 그룹핑 프롬프트
  * 사용자 세그먼트, 세션 패턴, 이벤트 의존성, 이벤트 그룹핑 정의
  */
-export function buildStrategyPrompt(schema: ParsedSchema, userInput: UserInput): string {
-  return `당신은 ${userInput.industry} 도메인의 데이터 분석 전문가입니다.
+export function buildStrategyPrompt(schema: ParsedSchema, userInput: UserInput, language: AnalysisLanguage = 'ko'): string {
+  const languageInstruction = getLanguageInstruction(language);
+
+  return `${languageInstruction}
+
+당신은 ${userInput.industry} 도메인의 데이터 분석 전문가입니다.
 
 다음 정보를 기반으로 **전략적 분석 및 이벤트 그룹핑**을 수행해주세요.
 
@@ -328,15 +346,20 @@ export function buildEventGroupPrompt(
   properties: any[],
   userSegments: string[],
   userInput: UserInput,
-  groupName: string
+  groupName: string,
+  language: AnalysisLanguage = 'ko'
 ): string {
+  const languageInstruction = getLanguageInstruction(language);
+
   // 해당 이벤트들의 속성 필터링
   const eventNames = events.map(e => e.event_name);
   const relevantProperties = properties.filter(p =>
     !p.event_name || eventNames.includes(p.event_name)
   );
 
-  return `당신은 ${userInput.industry} 도메인의 데이터 분석 전문가입니다.
+  return `${languageInstruction}
+
+당신은 ${userInput.industry} 도메인의 데이터 분석 전문가입니다.
 
 ## 분석 대상: ${groupName} 카테고리
 다음 이벤트들의 **속성 범위**를 정의해주세요.
@@ -511,9 +534,14 @@ export function splitLargeGroups(
  */
 export function buildRetentionPrompt(
   userInput: UserInput,
-  userSegments: Array<{ name: string; ratio: number; characteristics: string }>
+  userSegments: Array<{ name: string; ratio: number; characteristics: string }>,
+  language: AnalysisLanguage = 'ko'
 ): string {
-  return `당신은 ${userInput.industry} 도메인의 사용자 리텐션 전문가입니다.
+  const languageInstruction = getLanguageInstruction(language);
+
+  return `${languageInstruction}
+
+당신은 ${userInput.industry} 도메인의 사용자 리텐션 전문가입니다.
 
 ## 서비스 정보
 - 산업: ${userInput.industry}
@@ -765,9 +793,14 @@ Respond in JSON:
  */
 export function buildEventSequencingPrompt(
   schema: ParsedSchema,
-  userInput: UserInput
+  userInput: UserInput,
+  language: AnalysisLanguage = 'ko'
 ): string {
-  return `당신은 ${userInput.industry} 도메인의 이벤트 시퀀싱 전문가입니다.
+  const languageInstruction = getLanguageInstruction(language);
+
+  return `${languageInstruction}
+
+당신은 ${userInput.industry} 도메인의 이벤트 시퀀싱 전문가입니다.
 
 ## 서비스 정보
 - 산업: ${userInput.industry}
