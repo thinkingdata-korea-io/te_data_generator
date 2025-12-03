@@ -10,7 +10,7 @@ import * as fs from 'fs';
 import { logger } from '../../utils/logger';
 import { requireAuth } from '../middleware';
 import { sendUploadedDataAsync } from '../services/data-upload.service';
-import { getUserSettings } from '../services/settings.service';
+import { getUserSettings } from '../../db/repositories/user-settings-repository';
 
 const router = Router();
 
