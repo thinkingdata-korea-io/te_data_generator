@@ -29,11 +29,17 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
       { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
     ];
   } else if (startMode === 'data-only') {
-    // 데이터만 생성: Upload → Settings → Data → Send 완료
+    // 데이터만 생성: Upload → Settings → Data 완료 (전송 제외)
     steps = [
       { key: 'input', label: t.generator.stepUpload, icon: '⇪' },
       { key: 'excel', label: t.generator.stepSettings, icon: '⚙' },
       { key: 'data', label: t.generator.stepData, icon: '⚡' },
+      { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
+    ];
+  } else if (startMode === 'send-only') {
+    // 데이터 전송만: Upload → Send 완료
+    steps = [
+      { key: 'input', label: t.generator.stepUploadData, icon: '📤' },
       { key: 'send', label: t.generator.stepSend, icon: '⇈' },
       { key: 'complete', label: t.generator.stepComplete, icon: '✓' }
     ];
@@ -64,8 +70,8 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
       <div className="flex items-center justify-between">
         {steps.map((step, index) => {
           const isActive =
-            (step.key === 'input' && (currentStep === 'input' || currentStep === 'upload-excel')) ||
-            (step.key === 'excel' && (currentStep === 'generating-excel' || currentStep === 'excel-completed' || currentStep === 'upload-completed' || currentStep === 'combined-config')) ||
+            (step.key === 'input' && (currentStep === 'input' || currentStep === 'upload-excel' || currentStep === 'dual-upload' || currentStep === 'upload-data-file')) ||
+            (step.key === 'excel' && (currentStep === 'generating-excel' || currentStep === 'excel-completed' || currentStep === 'upload-completed' || currentStep === 'combined-config' || currentStep === 'dual-upload-completed')) ||
             (step.key === 'ai-analysis' && (currentStep === 'analyzing-ai' || currentStep === 'ai-analysis-review')) ||
             (step.key === 'data' && (currentStep === 'generating-data' || currentStep === 'data-completed')) ||
             (step.key === 'send' && currentStep === 'sending-data') ||

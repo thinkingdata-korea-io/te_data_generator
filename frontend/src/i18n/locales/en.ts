@@ -279,6 +279,7 @@ export const en = {
     // Progress Steps
     stepInput: 'Input Info',
     stepUpload: 'Upload Excel',
+    stepUploadData: 'Upload Files',
     stepExcel: 'Generate Excel',
     stepSettings: 'Input Settings',
     stepAIAnalysis: 'AI Analysis',

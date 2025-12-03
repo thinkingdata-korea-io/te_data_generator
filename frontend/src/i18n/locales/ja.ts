@@ -279,6 +279,7 @@ export const ja = {
     // Progress Steps
     stepInput: '情報入力',
     stepUpload: 'Excelアップロード',
+    stepUploadData: 'ファイルアップロード',
     stepExcel: 'Excel生成',
     stepSettings: '設定入力',
     stepAIAnalysis: 'AI分析',

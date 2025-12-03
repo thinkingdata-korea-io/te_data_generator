@@ -279,6 +279,7 @@ export const zh = {
     // Progress Steps
     stepInput: '输入信息',
     stepUpload: '上传Excel',
+    stepUploadData: '上传文件',
     stepExcel: '生成Excel',
     stepSettings: '输入设置',
     stepAIAnalysis: 'AI分析',

@@ -279,6 +279,7 @@ export const ko = {
     // Progress Steps
     stepInput: '정보 입력',
     stepUpload: '엑셀 업로드',
+    stepUploadData: '파일 업로드',
     stepExcel: 'Excel 생성',
     stepSettings: '설정 입력',
     stepAIAnalysis: 'AI 분석',
