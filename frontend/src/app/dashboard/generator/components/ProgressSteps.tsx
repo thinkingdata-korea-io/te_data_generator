@@ -67,7 +67,7 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
 
   return (
     <div className="mb-8">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center w-full">
         {steps.map((step, index) => {
           const isActive =
             (step.key === 'input' && (currentStep === 'input' || currentStep === 'upload-excel' || currentStep === 'dual-upload' || currentStep === 'upload-data-file')) ||
@@ -85,8 +85,8 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
             (step.key === 'send' && currentStep === 'sent');
 
           return (
-            <div key={step.key} className="flex items-center flex-1">
-              <div className="flex flex-col items-center flex-1">
+            <>
+              <div key={step.key} className="flex flex-col items-center min-w-[80px]">
                 <div className={`w-10 h-10 rounded border-2 flex items-center justify-center text-xl mb-2 transition-all font-mono ${
                   isActive
                     ? 'border-[var(--accent-cyan)] bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] terminal-glow-cyan'
@@ -96,18 +96,18 @@ export default function ProgressSteps({ currentStep, startMode }: ProgressStepsP
                 }`}>
                   {step.icon}
                 </div>
-                <span className={`text-xs font-mono ${
+                <span className={`text-xs font-mono text-center whitespace-nowrap ${
                   isActive ? 'text-[var(--accent-cyan)]' : 'text-[var(--text-secondary)]'
                 }`}>
                   {step.label}
                 </span>
               </div>
               {index < steps.length - 1 && (
-                <div className={`h-0.5 flex-1 mx-2 transition-all ${
+                <div className={`h-0.5 flex-1 mx-3 transition-all ${
                   isCompleted ? 'bg-[var(--accent-green)]' : 'bg-[var(--border)]'
                 }`} />
               )}
-            </div>
+            </>
           );
         })}
       </div>
