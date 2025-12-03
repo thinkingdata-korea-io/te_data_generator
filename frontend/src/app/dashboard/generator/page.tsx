@@ -631,6 +631,7 @@ export default function Home() {
           <DataFileUpload
             sendAppId={sendAppId}
             onSendAppIdChange={setSendAppId}
+            onSendStart={() => setCurrentStep('sending-data')}
             onComplete={() => setCurrentStep('sent')}
             onCancel={() => {
               setCurrentStep('select-mode');

@@ -8,6 +8,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 interface DataFileUploadProps {
   onComplete: () => void;
   onCancel: () => void;
+  onSendStart?: () => void;
   sendAppId: string;
   onSendAppIdChange: (appId: string) => void;
 }
@@ -19,7 +20,7 @@ interface UploadedDataFile {
   sizeKB: number;
 }
 
-export default function DataFileUpload({ onComplete, onCancel, sendAppId, onSendAppIdChange }: DataFileUploadProps) {
+export default function DataFileUpload({ onComplete, onCancel, onSendStart, sendAppId, onSendAppIdChange }: DataFileUploadProps) {
   const { t } = useLanguage();
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDataFile[]>([]);
@@ -101,6 +102,11 @@ export default function DataFileUpload({ onComplete, onCancel, sendAppId, onSend
 
     setIsSending(true);
     setUploadError('');
+
+    // Notify parent that sending has started
+    if (onSendStart) {
+      onSendStart();
+    }
 
     try {
       const token = localStorage.getItem('auth_token');
