@@ -145,37 +145,38 @@ export const ko = {
     selectTask: '작업을 선택하세요. 각 작업은 독립적으로 수행할 수 있습니다.',
     languageSelectionTip: '선택한 언어로 분석 결과와 데이터가 생성됩니다',
 
-    // Task Mode Cards
-    taxonomyOnlyTitle: 'Taxonomy Excel 생성',
-    taxonomyOnlyDesc: 'AI 없이 이벤트 정의만',
-    taxonomyStep1: '설정 입력',
-    taxonomyStep2: 'Excel 생성',
-    taxonomyStep3: '다운로드',
-
-    analysisOnlyTitle: 'AI 분석 Excel 생성',
-    analysisOnlyDesc: 'Taxonomy → AI 분석 변환',
-    analysisStep1: 'Taxonomy 업로드',
-    analysisStep2: 'AI 분석',
-    analysisStep3: '결과 다운로드',
-
-    dataOnlyTitle: '데모 데이터 생성',
-    dataOnlyDesc: 'AI 분석 Excel → 실제 데이터',
-    dataStep1: 'Excel 2개 업로드',
-    dataStep2: '검토/수정',
-    dataStep3: '데이터 생성',
-
+    // Task Mode Cards - Featured (큰 카드)
     fullProcessTitle: '전체 프로세스',
-    fullProcessDesc: '처음부터 끝까지 한번에',
-    fullProcessStep1: '설정',
-    fullProcessStep2: 'Taxonomy',
-    fullProcessStep3: 'AI 분석',
-    fullProcessStep4: '데이터 생성',
+    fullProcessDesc: 'Taxonomy 생성부터 데이터 전송까지 전체 과정',
+    fullProcessStep1: '서비스 정보 입력',
+    fullProcessStep2: 'Taxonomy Excel 생성',
+    fullProcessStep3: 'AI 분석 수행',
+    fullProcessStep4: '데모 데이터 생성 및 전송',
+
+    taxonomyOnlyTitle: 'Taxonomy Excel 생성',
+    taxonomyOnlyDesc: '이벤트 텍소노미 Excel 템플릿 생성',
+    taxonomyStep1: '서비스 정보 입력',
+    taxonomyStep2: 'Taxonomy Excel 생성',
+    taxonomyStep3: 'Excel 파일 다운로드',
+
+    // Advanced Options (고급 옵션)
+    analysisOnlyTitle: 'AI 분석 Excel 생성',
+    analysisOnlyDesc: '기존 Taxonomy로 AI 분석 Excel 생성',
+    analysisStep1: 'Taxonomy Excel 업로드',
+    analysisStep2: 'AI 분석 수행 및 검토',
+    analysisStep3: '분석 Excel 다운로드',
+
+    dataOnlyTitle: '데이터만 생성',
+    dataOnlyDesc: '기존 Excel 파일로 데모 데이터 생성',
+    dataStep1: 'Taxonomy/분석 Excel 업로드',
+    dataStep2: 'AI 분석 검토 및 수정',
+    dataStep3: '데모 데이터 생성',
 
     sendOnlyTitle: '데이터 전송만',
-    sendOnlyDesc: '저장된 파일 업로드 → 전송',
-    sendStep1: '데이터 파일 업로드',
-    sendStep2: 'APP_ID 입력',
-    sendStep3: 'ThinkingEngine 전송',
+    sendOnlyDesc: '기존 데이터 파일을 ThinkingEngine으로 전송',
+    sendStep1: '.jsonl 데이터 파일 업로드',
+    sendStep2: 'ThinkingEngine APP_ID 입력',
+    sendStep3: '데이터 전송 시작',
 
     advancedOptions: '고급 옵션',
     showAdvancedOptions: '고급 옵션 보기',

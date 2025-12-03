@@ -145,37 +145,38 @@ export const ja = {
     selectTask: '作業を選択してください。各作業は独立して実行できます。',
     languageSelectionTip: '選択した言語で分析結果とデータが生成されます',
 
-    // Task Mode Cards
-    taxonomyOnlyTitle: 'Taxonomy Excel生成',
-    taxonomyOnlyDesc: 'AIなし、イベント定義のみ',
-    taxonomyStep1: '設定入力',
-    taxonomyStep2: 'Excel生成',
-    taxonomyStep3: 'ダウンロード',
-
-    analysisOnlyTitle: 'AI分析Excel生成',
-    analysisOnlyDesc: 'Taxonomy → AI分析変換',
-    analysisStep1: 'Taxonomyアップロード',
-    analysisStep2: 'AI分析',
-    analysisStep3: '結果ダウンロード',
-
-    dataOnlyTitle: 'デモデータ生成',
-    dataOnlyDesc: 'AI分析Excel → 実際のデータ',
-    dataStep1: 'Excel 2個アップロード',
-    dataStep2: 'レビュー/修正',
-    dataStep3: 'データ生成',
-
+    // Task Mode Cards - Featured
     fullProcessTitle: 'フルプロセス',
-    fullProcessDesc: '最初から最後まで一度に',
-    fullProcessStep1: '設定',
-    fullProcessStep2: 'Taxonomy',
-    fullProcessStep3: 'AI分析',
-    fullProcessStep4: 'データ生成',
+    fullProcessDesc: 'Taxonomy 生成からデータ送信までの全過程',
+    fullProcessStep1: 'サービス情報入力',
+    fullProcessStep2: 'Taxonomy Excel 生成',
+    fullProcessStep3: 'AI 分析実行',
+    fullProcessStep4: 'デモデータ生成と送信',
+
+    taxonomyOnlyTitle: 'Taxonomy Excel 生成',
+    taxonomyOnlyDesc: 'イベント分類 Excel テンプレート作成',
+    taxonomyStep1: 'サービス情報入力',
+    taxonomyStep2: 'Taxonomy Excel 生成',
+    taxonomyStep3: 'Excel ファイルダウンロード',
+
+    // Advanced Options
+    analysisOnlyTitle: 'AI 分析 Excel 生成',
+    analysisOnlyDesc: '既存 Taxonomy から AI 分析 Excel 作成',
+    analysisStep1: 'Taxonomy Excel アップロード',
+    analysisStep2: 'AI 分析実行とレビュー',
+    analysisStep3: '分析 Excel ダウンロード',
+
+    dataOnlyTitle: 'データのみ生成',
+    dataOnlyDesc: '既存 Excel ファイルからデモデータ生成',
+    dataStep1: 'Taxonomy/分析 Excel アップロード',
+    dataStep2: 'AI 分析レビューと編集',
+    dataStep3: 'デモデータ生成',
 
     sendOnlyTitle: 'データ送信のみ',
-    sendOnlyDesc: '保存ファイルをアップロード → 送信',
-    sendStep1: 'データファイルアップロード',
-    sendStep2: 'APP_ID 入力',
-    sendStep3: 'ThinkingEngineに送信',
+    sendOnlyDesc: '既存データファイルを ThinkingEngine に送信',
+    sendStep1: '.jsonl データファイルアップロード',
+    sendStep2: 'ThinkingEngine APP_ID 入力',
+    sendStep3: 'データ送信開始',
 
     advancedOptions: '詳細オプション',
     showAdvancedOptions: '詳細オプションを表示',

@@ -145,37 +145,38 @@ export const en = {
     selectTask: 'Select a task. Each task can be performed independently.',
     languageSelectionTip: 'Analysis results and data will be generated in the selected language',
 
-    // Task Mode Cards
-    taxonomyOnlyTitle: 'Taxonomy Excel Generation',
-    taxonomyOnlyDesc: 'Event definitions only, no AI',
-    taxonomyStep1: 'Input Settings',
-    taxonomyStep2: 'Generate Excel',
-    taxonomyStep3: 'Download',
-
-    analysisOnlyTitle: 'AI Analysis Excel Generation',
-    analysisOnlyDesc: 'Taxonomy → AI Analysis Conversion',
-    analysisStep1: 'Upload Taxonomy',
-    analysisStep2: 'AI Analysis',
-    analysisStep3: 'Download Results',
-
-    dataOnlyTitle: 'Demo Data Generation',
-    dataOnlyDesc: 'AI Analysis Excel → Actual Data',
-    dataStep1: 'Upload 2 Excel Files',
-    dataStep2: 'Review/Modify',
-    dataStep3: 'Generate Data',
-
+    // Task Mode Cards - Featured
     fullProcessTitle: 'Full Process',
-    fullProcessDesc: 'From start to finish in one go',
-    fullProcessStep1: 'Settings',
-    fullProcessStep2: 'Taxonomy',
-    fullProcessStep3: 'AI Analysis',
-    fullProcessStep4: 'Data Generation',
+    fullProcessDesc: 'Complete workflow from Taxonomy to data transmission',
+    fullProcessStep1: 'Enter service information',
+    fullProcessStep2: 'Generate Taxonomy Excel',
+    fullProcessStep3: 'Perform AI analysis',
+    fullProcessStep4: 'Generate and send demo data',
+
+    taxonomyOnlyTitle: 'Generate Taxonomy Excel',
+    taxonomyOnlyDesc: 'Create event taxonomy Excel template',
+    taxonomyStep1: 'Enter service information',
+    taxonomyStep2: 'Generate Taxonomy Excel',
+    taxonomyStep3: 'Download Excel file',
+
+    // Advanced Options
+    analysisOnlyTitle: 'Generate AI Analysis Excel',
+    analysisOnlyDesc: 'Create AI analysis Excel from existing Taxonomy',
+    analysisStep1: 'Upload Taxonomy Excel',
+    analysisStep2: 'Perform AI analysis and review',
+    analysisStep3: 'Download analysis Excel',
+
+    dataOnlyTitle: 'Generate Data Only',
+    dataOnlyDesc: 'Generate demo data from existing Excel files',
+    dataStep1: 'Upload Taxonomy/Analysis Excel',
+    dataStep2: 'Review and edit AI analysis',
+    dataStep3: 'Generate demo data',
 
     sendOnlyTitle: 'Send Data Only',
-    sendOnlyDesc: 'Upload saved files → Send',
-    sendStep1: 'Upload Data Files',
-    sendStep2: 'Enter APP_ID',
-    sendStep3: 'Send to ThinkingEngine',
+    sendOnlyDesc: 'Send existing data files to ThinkingEngine',
+    sendStep1: 'Upload .jsonl data files',
+    sendStep2: 'Enter ThinkingEngine APP_ID',
+    sendStep3: 'Start data transmission',
 
     advancedOptions: 'Advanced Options',
     showAdvancedOptions: 'Show Advanced Options',

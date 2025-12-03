@@ -15,16 +15,8 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<AnalysisLanguage>(uiLanguage as AnalysisLanguage);
   const [showAdvanced, setShowAdvanced] = useState(false);
 
-  // Featured tasks (큰 카드 2개)
+  // Featured tasks (큰 카드 2개) - 가장 많이 사용하는 순서
   const featuredTasks = [
-    {
-      mode: 'taxonomy-only' as TaskMode,
-      icon: '📋',
-      color: 'cyan',
-      title: t.generator.taxonomyOnlyTitle,
-      desc: t.generator.taxonomyOnlyDesc,
-      steps: [t.generator.taxonomyStep1, t.generator.taxonomyStep2, t.generator.taxonomyStep3]
-    },
     {
       mode: 'full-process' as TaskMode,
       icon: '🚀',
@@ -32,6 +24,14 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
       title: t.generator.fullProcessTitle,
       desc: t.generator.fullProcessDesc,
       steps: [t.generator.fullProcessStep1, t.generator.fullProcessStep2, t.generator.fullProcessStep3, t.generator.fullProcessStep4]
+    },
+    {
+      mode: 'taxonomy-only' as TaskMode,
+      icon: '📋',
+      color: 'cyan',
+      title: t.generator.taxonomyOnlyTitle,
+      desc: t.generator.taxonomyOnlyDesc,
+      steps: [t.generator.taxonomyStep1, t.generator.taxonomyStep2, t.generator.taxonomyStep3]
     }
   ];
 

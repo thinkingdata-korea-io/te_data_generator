@@ -145,37 +145,38 @@ export const zh = {
     selectTask: '选择任务。每个任务都可以独立执行。',
     languageSelectionTip: '分析结果和数据将以所选语言生成',
 
-    // Task Mode Cards
-    taxonomyOnlyTitle: 'Taxonomy Excel生成',
-    taxonomyOnlyDesc: '仅事件定义，无AI',
-    taxonomyStep1: '输入设置',
-    taxonomyStep2: '生成Excel',
-    taxonomyStep3: '下载',
-
-    analysisOnlyTitle: 'AI分析Excel生成',
-    analysisOnlyDesc: 'Taxonomy → AI分析转换',
-    analysisStep1: '上传Taxonomy',
-    analysisStep2: 'AI分析',
-    analysisStep3: '下载结果',
-
-    dataOnlyTitle: '演示数据生成',
-    dataOnlyDesc: 'AI分析Excel → 实际数据',
-    dataStep1: '上传2个Excel文件',
-    dataStep2: '审查/修改',
-    dataStep3: '生成数据',
-
+    // Task Mode Cards - Featured
     fullProcessTitle: '完整流程',
-    fullProcessDesc: '从头到尾一次性完成',
-    fullProcessStep1: '设置',
-    fullProcessStep2: 'Taxonomy',
-    fullProcessStep3: 'AI分析',
-    fullProcessStep4: '数据生成',
+    fullProcessDesc: '从 Taxonomy 生成到数据传输的完整过程',
+    fullProcessStep1: '输入服务信息',
+    fullProcessStep2: '生成 Taxonomy Excel',
+    fullProcessStep3: '执行 AI 分析',
+    fullProcessStep4: '生成并发送演示数据',
+
+    taxonomyOnlyTitle: '生成 Taxonomy Excel',
+    taxonomyOnlyDesc: '创建事件分类 Excel 模板',
+    taxonomyStep1: '输入服务信息',
+    taxonomyStep2: '生成 Taxonomy Excel',
+    taxonomyStep3: '下载 Excel 文件',
+
+    // Advanced Options
+    analysisOnlyTitle: '生成 AI 分析 Excel',
+    analysisOnlyDesc: '使用现有 Taxonomy 创建 AI 分析 Excel',
+    analysisStep1: '上传 Taxonomy Excel',
+    analysisStep2: '执行 AI 分析并审查',
+    analysisStep3: '下载分析 Excel',
+
+    dataOnlyTitle: '仅生成数据',
+    dataOnlyDesc: '使用现有 Excel 文件生成演示数据',
+    dataStep1: '上传 Taxonomy/分析 Excel',
+    dataStep2: '审查和编辑 AI 分析',
+    dataStep3: '生成演示数据',
 
     sendOnlyTitle: '仅发送数据',
-    sendOnlyDesc: '上传已保存文件 → 发送',
-    sendStep1: '上传数据文件',
-    sendStep2: '输入 APP_ID',
-    sendStep3: '发送到 ThinkingEngine',
+    sendOnlyDesc: '将现有数据文件发送到 ThinkingEngine',
+    sendStep1: '上传 .jsonl 数据文件',
+    sendStep2: '输入 ThinkingEngine APP_ID',
+    sendStep3: '开始数据传输',
 
     advancedOptions: '高级选项',
     showAdvancedOptions: '显示高级选项',
