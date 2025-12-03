@@ -34,6 +34,11 @@ export default function DataFileUpload({ onComplete, onCancel, sendAppId, onSend
     setIsUploading(true);
 
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
+      }
+
       const formData = new FormData();
 
       // Add all .jsonl files to form data
@@ -49,6 +54,9 @@ export default function DataFileUpload({ onComplete, onCancel, sendAppId, onSend
 
       const response = await fetch(`${API_URL}/api/data/upload`, {
         method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
         body: formData
       });
 
@@ -95,12 +103,18 @@ export default function DataFileUpload({ onComplete, onCancel, sendAppId, onSend
     setUploadError('');
 
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('인증이 필요합니다. 다시 로그인해주세요.');
+      }
+
       const filePaths = uploadedFiles.map(f => f.path);
 
       const response = await fetch(`${API_URL}/api/data/send`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
         },
         body: JSON.stringify({
           filePaths,
