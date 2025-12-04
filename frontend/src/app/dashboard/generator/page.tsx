@@ -247,7 +247,7 @@ export default function Home() {
       status: 'analyzing',
       progress: 15,
       message: '📄 업로드된 파일 분석 중...',
-      detail: `${uploadedFiles.length}개 파일 분석 (PDF, 텍스트 등)`
+      details: [`${uploadedFiles.length}개 파일 분석 (PDF, 텍스트 등)`]
     });
 
     try {
@@ -267,7 +267,7 @@ export default function Home() {
         status: 'analyzing',
         progress: 20,
         message: '✅ 파일 분석 완료',
-        detail: 'AI 전략 분석을 시작합니다...'
+        details: ['AI 전략 분석을 시작합니다...']
       });
 
       return true;
