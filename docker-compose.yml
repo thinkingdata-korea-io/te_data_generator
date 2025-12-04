@@ -48,7 +48,6 @@ services:
       JWT_SECRET: te_platform_secret_key_change_in_production_2025
       API_PORT: 3001
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
-      OPENAI_API_KEY: ${OPENAI_API_KEY}
       FILE_ANALYSIS_MODEL: ${FILE_ANALYSIS_MODEL:-claude-sonnet-4-5-20250929}
       FILE_ANALYSIS_MAX_TOKENS: ${FILE_ANALYSIS_MAX_TOKENS:-4000}
     ports:

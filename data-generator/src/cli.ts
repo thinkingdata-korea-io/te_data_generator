@@ -157,11 +157,11 @@ async function generateData(args: string[]) {
     }
 
     // AI 설정
-    const aiProvider = (getArg(args, '--ai-provider') || 'openai') as 'openai' | 'anthropic';
-    const aiApiKey = process.env.ANTHROPIC_API_KEY || process.env.OPENAI_API_KEY || '';
+    const aiProvider = 'anthropic';
+    const aiApiKey = process.env.ANTHROPIC_API_KEY || '';
 
     if (!aiApiKey) {
-      logger.error('AI API key not found. Set ANTHROPIC_API_KEY or OPENAI_API_KEY');
+      logger.error('AI API key not found. Set ANTHROPIC_API_KEY');
       process.exit(1);
     }
 
@@ -265,7 +265,6 @@ GENERATE Command Options:
 
   Optional:
     --notes, -n <text>           Service characteristics
-    --ai-provider <provider>     AI provider (openai|anthropic) [default: openai]
     --output-data <path>         Output data directory [default: ../output/data]
     --output-metadata <path>     Output metadata directory [default: ../output/runs]
 
@@ -284,8 +283,7 @@ VALIDATE Command Options:
     --run-id, -r <id>            Specific run ID to validate
 
 Environment Variables:
-  ANTHROPIC_API_KEY            Anthropic API key
-  OPENAI_API_KEY               OpenAI API key
+  ANTHROPIC_API_KEY            Anthropic API key (required)
 
 Examples:
   # Generate data

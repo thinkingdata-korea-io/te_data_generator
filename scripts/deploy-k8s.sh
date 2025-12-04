@@ -13,6 +13,10 @@ kubectl apply -f k8s/namespace.yaml
 echo "⚙️  Applying ConfigMap..."
 kubectl apply -f k8s/configmap.yaml -n ${NAMESPACE}
 
+# Apply PostgreSQL (PVC, Deployment, Service)
+echo "🐘 Applying PostgreSQL..."
+kubectl apply -f k8s/postgres.yaml -n ${NAMESPACE}
+
 # Check Secret (don't fail if missing)
 echo "🔐 Checking Secret..."
 kubectl get secret te-data-generator-secrets -n ${NAMESPACE} > /dev/null 2>&1 || \
@@ -37,6 +41,7 @@ kubectl apply -f k8s/ingress.yaml -n ${NAMESPACE}
 
 # Wait for rollout
 echo "⏳ Waiting for rollout to complete..."
+kubectl rollout status deployment/te-postgres -n ${NAMESPACE} --timeout=5m || true
 kubectl rollout status deployment/te-data-generator-backend -n ${NAMESPACE} --timeout=5m || true
 kubectl rollout status deployment/te-data-generator-frontend -n ${NAMESPACE} --timeout=5m || true
 

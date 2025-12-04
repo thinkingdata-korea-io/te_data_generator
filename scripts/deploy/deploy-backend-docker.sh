@@ -45,7 +45,6 @@ docker run -d \
   -p 3001:3001 \
   -e NODE_ENV=production \
   -e ANTHROPIC_API_KEY=\${ANTHROPIC_API_KEY} \
-  -e OPENAI_API_KEY=\${OPENAI_API_KEY:-} \
   -v /home/$USER/te-data-generator/output:/app/output \
   -v /home/$USER/te-data-generator/uploads:/app/uploads \
   -v /home/$USER/te-data-generator/excel-output:/app/excel-schema-generator/output \

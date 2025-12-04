@@ -145,11 +145,9 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
   try {
     const generator = new ExcelSchemaGenerator({
       outputDir: EXCEL_OUTPUT_DIR,
-      preferredProvider: (process.env.EXCEL_AI_PROVIDER as 'anthropic' | 'openai') || 'anthropic',
+      preferredProvider: 'anthropic',
       anthropicKey: process.env.ANTHROPIC_API_KEY,
-      openaiKey: process.env.OPENAI_API_KEY,
       anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL,
-      openaiModel: process.env.EXCEL_OPENAI_MODEL,
       onProgress: (progress) => {
         sendProgress({
           type: 'progress',
@@ -189,7 +187,7 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
         userData: schema.userData.length,
         eventNames: schema.events.slice(0, 10).map(e => e.event_name),
         generatedAt: new Date().toISOString(),
-        provider: process.env.EXCEL_AI_PROVIDER || 'anthropic'
+        provider: 'anthropic'
       }
     });
 
@@ -222,11 +220,9 @@ router.post('/excel/generate', async (req: Request, res: Response) => {
 
     const generator = new ExcelSchemaGenerator({
       outputDir: EXCEL_OUTPUT_DIR,
-      preferredProvider: (process.env.EXCEL_AI_PROVIDER as 'anthropic' | 'openai') || 'anthropic',
+      preferredProvider: 'anthropic',
       anthropicKey: process.env.ANTHROPIC_API_KEY,
-      openaiKey: process.env.OPENAI_API_KEY,
-      anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL,
-      openaiModel: process.env.EXCEL_OPENAI_MODEL
+      anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL
     });
 
     const result = await generator.generate({

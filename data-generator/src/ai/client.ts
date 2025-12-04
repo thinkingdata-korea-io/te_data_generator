@@ -1,6 +1,4 @@
-import OpenAI from 'openai';
 import Anthropic from '@anthropic-ai/sdk';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { ParsedSchema, AIAnalysisResult, EventDefinition } from '../types';
 import {
   buildStrategyPrompt,
@@ -34,7 +32,7 @@ export type AIProgressCallback = (progress: {
  * AI 클라이언트 설정
  */
 export interface AIClientConfig {
-  provider: 'openai' | 'anthropic' | 'gemini';
+  provider: 'anthropic';
   apiKey: string;
   model?: string;
   validationModelTier?: 'fast' | 'balanced';  // 검증 모델 등급 (기본: fast)
@@ -61,22 +59,13 @@ export interface UserInput {
  * AI 클라이언트
  */
 export class AIClient {
-  private openai?: OpenAI;
-  private anthropic?: Anthropic;
-  private gemini?: GoogleGenerativeAI;
+  private anthropic: Anthropic;
   private config: AIClientConfig;
   private validationPipeline: ValidationPipeline;
 
   constructor(config: AIClientConfig) {
     this.config = config;
-
-    if (config.provider === 'openai') {
-      this.openai = new OpenAI({ apiKey: config.apiKey });
-    } else if (config.provider === 'anthropic') {
-      this.anthropic = new Anthropic({ apiKey: config.apiKey });
-    } else if (config.provider === 'gemini') {
-      this.gemini = new GoogleGenerativeAI(config.apiKey);
-    }
+    this.anthropic = new Anthropic({ apiKey: config.apiKey });
 
     // ValidationPipeline 초기화 (검증 모델 등급 + 커스텀 모델 전달)
     const validationTier = config.validationModelTier || 'fast';
@@ -103,15 +92,7 @@ export class AIClient {
         logger.info(`AI 분석 시도 ${attempt}/${maxRetries}...`);
 
         const prompt = this.buildPrompt(schema, userInput);
-        let response: string;
-
-        if (this.config.provider === 'openai') {
-          response = await this.callOpenAI(prompt);
-        } else if (this.config.provider === 'gemini') {
-          response = await this.callGemini(prompt);
-        } else {
-          response = await this.callAnthropic(prompt, attempt);
-        }
+        const response = await this.callAnthropic(prompt, attempt);
 
         // 응답 파싱 시도
         const result = this.parseAIResponse(response);
@@ -229,41 +210,10 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
   }
 
   /**
-   * OpenAI API 호출
-   */
-  private async callOpenAI(prompt: string): Promise<string> {
-    if (!this.openai) {
-      throw new Error('OpenAI client not initialized');
-    }
-
-    const model = this.config.model || 'gpt-4o';
-    const completion = await this.openai.chat.completions.create({
-      model,
-      messages: [
-        {
-          role: 'system',
-          content: '당신은 이벤트 트래킹 데이터 분석 전문가입니다. JSON 형식으로만 응답하세요.'
-        },
-        {
-          role: 'user',
-          content: prompt
-        }
-      ],
-      response_format: { type: 'json_object' },
-      temperature: 0.7
-    });
-
-    return completion.choices[0].message.content || '{}';
-  }
-
-  /**
    * Anthropic API 호출
    * 재시도 시 max_tokens를 자동으로 증가
    */
   private async callAnthropic(prompt: string, attempt: number = 1, modelOverride?: string): Promise<string> {
-    if (!this.anthropic) {
-      throw new Error('Anthropic client not initialized');
-    }
 
     // 재시도마다 max_tokens 증가 (8192 → 12288 → 16384)
     const baseTokens = 8192;
@@ -302,38 +252,6 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     return '{}';
   }
 
-  /**
-   * Gemini API 호출
-   */
-  private async callGemini(prompt: string, modelOverride?: string): Promise<string> {
-    if (!this.gemini) {
-      throw new Error('Gemini client not initialized');
-    }
-
-    // 모델 선택: override가 있으면 사용, 없으면 config
-    const model = modelOverride || this.config.model || 'gemini-2.5-pro-latest';
-
-    logger.info(`  📊 Gemini API 호출 (model: ${model})...`);
-
-    const generativeModel = this.gemini.getGenerativeModel({
-      model,
-      generationConfig: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-        responseMimeType: 'application/json'
-      }
-    });
-
-    const result = await generativeModel.generateContent(prompt);
-    const response = result.response;
-    const text = response.text();
-
-    if (!text) {
-      throw new Error('Empty response from Gemini');
-    }
-
-    return text;
-  }
 
   /**
    * AI 응답 파싱 (개선된 버전)
@@ -626,15 +544,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
   ): Promise<Omit<AIAnalysisResult, 'eventRanges'> & { eventGroups?: Record<string, string[]> }> {
     const lang = this.config.language || 'ko';
     const prompt = buildStrategyPrompt(schema, userInput, lang);
-    let response: string;
-
-    if (this.config.provider === 'openai') {
-      response = await this.callOpenAI(prompt);
-    } else if (this.config.provider === 'gemini') {
-      response = await this.callGemini(prompt);
-    } else {
-      response = await this.callAnthropic(prompt);
-    }
+    const response = await this.callAnthropic(prompt);
 
     const result = this.parseAIResponse(response);
     return {
@@ -667,15 +577,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       lang
     );
 
-    let response: string;
-
-    if (this.config.provider === 'openai') {
-      response = await this.callOpenAI(prompt);
-    } else if (this.config.provider === 'gemini') {
-      response = await this.callGemini(prompt);
-    } else {
-      response = await this.callAnthropic(prompt);
-    }
+    const response = await this.callAnthropic(prompt);
 
     const result = this.parseAIResponse(response);
     return {
@@ -693,15 +595,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     // 1. Generator: 초안 생성
     const lang = this.config.language || 'ko';
     const prompt = buildRetentionPrompt(userInput, userSegments, lang);
-    let response: string;
-
-    if (this.config.provider === 'openai') {
-      response = await this.callOpenAI(prompt);
-    } else if (this.config.provider === 'gemini') {
-      response = await this.callGemini(prompt);
-    } else {
-      response = await this.callAnthropic(prompt);
-    }
+    const response = await this.callAnthropic(prompt);
 
     const result = this.parseAIResponse(response);
     const proposedCurve = result.retentionCurve;
@@ -755,15 +649,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     const lang = this.config.language || 'ko';
     const { buildTransactionDetectionPrompt } = await import('./prompts');
     const prompt = buildTransactionDetectionPrompt(schema, userInput, lang);
-    let response: string;
-
-    if (this.config.provider === 'openai') {
-      response = await this.callOpenAI(prompt);
-    } else if (this.config.provider === 'gemini') {
-      response = await this.callGemini(prompt);
-    } else {
-      response = await this.callAnthropic(prompt);
-    }
+    const response = await this.callAnthropic(prompt);
 
     const result = this.parseAIResponse(response) as any;
     let transactions = result.transactions || [];
@@ -807,15 +693,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
     // 1. Generator: 초안 생성
     const lang = this.config.language || 'ko';
     const prompt = buildEventSequencingPrompt(schema, userInput, lang);
-    let response: string;
-
-    if (this.config.provider === 'openai') {
-      response = await this.callOpenAI(prompt);
-    } else if (this.config.provider === 'gemini') {
-      response = await this.callGemini(prompt);
-    } else {
-      response = await this.callAnthropic(prompt);
-    }
+    const response = await this.callAnthropic(prompt);
 
     const result = this.parseAIResponse(response);
     const proposedSequencing = result.eventSequencing;

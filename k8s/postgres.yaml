@@ -1,0 +1,114 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: postgres-pvc
+  namespace: korea
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 10Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: te-postgres
+  namespace: korea
+  labels:
+    app: te-data-generator
+    component: postgres
+    owner/name: korea
+    owner/purpose: develop
+  annotations:
+    description: "PostgreSQL database for korea team"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: te-data-generator
+      component: postgres
+  template:
+    metadata:
+      labels:
+        app: te-data-generator
+        component: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:15
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: "te_platform"
+            - name: POSTGRES_USER
+              value: "te_admin"
+            - name: POSTGRES_PASSWORD
+              value: "te_password_2025"
+            - name: TZ
+              value: "Asia/Seoul"
+            - name: PGTZ
+              value: "Asia/Seoul"
+            - name: PGDATA
+              value: "/var/lib/postgresql/data/pgdata"
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - te_admin
+                - -d
+                - te_platform
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command:
+                - pg_isready
+                - -U
+                - te_admin
+                - -d
+                - te_platform
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: postgres-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: te-postgres
+  namespace: korea
+  labels:
+    app: te-data-generator
+    component: postgres
+    owner/name: korea
+    owner/purpose: develop
+  annotations:
+    description: "PostgreSQL service for korea team"
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: te-data-generator
+    component: postgres
