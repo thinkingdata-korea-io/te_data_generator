@@ -1,8 +1,7 @@
 # Frontend Dockerfile
 #
-# Build command:
-#   docker build -f frontend/Dockerfile -t frontend ./frontend
-#   OR use docker-compose from the root directory
+# Build command (from parent directory):
+#   docker build -f frontend/Dockerfile -t frontend .
 #
 FROM node:20-alpine AS base
 
@@ -10,7 +9,7 @@ FROM node:20-alpine AS base
 FROM base AS deps
 WORKDIR /app
 
-COPY package*.json ./
+COPY frontend/package*.json ./
 RUN npm install --production=false
 
 # 빌드 단계
@@ -18,7 +17,7 @@ FROM base AS builder
 WORKDIR /app
 
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY frontend/ .
 
 # Next.js 빌드
 RUN npm run build
