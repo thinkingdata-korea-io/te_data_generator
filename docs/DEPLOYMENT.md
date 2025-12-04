@@ -135,7 +135,14 @@ GitLab에 푸시하면 **Jenkins가 자동으로 배포**를 시작합니다.
    ```bash
    kubectl apply -f k8s/namespace.yaml
    kubectl apply -f k8s/configmap.yaml -n korea
-   kubectl apply -f k8s/secret.yaml -n korea
+
+   # ⚠️ Secret은 서버에 미리 생성되어 있어야 함 (보안상 Git에 커밋 안됨)
+   # Secret이 없다면 먼저 생성:
+   # kubectl create secret generic te-data-generator-secrets -n korea \
+   #   --from-literal=database-url="postgresql://user:password@host:5432/dbname" \
+   #   --from-literal=jwt-secret="your-secure-jwt-secret" \
+   #   --from-literal=anthropic-api-key="sk-ant-..."
+
    kubectl apply -f k8s/deployment.yaml -n korea
    kubectl apply -f k8s/service.yaml -n korea
    kubectl apply -f k8s/ingress.yaml -n korea
@@ -224,7 +231,43 @@ docker build -f frontend/Dockerfile -t test-frontend ./frontend
 
 ---
 
-### 문제 3: Kubernetes Pod 시작 실패
+### 문제 3: Jenkins 배포 실패 - "k8s/configmap.yaml does not exist"
+
+**증상**:
+```
+error: the path "k8s/configmap.yaml" does not exist
+script returned exit code 1
+```
+
+**원인**:
+1. ConfigMap 파일이 Git에 커밋되지 않았거나
+2. Secret 파일이 Git에 없어서 오류 발생 (보안상 정상)
+
+**해결**:
+```bash
+# 1. ConfigMap이 Git에 있는지 확인
+git ls-files k8s/configmap.yaml
+
+# 2. ConfigMap이 없다면 커밋
+git add k8s/configmap.yaml
+git commit -m "Add k8s configmap"
+git push origin main
+git push gitlab main
+
+# 3. Secret은 서버에 미리 생성 (최초 1회)
+# 서버 SSH 접속 후:
+kubectl create secret generic te-data-generator-secrets \
+  --from-literal=database-url='postgresql://...' \
+  --from-literal=jwt-secret='...' \
+  --from-literal=anthropic-api-key='sk-ant-...' \
+  -n korea
+```
+
+**⚠️ 참고**: `.gitlab-ci.yml`이 수정되어 Secret 파일 누락 시에도 배포가 계속 진행됩니다.
+
+---
+
+### 문제 4: Kubernetes Pod 시작 실패
 
 **증상**: Pod가 CrashLoopBackOff 또는 ImagePullBackOff 상태
 
@@ -246,7 +289,18 @@ kubectl get events -n korea --sort-by='.lastTimestamp'
 
 2. **CrashLoopBackOff**: 애플리케이션 시작 실패
    - 환경 변수 확인: `kubectl get configmap -n korea`
-   - Secret 확인: PostgreSQL 연결 정보, API Key 등
+   - **Secret 확인**: PostgreSQL 연결 정보, API Key 등
+     ```bash
+     # Secret이 존재하는지 확인
+     kubectl get secret te-data-generator-secrets -n korea
+
+     # Secret이 없다면 생성 (보안 섹션 참고)
+     kubectl create secret generic te-data-generator-secrets \
+       --from-literal=database-url='...' \
+       --from-literal=jwt-secret='...' \
+       --from-literal=anthropic-api-key='...' \
+       -n korea
+     ```
 
 ---
 
@@ -321,21 +375,34 @@ git status
 
 ### 안전하게 관리:
 
-✅ Kubernetes Secret 사용
+✅ **Kubernetes Secret 생성 (최초 1회 필수)**
+
+서버에 접속하여 다음 명령어로 Secret을 생성합니다:
+
 ```bash
+# Secret 생성 (실제 값으로 교체하여 실행)
 kubectl create secret generic te-data-generator-secrets \
-  --from-literal=anthropic-api-key='sk-ant-...' \
-  --from-literal=postgres-password='...' \
-  --from-literal=jwt-secret='...' \
+  --from-literal=database-url='postgresql://user:password@postgres-host:5432/te_data_generator' \
+  --from-literal=jwt-secret='your-very-secure-random-jwt-secret-key-here' \
+  --from-literal=anthropic-api-key='sk-ant-api03-...' \
   -n korea
+
+# Secret 생성 확인
+kubectl get secret te-data-generator-secrets -n korea
+
+# Secret 내용 확인 (base64 인코딩됨)
+kubectl describe secret te-data-generator-secrets -n korea
 ```
+
+**⚠️ 중요**:
+- 이 Secret은 **최초 1회만** 생성하면 됩니다
+- 이후 배포 시에는 자동으로 기존 Secret을 사용합니다
+- Secret이 없으면 Pod가 시작되지 않습니다
 
 ✅ ConfigMap 사용 (비밀번호가 아닌 설정값)
 ```bash
-kubectl create configmap te-data-generator-config \
-  --from-literal=postgres-host='postgres.korea.svc.cluster.local' \
-  --from-literal=postgres-db='te_data_generator' \
-  -n korea
+# ConfigMap은 Git에 커밋되어 있으므로 자동으로 적용됩니다
+kubectl apply -f k8s/configmap.yaml -n korea
 ```
 
 ---
