@@ -34,12 +34,20 @@ Kubernetes & 스토리지 완벽 가이드
 - 운영 가이드 (용량 확인, 백업, 트러블슈팅)
 - GitLab CI/CD 파이프라인
 
-#### 3. **[배포 가이드](./deployment-guide.md)**
-Git & Docker 워크플로우
+#### 3. **[배포 가이드](./DEPLOYMENT.md)** ⚡ 필수
+실전 배포 완벽 가이드
+- **VPN 연결 필수** (GitLab 푸시 전)
+- Git 푸시 전체 프로세스 (GitHub + GitLab)
+- Jenkins 자동 배포 흐름
+- 서버 주소 및 접속 정보
+- 트러블슈팅 (VPN, Docker, K8s)
+- 보안 정보 관리
+
+#### 3-1. **[기존 배포 가이드](./deployment-guide.md)**
+Git & Docker 워크플로우 개념
 - 플랫폼별 역할 (GitHub vs Docker Registry)
 - 일상적인 개발 워크플로우
 - 릴리스 배포 전략
-- CI/CD 자동화
 
 #### 4. **[현실적인 데이터 생성 로직](./realistic-data-generation.md)**
 데이터 생성 핵심 원리
@@ -132,12 +140,26 @@ Anthropic Claude API 설정
 4. [ThinkingData/LOGBUS2.md] - TE 전송
 ```
 
-### 시나리오 3: 인프라 운영자
+### 시나리오 3: 코드 수정 후 배포하는 개발자
+
+```
+1. [배포 가이드 (DEPLOYMENT.md)] ⚡ 필수 읽기
+   ↓
+2. VPN 연결 확인
+   ↓
+3. Git 커밋 & 푸시 (GitHub + GitLab)
+   ↓
+4. Jenkins 자동 배포 확인
+   ↓
+5. http://te-data-generator.tx-local.thinkingdata.cn 접속 확인
+```
+
+### 시나리오 4: 인프라 운영자
 
 ```
 1. [인프라 가이드] - K8s 배포 구조
    ↓
-2. [배포 가이드] - CI/CD 파이프라인
+2. [배포 가이드 (DEPLOYMENT.md)] - 배포 프로세스
    ↓
 3. [보안 가이드] - Secret 관리
 ```
@@ -151,7 +173,8 @@ docs/
 ├── README.md                        # 이 파일 (문서 허브)
 ├── NODE_STUDY.md                    # 🎓 Node.js 기술 스터디 (발표용)
 ├── INFRASTRUCTURE.md                # 🆕 K8s & PVC 가이드
-├── deployment-guide.md              # Git & Docker 워크플로우
+├── DEPLOYMENT.md                    # ⚡ 실전 배포 가이드 (VPN, Jenkins)
+├── deployment-guide.md              # Git & Docker 워크플로우 개념
 ├── realistic-data-generation.md     # 데이터 생성 로직
 ├── SECURITY.md                      # 보안 가이드
 ├── common/                          # 공통 가이드
@@ -172,13 +195,14 @@ docs/
 
 ## 🔄 최근 업데이트
 
-### 2024-12-04
+### 2024-12-04 (최신)
+- ✅ **신규**: `DEPLOYMENT.md` - 실전 배포 완벽 가이드 (VPN, GitLab, Jenkins)
 - ✅ **신규**: `INFRASTRUCTURE.md` - K8s & PVC 완벽 가이드 추가
 - ✅ **신규**: `NODE_STUDY.md` - Node.js 기술 스터디 문서 (발표용)
 - ✅ **정리**: 불필요한 문서 삭제 (`ACCESSIBILITY.md`, `study/`, `migration/`)
 - ✅ **재구성**: `LOGBUS2.md` → `platforms/ThinkingData/`로 이동
 - ✅ **전면 재작성**: `AI_APIS.md` - Anthropic Claude 전용 가이드로 업데이트
-- ✅ **개선**: `README.md` 구조 재편성 (시나리오 기반 가이드 추가)
+- ✅ **개선**: `README.md` 구조 재편성 (배포 시나리오 추가)
 
 ---
 
