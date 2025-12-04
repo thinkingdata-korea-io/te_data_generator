@@ -73,7 +73,7 @@ export const OPTIONAL_PROPERTIES = {
 export interface ConsistencyRule {
   groupName: string;
   level: ConsistencyLevel;
-  basedOn: string;  // 기준 속성 (예: countryCode)
+  basedOn?: string;  // 기준 속성 (예: countryCode)
   generates: string[];  // 생성되는 속성들
   strategy: GenerationStrategy;
   description: string;
@@ -110,7 +110,7 @@ export const PRESET_CONSISTENCY_RULES: ConsistencyRule[] = [
   {
     groupName: 'session',
     level: 'session',
-    basedOn: null,
+    basedOn: undefined,
     generates: ['session_id'],
     strategy: 'uuid',
     description: '세션 시작 시 UUID 생성'
@@ -118,7 +118,7 @@ export const PRESET_CONSISTENCY_RULES: ConsistencyRule[] = [
   {
     groupName: 'transaction',
     level: 'transaction',
-    basedOn: null,
+    basedOn: undefined,
     generates: [],  // AI가 엑셀에서 발견하여 추가
     strategy: 'uuid',
     description: '트랜잭션 시작 시 관련 ID 생성 (order_id, payment_id 등)'

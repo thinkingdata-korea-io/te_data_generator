@@ -3,7 +3,7 @@
  * @brief: Database connection pool and query utilities
  */
 
-import { Pool, QueryResult } from 'pg';
+import { Pool, QueryResult, QueryResultRow } from 'pg';
 import { logger } from '../utils/logger';
 
 // Database connection pool
@@ -51,7 +51,7 @@ export function getPool(): Pool | null {
 /**
  * Execute a query
  */
-export async function query<T = any>(
+export async function query<T extends QueryResultRow = any>(
   text: string,
   params?: any[]
 ): Promise<QueryResult<T>> {

@@ -167,6 +167,9 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
 
     // Parse generated Excel to get preview data
     const parser = new ExcelParser();
+    if (!result.filePath) {
+      throw new Error('Failed to generate Excel file');
+    }
     const schema = await parser.parseExcelFile(result.filePath);
 
     const eventProperties = schema.properties.filter(p => p.event_name);
@@ -233,6 +236,9 @@ router.post('/excel/generate', async (req: Request, res: Response) => {
 
     // Parse generated Excel to get preview data
     const parser = new ExcelParser();
+    if (!result.filePath) {
+      throw new Error('Failed to generate Excel file');
+    }
     const schema = await parser.parseExcelFile(result.filePath);
 
     // 이벤트 전용 속성과 공통 속성 분리

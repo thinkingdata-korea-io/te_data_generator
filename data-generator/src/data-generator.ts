@@ -302,7 +302,7 @@ export class DataGenerator {
     const progressDetails: string[] = [];
 
     const aiClient = new AIClient({
-      provider: this.config.aiProvider,
+      provider: 'anthropic' as const,
       apiKey: this.config.aiApiKey,
       model: this.config.aiModel,
       language: this.config.aiLanguage || 'ko', // 🆕 언어 파라미터 추가
