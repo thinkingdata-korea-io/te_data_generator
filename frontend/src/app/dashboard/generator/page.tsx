@@ -358,7 +358,7 @@ export default function Home() {
 
     // 🔥 FIX: 파일 분석은 AI 분석 단계에서 백엔드가 수행
     setCurrentStep('analyzing-ai');
-    await aiAnalysis.startAnalysis(uploadedExcelPath, formData, settings, uploadedFiles);
+    await aiAnalysis.startAnalysis(uploadedExcelPath, formData, settings, uploadedFilePaths.length > 0 ? uploadedFilePaths : null);
   };
 
   const handleComplete = () => {
