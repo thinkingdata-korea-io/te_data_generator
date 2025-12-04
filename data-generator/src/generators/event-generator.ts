@@ -9,6 +9,7 @@ import {
   PropertyDefinition
 } from '../types';
 import { DependencyManager } from './dependency-manager';
+import { ContextManager } from './context-manager';
 import { generateFallbackValue } from './faker-utils';
 import {
   randomInt,
@@ -28,12 +29,17 @@ export class EventGenerator {
   private schema: ParsedSchema;
   private aiAnalysis: AIAnalysisResult;
   private dependencyManager: DependencyManager;
+  private contextManager: ContextManager;
   private industry: string;
+
+  // 🆕 속성 간 관계를 위한 캐시
+  private consistentRandomCache: Map<string, Map<string, any>> = new Map();  // sourceProperty → (sourceValue → targetValue)
 
   constructor(schema: ParsedSchema, aiAnalysis: AIAnalysisResult, industry: string = '') {
     this.schema = schema;
     this.aiAnalysis = aiAnalysis;
     this.dependencyManager = new DependencyManager(schema, aiAnalysis);
+    this.contextManager = new ContextManager(aiAnalysis);
     this.industry = industry;
   }
 
@@ -48,6 +54,10 @@ export class EventGenerator {
     // 세션 정보
     const isFirstSession = session.user.total_sessions === 0;
     const sessionNumber = session.user.total_sessions + 1;
+
+    // 🆕 세션 시작 시 컨텍스트 초기화 (ContextManager 사용)
+    this.contextManager.initializeUserContext(session.user);
+    this.contextManager.initializeSessionContext();
 
     // DependencyManager 세션 카운트 리셋
     this.dependencyManager.resetSessionCounts();
@@ -211,6 +221,12 @@ export class EventGenerator {
     const transactionEvents: EventData[] = [];
     let currentTime = startTime;
 
+    // 🆕 트랜잭션 컨텍스트 초기화 (ContextManager 사용)
+    if (transaction.passThroughProperties && transaction.passThroughProperties.length > 0) {
+      this.contextManager.initializeTransactionContext(transaction.passThroughProperties);
+      logger.debug(`🔗 [Transaction Context] "${transactionName}" initialized with ${transaction.passThroughProperties.length} properties`);
+    }
+
     // 1. 시작 이벤트 (첫 번째 사용 가능한 것)
     const startEvent = transaction.startEvents.find(e =>
       this.dependencyManager.canExecuteEvent(e, executedEvents, isFirstSession, sessionNumber)
@@ -283,6 +299,10 @@ export class EventGenerator {
     }
 
     logger.debug(`✅ [Transaction Generated] "${transactionName}": ${transactionEvents.map(e => e.event_name).join(' → ')}`);
+
+    // 🆕 트랜잭션 컨텍스트 클리어 (ContextManager 사용)
+    this.contextManager.clearTransactionContext();
+
     return transactionEvents;
   }
 
@@ -330,15 +350,45 @@ export class EventGenerator {
     user: User,
     timestamp: Date
   ): EventData {
+    // 🆕 위치 컨텍스트는 세션 시작 시 초기화되므로 여기서는 리셋하지 않음!
+    // 이로써 같은 세션의 모든 이벤트가 일관된 위치 정보를 유지합니다.
+
+    // 🆕 eventTimingOverrides가 있으면 timestamp 조정
+    const adjustedTimestamp = this.adjustTimestampForEvent(eventName, timestamp);
+
     const eventDef = this.schema.events.find(e => e.event_name === eventName);
-    const properties = this.generateEventProperties(eventName, user);
+    const properties = this.generateEventProperties(eventName, user, adjustedTimestamp);
 
     return {
       event_name: eventName,
-      timestamp,
+      timestamp: adjustedTimestamp,
       user,
       properties
     };
+  }
+
+  /**
+   * 🆕 이벤트별 시간 조정 (eventTimingOverrides 적용)
+   */
+  private adjustTimestampForEvent(eventName: string, baseTimestamp: Date): Date {
+    const timingDist = this.aiAnalysis.timingDistribution;
+    if (!timingDist || !timingDist.eventTimingOverrides) {
+      return baseTimestamp;
+    }
+
+    // 이벤트별 오버라이드 확인
+    const override = timingDist.eventTimingOverrides[eventName];
+    if (!override || !override.hourlyWeights || override.hourlyWeights.length !== 24) {
+      return baseTimestamp;
+    }
+
+    // hourlyWeights 기반으로 시간 조정
+    const { adjustTimeByWeights } = require('../utils/timing-utils');
+    const adjusted = adjustTimeByWeights(baseTimestamp, override.hourlyWeights);
+
+    logger.debug(`⏰ [Timing Override] ${eventName}: ${baseTimestamp.getHours()}h → ${adjusted.getHours()}h (${override.description || 'custom pattern'})`);
+
+    return adjusted;
   }
 
   /**
@@ -346,7 +396,8 @@ export class EventGenerator {
    */
   private generateEventProperties(
     eventName: string,
-    user: User
+    user: User,
+    eventTimestamp: Date
   ): Record<string, any> {
     const properties: Record<string, any> = {};
 
@@ -398,13 +449,14 @@ export class EventGenerator {
       properties[propDef.property_name] = this.generatePropertyValue(
         propDef.property_name,
         eventRanges,
-        user
+        user,
+        eventTimestamp
       );
     });
 
     // 2. Object 속성 생성 (단일 객체)
     objectMap.forEach((childProps, parentName) => {
-      properties[parentName] = this.generateNestedObject(childProps, eventRanges, user);
+      properties[parentName] = this.generateNestedObject(childProps, eventRanges, user, eventTimestamp);
     });
 
     // 3. Object group 속성 생성 (객체 배열)
@@ -412,7 +464,7 @@ export class EventGenerator {
       // 배열 크기 결정 (1~3개 랜덤)
       const arraySize = Math.floor(Math.random() * 3) + 1;
       properties[parentName] = Array.from({ length: arraySize }, () =>
-        this.generateNestedObject(childProps, eventRanges, user)
+        this.generateNestedObject(childProps, eventRanges, user, eventTimestamp)
       );
     });
 
@@ -424,57 +476,155 @@ export class EventGenerator {
 
   /**
    * 🆕 속성 간 상관관계 적용
+   * 🆕 formula, identity, consistent_random 지원
    */
   private applyPropertyCorrelations(properties: Record<string, any>, user: User): void {
     const correlations = this.aiAnalysis.propertyCorrelations;
     if (!correlations || correlations.length === 0) return;
 
     for (const correlation of correlations) {
-      const sourceValue = properties[correlation.sourceProperty];
-      if (sourceValue === undefined) continue;
+      // 🆕 sourceProperty가 배열일 수 있음 (formula의 경우)
+      const isMultiSource = Array.isArray(correlation.sourceProperty);
 
-      // 상관관계 타입별 처리
-      switch (correlation.correlationType) {
-        case 'positive':
-          // 양의 상관: source 증가 → target 증가
-          if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
-            // strength만큼 sourceValue에 영향받도록 조정
-            const adjustment = sourceValue * correlation.strength;
-            properties[correlation.targetProperty] += adjustment;
-          }
-          break;
+      if (!isMultiSource) {
+        // 단일 소스
+        const sourceValue = properties[correlation.sourceProperty as string];
+        if (sourceValue === undefined) continue;
 
-        case 'negative':
-          // 음의 상관: source 증가 → target 감소
-          if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
-            const adjustment = sourceValue * correlation.strength;
-            properties[correlation.targetProperty] = Math.max(0, properties[correlation.targetProperty] - adjustment);
-          }
-          break;
+        // 상관관계 타입별 처리
+        switch (correlation.correlationType) {
+          case 'positive':
+            // 양의 상관: source 증가 → target 증가
+            if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
+              const adjustment = sourceValue * (correlation.strength || 0.5);
+              properties[correlation.targetProperty] += adjustment;
+            }
+            break;
 
-        case 'conditional':
-          // 조건부: source 값에 따라 target 값 결정
-          if (correlation.conditions) {
-            const matchedCondition = correlation.conditions.find(
-              cond => cond.sourceValue === sourceValue
-            );
-            if (matchedCondition) {
-              if (matchedCondition.targetValues && matchedCondition.targetValues.length > 0) {
-                // targetValues 중 랜덤 선택
-                properties[correlation.targetProperty] =
-                  matchedCondition.targetValues[Math.floor(Math.random() * matchedCondition.targetValues.length)];
-              } else if (matchedCondition.targetRange) {
-                // targetRange에서 랜덤 값 생성
-                properties[correlation.targetProperty] = randomInt(
-                  matchedCondition.targetRange.min,
-                  matchedCondition.targetRange.max
-                );
+          case 'negative':
+            // 음의 상관: source 증가 → target 감소
+            if (typeof sourceValue === 'number' && typeof properties[correlation.targetProperty] === 'number') {
+              const adjustment = sourceValue * (correlation.strength || 0.5);
+              properties[correlation.targetProperty] = Math.max(0, properties[correlation.targetProperty] - adjustment);
+            }
+            break;
+
+          case 'conditional':
+            // 조건부: source 값에 따라 target 값 결정
+            if (correlation.conditions) {
+              const matchedCondition = correlation.conditions.find(
+                cond => cond.sourceValue === sourceValue
+              );
+              if (matchedCondition) {
+                if (matchedCondition.targetValues && matchedCondition.targetValues.length > 0) {
+                  properties[correlation.targetProperty] =
+                    matchedCondition.targetValues[Math.floor(Math.random() * matchedCondition.targetValues.length)];
+                } else if (matchedCondition.targetRange) {
+                  properties[correlation.targetProperty] = randomInt(
+                    matchedCondition.targetRange.min,
+                    matchedCondition.targetRange.max
+                  );
+                }
               }
             }
+            break;
+
+          case 'identity':
+            // 🆕 고정 매핑: 같은 소스값 → 같은 타겟값
+            if (correlation.identityMap && sourceValue in correlation.identityMap) {
+              properties[correlation.targetProperty] = correlation.identityMap[sourceValue];
+            }
+            break;
+
+          case 'consistent_random':
+            // 🆕 일관된 랜덤: 같은 소스값 → 같은 랜덤 타겟값 (캐싱)
+            const cacheKey = correlation.sourceProperty as string;
+            if (!this.consistentRandomCache.has(cacheKey)) {
+              this.consistentRandomCache.set(cacheKey, new Map());
+            }
+            const cache = this.consistentRandomCache.get(cacheKey)!;
+
+            if (cache.has(sourceValue)) {
+              // 캐시에 있으면 재사용
+              properties[correlation.targetProperty] = cache.get(sourceValue);
+            } else {
+              // 캐시에 없으면 생성 후 저장
+              let randomValue: any;
+              if (correlation.consistentRandomValues && correlation.consistentRandomValues.length > 0) {
+                randomValue = correlation.consistentRandomValues[
+                  Math.floor(Math.random() * correlation.consistentRandomValues.length)
+                ];
+              } else if (correlation.consistentRandomRange) {
+                randomValue = randomInt(
+                  correlation.consistentRandomRange.min,
+                  correlation.consistentRandomRange.max
+                );
+              }
+              cache.set(sourceValue, randomValue);
+              properties[correlation.targetProperty] = randomValue;
+            }
+            break;
+        }
+      } else {
+        // 🆕 다중 소스 (formula용)
+        if (correlation.correlationType === 'formula') {
+          const sourceProperties = correlation.sourceProperty as string[];
+          const sourceValues = sourceProperties.map(prop => properties[prop]);
+
+          // 모든 소스 값이 존재하는지 확인
+          if (sourceValues.some(v => v === undefined)) continue;
+
+          // 수식 평가
+          const result = this.evaluateFormula(
+            correlation.formulaType || 'custom',
+            correlation.formula || '',
+            sourceProperties,
+            sourceValues
+          );
+
+          if (result !== null) {
+            properties[correlation.targetProperty] = result;
           }
-          break;
+        }
       }
     }
+  }
+
+  /**
+   * 🆕 수식 평가
+   */
+  private evaluateFormula(
+    formulaType: string,
+    formula: string,
+    sourceProperties: string[],
+    sourceValues: any[]
+  ): number | null {
+    try {
+      // 간단한 수식 타입 처리
+      if (formulaType === 'multiply' && sourceValues.length >= 2) {
+        return sourceValues.reduce((acc, val) => acc * Number(val), 1);
+      } else if (formulaType === 'divide' && sourceValues.length === 2) {
+        const divisor = Number(sourceValues[1]);
+        return divisor !== 0 ? Number(sourceValues[0]) / divisor : 0;
+      } else if (formulaType === 'add') {
+        return sourceValues.reduce((acc, val) => acc + Number(val), 0);
+      } else if (formulaType === 'subtract' && sourceValues.length === 2) {
+        return Number(sourceValues[0]) - Number(sourceValues[1]);
+      } else if (formulaType === 'custom' && formula) {
+        // 커스텀 수식: 변수 치환 후 eval (안전성 주의!)
+        let evalFormula = formula;
+        sourceProperties.forEach((prop, index) => {
+          const regex = new RegExp(prop, 'g');
+          evalFormula = evalFormula.replace(regex, String(sourceValues[index]));
+        });
+        // eval 대신 Function 사용 (약간 더 안전)
+        const result = new Function(`return ${evalFormula}`)();
+        return Number(result);
+      }
+    } catch (error) {
+      logger.warn(`⚠️ Formula evaluation failed: ${formula}`, error);
+    }
+    return null;
   }
 
   /**
@@ -483,7 +633,8 @@ export class EventGenerator {
   private generateNestedObject(
     childProps: PropertyDefinition[],
     eventRanges: any,
-    user: User
+    user: User,
+    eventTimestamp: Date
   ): Record<string, any> {
     const nestedObject: Record<string, any> = {};
 
@@ -493,22 +644,75 @@ export class EventGenerator {
       nestedObject[childName] = this.generatePropertyValue(
         childProp.property_name,
         eventRanges,
-        user
+        user,
+        eventTimestamp
       );
     });
 
     return nestedObject;
   }
 
+
   /**
-   * 속성 값 생성 헬퍼
+   * 🆕 시간 관련 속성인지 확인
+   */
+  private isTimeProperty(propertyName: string): boolean {
+    const lowerName = propertyName.toLowerCase();
+    return (
+      lowerName.includes('time') ||
+      lowerName.includes('_at') ||
+      lowerName.includes('date') ||
+      lowerName === 'timestamp' ||
+      lowerName === 'created' ||
+      lowerName === 'updated'
+    );
+  }
+
+  /**
+   * 🆕 이벤트 타임스탬프 기준으로 시간 값 생성
+   */
+  private generateTimeValue(propertyName: string, eventTimestamp: Date): any {
+    const lowerName = propertyName.toLowerCase();
+
+    // created_at은 이벤트 시각 그대로 또는 약간 이전
+    if (lowerName.includes('created')) {
+      const offset = randomInt(-60000, 0); // 0~1분 이전
+      return addMilliseconds(eventTimestamp, offset).toISOString();
+    }
+
+    // updated_at은 이벤트 시각 그대로 또는 약간 이후
+    if (lowerName.includes('updated')) {
+      const offset = randomInt(0, 60000); // 0~1분 이후
+      return addMilliseconds(eventTimestamp, offset).toISOString();
+    }
+
+    // 기본: 이벤트 타임스탬프 ± 5분 이내
+    const offset = randomInt(-300000, 300000); // ±5분
+    return addMilliseconds(eventTimestamp, offset).toISOString();
+  }
+
+  /**
+   * 속성 값 생성 헬퍼 (ContextManager 사용)
    */
   private generatePropertyValue(
     propertyName: string,
     eventRanges: any,
-    user: User
+    user: User,
+    eventTimestamp: Date
   ): any {
-    // AI 범위가 있으면 사용
+    // 🆕 1순위: ContextManager에서 값 가져오기 (user/session/transaction 컨텍스트)
+    const contextValue = this.contextManager.getPropertyValue(propertyName);
+    if (contextValue !== undefined) {
+      logger.debug(`📋 [Context] ${propertyName} = ${contextValue} (level: ${this.contextManager.getPropertyLevel(propertyName)})`);
+      return contextValue;
+    }
+
+    // 🆕 2순위: 시간 관련 속성은 이벤트 타임스탬프 기준으로 생성
+    if (this.isTimeProperty(propertyName)) {
+      return this.generateTimeValue(propertyName, eventTimestamp);
+    }
+
+    // 3순위: AI 범위가 있으면 사용
     const range = eventRanges?.properties.find(
       (p: any) => p.property_name === propertyName
     );
@@ -516,11 +720,12 @@ export class EventGenerator {
     if (range) {
       return this.generateValueFromRange(range, user);
     } else {
-      // AI 범위가 없으면 Faker.js 폴백 (산업 정보 전달)
+      // 4순위: Faker.js 폴백 (산업 정보 및 유저 정보 전달)
       return generateFallbackValue(
         propertyName,
         user.locale,
-        this.industry
+        this.industry,
+        user
       );
     }
   }
@@ -655,6 +860,7 @@ export class EventGenerator {
   /**
    * 이벤트 간 시간 간격 (밀리초)
    * 🆕 이벤트별로 다른 시간 간격 적용
+   * 🆕 세그먼트별 가중치(segmentMultipliers) 지원
    */
   private getEventInterval(eventName?: string): number {
     // AI가 정의한 이벤트별 시간 간격 확인
@@ -662,7 +868,16 @@ export class EventGenerator {
 
     if (eventName && eventIntervals && eventIntervals[eventName]) {
       const config = eventIntervals[eventName];
-      const avgMs = config.avgSeconds * 1000;
+      let avgSeconds = config.avgSeconds;
+
+      // 🆕 세그먼트별 가중치 적용 (userContext에서 segment 가져오기)
+      if (config.segmentMultipliers) {
+        const userSegment = this.contextManager.getPropertyValue('segment');
+        const multiplier = config.segmentMultipliers[userSegment] || 1.0;
+        avgSeconds = avgSeconds * multiplier;
+      }
+
+      const avgMs = avgSeconds * 1000;
       const minMs = (config.minSeconds || 1) * 1000;
       const maxMs = (config.maxSeconds || 60) * 1000;
       const distribution = config.distribution || 'exponential';
@@ -672,7 +887,7 @@ export class EventGenerator {
       switch (distribution) {
         case 'exponential':
           // 지수 분포: lambda = 1/mean
-          interval = exponentialDistribution(1 / config.avgSeconds) * 1000;
+          interval = exponentialDistribution(1 / avgSeconds) * 1000;
           break;
 
         case 'normal':

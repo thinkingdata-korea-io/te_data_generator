@@ -25,13 +25,10 @@ export type ProcessStep =
   | 'sent';
 
 export interface Settings {
-  // AI Provider Settings
+  // AI Provider Settings (Anthropic only)
   ANTHROPIC_API_KEY: string;
-  OPENAI_API_KEY: string;
-  GEMINI_API_KEY: string;
-  EXCEL_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
-  DATA_AI_PROVIDER: 'anthropic' | 'openai' | 'gemini';
   DATA_AI_MODEL: string;
+  FILE_ANALYSIS_MODEL: string;
   VALIDATION_MODEL_TIER: 'fast' | 'balanced';
   CUSTOM_VALIDATION_MODEL: string;
 

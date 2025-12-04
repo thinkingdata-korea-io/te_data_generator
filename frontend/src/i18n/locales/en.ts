@@ -47,12 +47,14 @@ export const en = {
   nav: {
     dashboard: 'Dashboard',
     dataGenerator: 'Data Generator',
+    fileManagement: 'File Management',
     settings: 'Settings',
     userManagement: 'User Management',
     auditLogs: 'Audit Logs',
 
     // Sections
     sectionBuild: 'BUILD',
+    sectionDataGenerator: 'DATA GENERATOR',
     sectionSettings: 'SETTINGS',
     sectionAdmin: 'ADMIN',
   },
@@ -93,10 +95,13 @@ export const en = {
 
     // File Manager
     fileManagement: 'File Management',
+    fileManagementDesc: 'Manage Excel templates, AI analysis results, and generated data',
     excelTemplates: 'Excel Templates',
+    aiAnalysisExcel: 'AI Analysis Excel',
     generatedData: 'Generated Data',
     loading: 'Loading...',
     noExcelFiles: 'No Excel files generated.',
+    noAnalysisFiles: 'No AI analysis Excel files',
     noDataFiles: 'No data generated.',
     daysRemaining: 'days remaining',
     expired: 'Expired',
@@ -177,6 +182,12 @@ export const en = {
     sendStep1: 'Upload .jsonl data files',
     sendStep2: 'Enter ThinkingEngine APP_ID',
     sendStep3: 'Start data transmission',
+
+    fileManagementTitle: 'File Management',
+    fileManagementCardDesc: 'Manage generated Excel and data files',
+    fileManagementStep1: 'Download and delete Excel templates',
+    fileManagementStep2: 'Download generated data',
+    fileManagementStep3: 'Manage retention periods',
 
     advancedOptions: 'Advanced Options',
     showAdvancedOptions: 'Show Advanced Options',
@@ -458,6 +469,7 @@ export const en = {
     customValidationModel: 'Custom Validation Model (Optional)',
     customValidationPlaceholder: 'e.g., claude-haiku-4-5',
     customValidationDesc: 'Directly specify a model instead of using tier settings.',
+    fileAnalysisModelPlaceholder: 'Haiku auto-selected if empty (recommended)',
 
     // Platform config
     teAppId: 'ThinkingEngine APP_ID',
@@ -586,6 +598,31 @@ export const en = {
     notFound: 'Not found',
     serverError: 'Server error',
     validationError: 'Please check your input',
+  },
+
+  // Validation messages
+  validation: {
+    scenarioRequired: 'Please enter a scenario',
+    industryRequired: 'Please enter an industry',
+    notesRequired: 'Please enter service features',
+    startDateRequired: 'Please enter a start date',
+    endDateRequired: 'Please enter an end date',
+    invalidDateRange: 'Start date must be before end date',
+    scenarioDescRequired: 'Please enter a scenario description',
+    dauRequired: 'Please enter DAU (1 or more)',
+    appIdRequired: 'Please enter APP_ID',
+    preparingDataGeneration: 'Preparing data generation based on generated Excel...',
+    dataGenerationRequestFailed: 'Data generation request failed',
+    startingDataGenerationWithAnalysis: 'Starting data generation with modified analysis...',
+    dataGenerationStartFailed: 'Failed to start data generation',
+    preparingDataTransfer: 'Preparing data transfer to ThinkingEngine...',
+    dataTransferFailed: 'Data transfer failed',
+    errorPrefix: 'Error',
+    startingExcelGeneration: 'Starting Excel schema generation...',
+    initializingAI: '🤖 Initializing AI engine...',
+    excelGenerationFailed: 'Excel generation request failed',
+    noExcelCompletionData: 'Did not receive Excel completion data',
+    noExcelFilePath: 'Cannot find generated Excel file path',
   },
 
   // Success messages

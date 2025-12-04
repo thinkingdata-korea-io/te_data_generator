@@ -173,7 +173,7 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
     progressDetails.push('📄 AI 분석 결과 Excel 파일 생성 중...');
 
     // Generate Analysis Excel
-    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-results');
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-excel');
     const analysisExcelPath = await AnalysisExcelGenerator.generateAnalysisExcel(
       aiAnalysis,
       analysisExcelDir,

@@ -8,7 +8,8 @@ import {
 import {
   generateUserInfo,
   generateDeviceInfo,
-  generateNetworkType
+  generateNetworkType,
+  generateConsistentLocationForCountry
 } from './faker-utils';
 import { generateUUID, weightedRandom } from '../utils/random';
 import { generateDateRange, randomDateBetween, addDays } from '../utils/date';
@@ -53,6 +54,9 @@ export class CohortGenerator {
       // 기존 유저 중 활성화될 유저 선택
       this.allUsers.forEach(user => {
         const daysSinceInstall = this.getDaysDifference(user.install_date, date);
+
+        // 🆕 세그먼트 전환 체크 (shouldBeActive 전에 실행)
+        this.checkSegmentMigration(user, date, daysSinceInstall);
 
         if (daysSinceInstall >= 0 && this.shouldBeActive(user, date)) {
           activeUsers.push(user);
@@ -118,6 +122,9 @@ export class CohortGenerator {
     const userInfo = generateUserInfo(country);
     const deviceInfo = generateDeviceInfo();
 
+    // 🆕 전체 위치 정보 생성 (일관성 보장)
+    const locationInfo = generateConsistentLocationForCountry(country.countryCode);
+
     // 세그먼트 선택 (AI 분석 결과 기반)
     const segment = this.selectSegment();
 
@@ -138,6 +145,12 @@ export class CohortGenerator {
       name: userInfo.name,
       email: userInfo.email,
       phone: userInfo.phone,
+
+      // 🆕 위치 상세 정보 (일관성 유지용)
+      city: locationInfo.city,
+      state: locationInfo.state,
+      region: locationInfo.region,
+      timezone: locationInfo.timezone,
 
       // 디바이스 정보
       os: deviceInfo.os,
@@ -330,6 +343,147 @@ export class CohortGenerator {
     const month = String(date.getMonth() + 1).padStart(2, '0');
     const day = String(date.getDate()).padStart(2, '0');
     return `${year}-${month}-${day}`;
+  }
+
+  /**
+   * 🆕 세그먼트 전환 체크 (AI segmentMigrations 기반)
+   */
+  private checkSegmentMigration(user: User, date: Date, daysSinceInstall: number): void {
+    const segmentMigrations = this.aiAnalysis.segmentMigrations;
+    if (!segmentMigrations || segmentMigrations.length === 0) {
+      return;
+    }
+
+    // 현재 세그먼트에서 전환 가능한 규칙 찾기
+    const applicableMigrations = segmentMigrations.filter(
+      migration => migration.fromSegment === user.segment
+    );
+
+    if (applicableMigrations.length === 0) {
+      return;
+    }
+
+    // 각 전환 규칙 평가
+    for (const migration of applicableMigrations) {
+      // 조건 평가
+      const conditionMet = this.evaluateMigrationCondition(
+        migration,
+        user,
+        date,
+        daysSinceInstall
+      );
+
+      if (conditionMet) {
+        // 확률 기반 전환
+        if (Math.random() < migration.probability) {
+          const oldSegment = user.segment;
+          user.segment = migration.toSegment;
+
+          // 로그 출력
+          console.log(
+            `🔄 [Segment Migration] ${user.account_id}: ${oldSegment} → ${migration.toSegment} ` +
+            `(trigger: ${migration.trigger}, condition: ${migration.condition})`
+          );
+
+          // 하나의 전환만 적용 (중복 전환 방지)
+          break;
+        }
+      }
+    }
+  }
+
+  /**
+   * 세그먼트 전환 조건 평가
+   */
+  private evaluateMigrationCondition(
+    migration: any,
+    user: User,
+    date: Date,
+    daysSinceInstall: number
+  ): boolean {
+    const trigger = migration.trigger;
+    const condition = migration.condition;
+
+    if (trigger === 'time') {
+      // 시간 기반 조건 (예: "daysSinceInstall > 7", "daysInSegment > 30")
+      return this.evaluateTimeCondition(condition, user, date, daysSinceInstall);
+    } else if (trigger === 'lifecycle') {
+      // 생명주기 기반 조건 (예: "lifecycle_stage === 'active'")
+      return this.evaluateLifecycleCondition(condition, user);
+    } else if (trigger === 'event') {
+      // 이벤트 기반 조건은 코호트 생성기에서 평가 불가 (이벤트 추적 필요)
+      // 향후 EventGenerator에서 처리 가능
+      return false;
+    }
+
+    return false;
+  }
+
+  /**
+   * 시간 조건 평가 (예: "daysSinceInstall > 7")
+   */
+  private evaluateTimeCondition(
+    condition: string,
+    user: User,
+    date: Date,
+    daysSinceInstall: number
+  ): boolean {
+    try {
+      // 조건 파싱 및 평가
+      // 지원 형식: "daysSinceInstall > 7", "daysSinceInstall >= 30"
+      const match = condition.match(/daysSinceInstall\s*([><=]+)\s*(\d+)/);
+      if (match) {
+        const operator = match[1];
+        const threshold = parseInt(match[2], 10);
+
+        switch (operator) {
+          case '>':
+            return daysSinceInstall > threshold;
+          case '>=':
+            return daysSinceInstall >= threshold;
+          case '<':
+            return daysSinceInstall < threshold;
+          case '<=':
+            return daysSinceInstall <= threshold;
+          case '==':
+          case '===':
+            return daysSinceInstall === threshold;
+          default:
+            return false;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error(`❌ [Segment Migration] Failed to evaluate time condition: ${condition}`, error);
+      return false;
+    }
+  }
+
+  /**
+   * 생명주기 조건 평가 (예: "lifecycle_stage === 'active'")
+   */
+  private evaluateLifecycleCondition(condition: string, user: User): boolean {
+    try {
+      // 조건 파싱 및 평가
+      // 지원 형식: "lifecycle_stage === 'active'", "lifecycle_stage == 'dormant'"
+      const match = condition.match(/lifecycle_stage\s*([!=]=)\s*['"](\w+)['"]/);
+      if (match) {
+        const operator = match[1];
+        const targetStage = match[2];
+
+        if (operator === '===' || operator === '==') {
+          return user.lifecycle_stage === targetStage;
+        } else if (operator === '!==') {
+          return user.lifecycle_stage !== targetStage;
+        }
+      }
+
+      return false;
+    } catch (error) {
+      console.error(`❌ [Segment Migration] Failed to evaluate lifecycle condition: ${condition}`, error);
+      return false;
+    }
   }
 
   /**

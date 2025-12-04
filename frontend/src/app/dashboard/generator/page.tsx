@@ -1,8 +1,9 @@
 'use client';
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { UploadedFileInfo } from '@/components/FileUploadZone';
+import api from '@/lib/api-client';
 import AIAnalysisProgress from './components/AIAnalysisProgress';
 import AIAnalysisCompleted from './components/AIAnalysisCompleted';
 import DataGenerationProgress from './components/DataGenerationProgress';
@@ -61,6 +62,8 @@ export default function Home() {
     setProgress,
     sendAppId,
     setSendAppId,
+    sendSessionId,
+    setSendSessionId,
     settings,
     setSettings,
     uploadedFiles,
@@ -120,13 +123,18 @@ export default function Home() {
 
   // 설정 로드
   useEffect(() => {
-    fetch(`${API_URL}/api/settings`)
-      .then(res => res.json())
+    api.get('/api/settings')
       .then(data => {
         setSettings(data);
         setSendAppId(data.TE_APP_ID || ''); // 기본값 설정
       })
-      .catch(err => console.error('Failed to load settings:', err));
+      .catch(err => {
+        // 401 errors are handled by API client (redirects to login)
+        // Other errors are logged but don't block the UI
+        if (err.status !== 401) {
+          console.error('Failed to load settings:', err);
+        }
+      });
   }, []);
 
   // AI 분석 진행률 폴링
@@ -134,8 +142,7 @@ export default function Home() {
     if (!analysisId || currentStep !== 'analyzing-ai') return;
 
     const interval = setInterval(() => {
-      fetch(`${API_URL}/api/generate/analysis/${analysisId}`)
-        .then(res => res.json())
+      api.get(`/api/generate/analysis/${analysisId}`)
         .then(data => {
           setProgress(data);
 
@@ -161,72 +168,117 @@ export default function Home() {
     return () => clearInterval(interval);
   }, [analysisId, currentStep]);
 
-  // 데이터 생성 진행률 폴링
+  // 데이터 생성 및 전송 진행률 폴링
   useEffect(() => {
-    if (!runId || currentStep === 'select-mode' || currentStep === 'input' || currentStep === 'excel-completed' || currentStep === 'data-completed' || currentStep === 'upload-excel' || currentStep === 'upload-completed' || currentStep === 'combined-config') return;
+    // 데이터 생성 진행률 폴링
+    if (runId && currentStep !== 'select-mode' && currentStep !== 'input' && currentStep !== 'excel-completed' && currentStep !== 'data-completed' && currentStep !== 'upload-excel' && currentStep !== 'upload-completed' && currentStep !== 'combined-config' && currentStep !== 'upload-data-file') {
+      const interval = setInterval(() => {
+        api.get(`/api/generate/status/${runId}`)
+          .then(data => {
+            setProgress(data);
 
-    const interval = setInterval(() => {
-      fetch(`${API_URL}/api/generate/status/${runId}`)
-        .then(res => res.json())
-        .then(data => {
-          setProgress(data);
+            // 상태에 따라 단계 변경
+            if (data.status === 'completed' && currentStep === 'generating-data') {
+              setCurrentStep('data-completed');
+              clearInterval(interval);
+            } else if (data.status === 'sent' && currentStep === 'sending-data') {
+              setCurrentStep('sent');
+              clearInterval(interval);
+            } else if (data.status === 'error' || data.status === 'send-error') {
+              clearInterval(interval);
+            }
+          })
+          .catch(err => console.error('Failed to fetch generate progress:', err));
+      }, 2000);
 
-          // 상태에 따라 단계 변경
-          if (data.status === 'completed' && currentStep === 'generating-data') {
-            setCurrentStep('data-completed');
-            clearInterval(interval);
-          } else if (data.status === 'sent' && currentStep === 'sending-data') {
-            setCurrentStep('sent');
-            clearInterval(interval);
-          } else if (data.status === 'error' || data.status === 'send-error') {
-            clearInterval(interval);
-          }
-        })
-        .catch(err => console.error('Failed to fetch progress:', err));
-    }, 2000);
-
-    return () => clearInterval(interval);
-  }, [runId, currentStep]);
-
-  // 서비스 정보 검증 (Excel 생성용)
-  // 파일 업로드 및 AI 분석 처리
-  const handleFilesSelected = useCallback(async (files: UploadedFileInfo[]) => {
-    setUploadedFiles(files);
-
-    if (files.length === 0) {
-      setFileAnalysisResult(null);
-      return;
+      return () => clearInterval(interval);
     }
 
-    // 파일 업로드 및 AI 분석
+    // 데이터 전송 전용 진행률 폴링
+    if (sendSessionId && currentStep === 'sending-data') {
+      const interval = setInterval(() => {
+        api.get(`/api/data/send-status/${sendSessionId}`)
+          .then(data => {
+            setProgress(data);
+
+            // 상태에 따라 단계 변경
+            if (data.status === 'sent' || data.status === 'completed') {
+              setCurrentStep('sent');
+              clearInterval(interval);
+            } else if (data.status === 'send-error' || data.status === 'error') {
+              clearInterval(interval);
+            }
+          })
+          .catch(err => console.error('Failed to fetch send progress:', err));
+      }, 2000);
+
+      return () => clearInterval(interval);
+    }
+  }, [runId, sendSessionId, currentStep]);
+
+  // 파일 선택 처리 (분석은 생성 시작 시점으로 지연)
+  const handleFilesSelected = useCallback((files: UploadedFileInfo[]) => {
+    setUploadedFiles(files);
+
+    // 파일이 변경되면 기존 분석 결과 초기화
+    if (files.length === 0) {
+      setFileAnalysisResult(null);
+    } else {
+      // 새 파일이 선택되면 이전 분석 결과 무효화
+      setFileAnalysisResult(null);
+    }
+  }, [setUploadedFiles, setFileAnalysisResult]);
+
+  // 파일 분석 헬퍼 함수 (필요 시에만 실행)
+  const analyzeFilesIfNeeded = useCallback(async (): Promise<boolean> => {
+    // 이미 분석된 결과가 있으면 스킵
+    if (fileAnalysisResult) {
+      return true;
+    }
+
+    // 분석할 파일이 없으면 스킵
+    if (uploadedFiles.length === 0) {
+      return true;
+    }
+
+    // 파일 분석 시작 - 프로그레스 표시
     setIsUploadingFiles(true);
+    setProgress({
+      status: 'analyzing',
+      progress: 15,
+      message: '📄 업로드된 파일 분석 중...',
+      detail: `${uploadedFiles.length}개 파일 분석 (PDF, 텍스트 등)`
+    });
+
     try {
       const uploadFormData = new FormData();
-      files.forEach(fileInfo => {
+      uploadedFiles.forEach(fileInfo => {
         uploadFormData.append('files', fileInfo.file);
       });
       uploadFormData.append('language', formData.language || 'ko');
 
-      const response = await fetch(`${API_URL}/api/files/analyze-multi`, {
-        method: 'POST',
-        body: uploadFormData,
-      });
-
-      if (!response.ok) {
-        throw new Error('파일 업로드 실패');
-      }
-
-      const result = await response.json();
+      const result = await api.upload('/api/files/analyze-multi', uploadFormData);
       setFileAnalysisResult(result.analysis);
 
       console.log('📊 파일 분석 완료:', result);
+
+      // 분석 완료 표시
+      setProgress({
+        status: 'analyzing',
+        progress: 20,
+        message: '✅ 파일 분석 완료',
+        detail: 'AI 전략 분석을 시작합니다...'
+      });
+
+      return true;
     } catch (error) {
-      console.error('파일 업로드 오류:', error);
-      alert('파일 업로드 중 오류가 발생했습니다.');
+      console.error('파일 분석 오류:', error);
+      alert('파일 분석 중 오류가 발생했습니다.');
+      return false;
     } finally {
       setIsUploadingFiles(false);
     }
-  }, [formData.language, setUploadedFiles, setFileAnalysisResult, setIsUploadingFiles]);
+  }, [uploadedFiles, fileAnalysisResult, formData.language, setFileAnalysisResult, setIsUploadingFiles, setProgress]);
 
   // Handlers using new hooks
   const handleStartExcelGeneration = async () => {
@@ -242,7 +294,17 @@ export default function Home() {
       return; // Validation failed, don't proceed
     }
 
+    // 즉시 화면 전환 (사용자 경험 개선)
     setCurrentStep('analyzing-ai');
+
+    // 파일 분석을 두 번째 화면에서 진행
+    const analysisSuccess = await analyzeFilesIfNeeded();
+    if (!analysisSuccess) {
+      // 파일 분석 실패 시 초기 화면으로 복귀
+      setCurrentStep('initial');
+      return;
+    }
+
     await aiAnalysis.startAnalysis(generatedExcelPath, formData, settings, fileAnalysisResult);
   };
 
@@ -251,7 +313,9 @@ export default function Home() {
     if (!dataGeneration.validateDataSettings(formData)) {
       return; // Validation failed, don't proceed
     }
-    await dataGeneration.startGeneration(generatedExcelPath, formData, settings, fileAnalysisResult);
+
+    // 🔥 FIX: uploadedFiles를 직접 전달 (파일 분석은 백엔드에서 수행)
+    await dataGeneration.startGeneration(generatedExcelPath, formData, settings, uploadedFiles);
   };
 
   const handleSendData = async () => {
@@ -266,17 +330,7 @@ export default function Home() {
     formData.append('file', file);
 
     try {
-      const response = await fetch(`${API_URL}/api/excel/upload`, {
-        method: 'POST',
-        body: formData
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Upload failed');
-      }
-
-      const data = await response.json();
+      const data = await api.upload('/api/excel/upload', formData);
       setUploadedExcelPath(data.file.path);
       setExcelPreview(data.preview);
       setCurrentStep('upload-completed');
@@ -292,8 +346,9 @@ export default function Home() {
       return; // Validation failed, don't proceed
     }
 
+    // 🔥 FIX: 파일 분석은 AI 분석 단계에서 백엔드가 수행
     setCurrentStep('analyzing-ai');
-    await aiAnalysis.startAnalysis(uploadedExcelPath, formData, settings, fileAnalysisResult);
+    await aiAnalysis.startAnalysis(uploadedExcelPath, formData, settings, uploadedFiles);
   };
 
   const handleComplete = () => {
@@ -631,7 +686,10 @@ export default function Home() {
           <DataFileUpload
             sendAppId={sendAppId}
             onSendAppIdChange={setSendAppId}
-            onSendStart={() => setCurrentStep('sending-data')}
+            onSendStart={(sessionId) => {
+              setSendSessionId(sessionId);
+              setCurrentStep('sending-data');
+            }}
             onComplete={() => setCurrentStep('sent')}
             onCancel={() => {
               setCurrentStep('select-mode');

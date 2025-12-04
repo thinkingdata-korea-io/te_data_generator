@@ -48,6 +48,13 @@ event_tracking/data/*.xlsx
 logbus\ 2/data/
 logbus\ 2/logs/
 logbus\ 2/conf/daemon.json
+logbus/log/
+logbus/runtime/
+
+# Log files
+*.log
+data-generator/api.log
+frontend/frontend.log
 
 # IDE
 .vscode/

@@ -47,12 +47,14 @@ export const ko = {
   nav: {
     dashboard: '대시보드',
     dataGenerator: '데이터 생성기',
+    fileManagement: '파일 관리',
     settings: '설정',
     userManagement: '사용자 관리',
     auditLogs: '감사 로그',
 
     // Sections
     sectionBuild: 'BUILD',
+    sectionDataGenerator: 'DATA GENERATOR',
     sectionSettings: 'SETTINGS',
     sectionAdmin: 'ADMIN',
   },
@@ -93,10 +95,13 @@ export const ko = {
 
     // File Manager
     fileManagement: '파일 관리',
+    fileManagementDesc: 'Excel 템플릿, AI 분석 결과, 생성된 데이터를 관리합니다',
     excelTemplates: 'Excel 템플릿',
+    aiAnalysisExcel: 'AI 분석 Excel',
     generatedData: '생성된 데이터',
     loading: '로딩 중...',
     noExcelFiles: '생성된 Excel 파일이 없습니다.',
+    noAnalysisFiles: 'AI 분석 Excel 파일이 없습니다',
     noDataFiles: '생성된 데이터가 없습니다.',
     daysRemaining: '일 남음',
     expired: '만료됨',
@@ -177,6 +182,12 @@ export const ko = {
     sendStep1: '.jsonl 데이터 파일 업로드',
     sendStep2: 'ThinkingEngine APP_ID 입력',
     sendStep3: '데이터 전송 시작',
+
+    fileManagementTitle: '파일 관리',
+    fileManagementCardDesc: '생성된 Excel 및 데이터 파일 관리',
+    fileManagementStep1: 'Excel 템플릿 다운로드 및 삭제',
+    fileManagementStep2: '생성된 데이터 다운로드',
+    fileManagementStep3: '보관 기간 관리',
 
     advancedOptions: '고급 옵션',
     showAdvancedOptions: '고급 옵션 보기',
@@ -458,6 +469,7 @@ export const ko = {
     customValidationModel: '커스텀 검증 모델 (선택사항)',
     customValidationPlaceholder: '예: claude-haiku-4-5',
     customValidationDesc: '위 등급 설정 대신 특정 모델을 직접 지정할 수 있습니다.',
+    fileAnalysisModelPlaceholder: '비어 있으면 Haiku 자동 선택 (권장)',
 
     // Platform config
     teAppId: 'ThinkingEngine APP_ID',
@@ -586,6 +598,31 @@ export const ko = {
     notFound: '찾을 수 없습니다',
     serverError: '서버 오류',
     validationError: '입력값을 확인해주세요',
+  },
+
+  // Validation messages
+  validation: {
+    scenarioRequired: '시나리오를 입력해주세요',
+    industryRequired: '산업 분야를 입력해주세요',
+    notesRequired: '서비스 특징을 입력해주세요',
+    startDateRequired: '시작 날짜를 입력해주세요',
+    endDateRequired: '종료 날짜를 입력해주세요',
+    invalidDateRange: '시작 날짜는 종료 날짜보다 이전이어야 합니다',
+    scenarioDescRequired: '시나리오 설명을 입력해주세요',
+    dauRequired: 'DAU를 입력해주세요 (1 이상)',
+    appIdRequired: 'APP_ID를 입력해주세요',
+    preparingDataGeneration: '생성된 Excel을 바탕으로 데이터 생성 준비 중...',
+    dataGenerationRequestFailed: '데이터 생성 요청 실패',
+    startingDataGenerationWithAnalysis: '수정된 분석 결과로 데이터 생성 시작...',
+    dataGenerationStartFailed: '데이터 생성 시작 실패',
+    preparingDataTransfer: 'ThinkingEngine으로 데이터 전송 준비 중...',
+    dataTransferFailed: '데이터 전송 실패',
+    errorPrefix: '에러',
+    startingExcelGeneration: 'Excel 스키마 생성 시작...',
+    initializingAI: '🤖 AI 엔진 초기화 중...',
+    excelGenerationFailed: 'Excel 생성 요청 실패',
+    noExcelCompletionData: 'Excel 생성 완료 데이터를 받지 못했습니다',
+    noExcelFilePath: '생성된 Excel 파일 경로를 찾을 수 없습니다',
   },
 
   // Success messages

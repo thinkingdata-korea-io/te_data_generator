@@ -10,13 +10,10 @@ export interface UserSettings {
   id: number;
   userId: number;
 
-  // AI Provider Settings
+  // AI Provider Settings (Anthropic only)
   anthropicApiKey?: string;
-  openaiApiKey?: string;
-  geminiApiKey?: string;
-  excelAiProvider: string;
-  dataAiProvider: string;
   dataAiModel?: string;
+  fileAnalysisModel?: string;
   validationModelTier: string;
   customValidationModel?: string;
 
@@ -34,13 +31,10 @@ export interface UserSettings {
 }
 
 export interface UpdateUserSettingsData {
-  // AI Provider Settings
+  // AI Provider Settings (Anthropic only)
   anthropicApiKey?: string;
-  openaiApiKey?: string;
-  geminiApiKey?: string;
-  excelAiProvider?: string;
-  dataAiProvider?: string;
   dataAiModel?: string;
+  fileAnalysisModel?: string;
   validationModelTier?: string;
   customValidationModel?: string;
 
@@ -69,11 +63,8 @@ export async function getUserSettings(userId: number): Promise<UserSettings | nu
         id,
         user_id as "userId",
         anthropic_api_key as "anthropicApiKey",
-        openai_api_key as "openaiApiKey",
-        gemini_api_key as "geminiApiKey",
-        excel_ai_provider as "excelAiProvider",
-        data_ai_provider as "dataAiProvider",
         data_ai_model as "dataAiModel",
+        file_analysis_model as "fileAnalysisModel",
         validation_model_tier as "validationModelTier",
         custom_validation_model as "customValidationModel",
         te_app_id as "teAppId",
@@ -108,24 +99,19 @@ async function createDefaultSettings(userId: number): Promise<UserSettings> {
     const result = await query<UserSettings>(
       `INSERT INTO user_settings (
         user_id,
-        excel_ai_provider,
-        data_ai_provider,
         validation_model_tier,
         te_receiver_url,
         data_retention_days,
         excel_retention_days,
         auto_delete_after_send
       )
-      VALUES ($1, 'anthropic', 'anthropic', 'fast', 'https://te-receiver-naver.thinkingdata.kr/', 7, 30, false)
+      VALUES ($1, 'fast', 'https://te-receiver-naver.thinkingdata.kr/', 7, 30, false)
       RETURNING
         id,
         user_id as "userId",
         anthropic_api_key as "anthropicApiKey",
-        openai_api_key as "openaiApiKey",
-        gemini_api_key as "geminiApiKey",
-        excel_ai_provider as "excelAiProvider",
-        data_ai_provider as "dataAiProvider",
         data_ai_model as "dataAiModel",
+        file_analysis_model as "fileAnalysisModel",
         validation_model_tier as "validationModelTier",
         custom_validation_model as "customValidationModel",
         te_app_id as "teAppId",
@@ -165,25 +151,13 @@ export async function updateUserSettings(
       updates.push(`anthropic_api_key = $${paramCount++}`);
       values.push(data.anthropicApiKey);
     }
-    if (data.openaiApiKey !== undefined) {
-      updates.push(`openai_api_key = $${paramCount++}`);
-      values.push(data.openaiApiKey);
-    }
-    if (data.geminiApiKey !== undefined) {
-      updates.push(`gemini_api_key = $${paramCount++}`);
-      values.push(data.geminiApiKey);
-    }
-    if (data.excelAiProvider !== undefined) {
-      updates.push(`excel_ai_provider = $${paramCount++}`);
-      values.push(data.excelAiProvider);
-    }
-    if (data.dataAiProvider !== undefined) {
-      updates.push(`data_ai_provider = $${paramCount++}`);
-      values.push(data.dataAiProvider);
-    }
     if (data.dataAiModel !== undefined) {
       updates.push(`data_ai_model = $${paramCount++}`);
       values.push(data.dataAiModel);
+    }
+    if (data.fileAnalysisModel !== undefined) {
+      updates.push(`file_analysis_model = $${paramCount++}`);
+      values.push(data.fileAnalysisModel);
     }
     if (data.validationModelTier !== undefined) {
       updates.push(`validation_model_tier = $${paramCount++}`);
@@ -227,11 +201,8 @@ export async function updateUserSettings(
         id,
         user_id as "userId",
         anthropic_api_key as "anthropicApiKey",
-        openai_api_key as "openaiApiKey",
-        gemini_api_key as "geminiApiKey",
-        excel_ai_provider as "excelAiProvider",
-        data_ai_provider as "dataAiProvider",
         data_ai_model as "dataAiModel",
+        file_analysis_model as "fileAnalysisModel",
         validation_model_tier as "validationModelTier",
         custom_validation_model as "customValidationModel",
         te_app_id as "teAppId",

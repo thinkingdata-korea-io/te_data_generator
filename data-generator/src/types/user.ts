@@ -29,6 +29,12 @@ export interface User {
   email: string;
   phone?: string;
 
+  // 위치 상세 정보 (일관성 유지용)
+  city: string;
+  state: string;  // 주/도/시 (province/state)
+  region?: string;  // 지역 (선택사항, 예: "강남구", "Manhattan")
+  timezone?: string;  // 타임존 (예: "Asia/Seoul", "America/New_York")
+
   // 디바이스 정보
   os: string;
   os_version: string;

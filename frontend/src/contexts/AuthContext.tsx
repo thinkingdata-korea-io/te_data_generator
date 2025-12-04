@@ -26,6 +26,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   hasPermission: (requiredRole: UserRole[]) => boolean;
+  handleUnauthorized: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -109,6 +110,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const handleUnauthorized = () => {
+    console.warn('Session expired or unauthorized. Logging out...');
+    logout();
+    // Redirect to login page
+    if (typeof window !== 'undefined') {
+      window.location.href = '/login';
+    }
+  };
+
   const hasPermission = (requiredRoles: UserRole[]): boolean => {
     if (!user) return false;
     return requiredRoles.includes(user.role);
@@ -121,6 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     login,
     logout,
     hasPermission,
+    handleUnauthorized,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

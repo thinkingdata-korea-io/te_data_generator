@@ -1,4 +1,9 @@
 import { faker } from '@faker-js/faker';
+import { faker as fakerJA } from '@faker-js/faker/locale/ja';
+import { faker as fakerKO } from '@faker-js/faker/locale/ko';
+import { faker as fakerEN } from '@faker-js/faker/locale/en';
+import { faker as fakerZH_CN } from '@faker-js/faker/locale/zh_CN';
+import { faker as fakerZH_TW } from '@faker-js/faker/locale/zh_TW';
 import { CountryConfig, IP_RANGES, CARRIERS } from '../types';
 import { randomChoice } from '../utils/random';
 import { logger } from '../utils/logger';
@@ -8,12 +13,32 @@ import { logger } from '../utils/logger';
  */
 
 /**
+ * 로케일 매핑
+ */
+const LOCALE_FAKER_MAP: Record<string, typeof faker> = {
+  'ja': fakerJA,
+  'ko': fakerKO,
+  'en': fakerEN,
+  'zh_CN': fakerZH_CN,
+  'zh_TW': fakerZH_TW,
+  'en_US': fakerEN,
+  'en-US': fakerEN,
+};
+
+/**
  * 로케일에 맞는 Faker 인스턴스 가져오기
- * Faker v8에서는 단일 글로벌 인스턴스만 사용
+ * 🆕 국가별 로케일 적용 (한국 유저 → 한국 이름)
  */
 export function getFakerInstance(locale: string): typeof faker {
-  // Faker v8에서는 모든 로케일이 하나의 인스턴스에 포함됨
-  return faker;
+  const normalizedLocale = locale.replace('-', '_');
+  const fakerInstance = LOCALE_FAKER_MAP[normalizedLocale] || LOCALE_FAKER_MAP[locale];
+
+  if (!fakerInstance) {
+    logger.warn(`⚠️  Unsupported locale: ${locale}, using default (en)`);
+    return faker;
+  }
+
+  return fakerInstance;
 }
 
 /**
@@ -164,16 +189,54 @@ const INDUSTRY_PRICE_RANGES: IndustryPriceRanges = {
 interface FallbackRule {
   priority: number; // 높을수록 먼저 평가 (1-100)
   category: string; // 규칙 카테고리 (문서화용)
-  matcher: (lowerName: string, propertyName: string, industry?: string) => boolean;
-  generator: (fakerInstance: any, propertyName: string, lowerName: string, industry?: string) => any;
+  matcher: (lowerName: string, propertyName: string, industry?: string, user?: any) => boolean;
+  generator: (fakerInstance: any, propertyName: string, lowerName: string, industry?: string, user?: any) => any;
 }
 
 /**
  * 규칙 기반 폴백 시스템
- * 우선순위 순서: ID/Boolean (90) > 개인정보 (80) > 날짜/시간 (70) > 산업별 가격 (60) >
+ * 우선순위 순서: 유저 정보 (95) > ID/Boolean (90) > 개인정보 (80) > 날짜/시간 (70) > 산업별 가격 (60) >
  *                게임 (50) > 상거래 (40) > 통계 (30) > 상태/타입 (20) > B2B (10) > 기타 (5)
  */
 const FALLBACK_RULES: FallbackRule[] = [
+  // === 🆕 유저 정보 기반 (최고 우선순위) ===
+  {
+    priority: 95,
+    category: 'User - IP',
+    matcher: (lower) => (lower === 'ip' || lower === 'ip_address') && !lower.includes('zip'),
+    generator: (f, _, __, ___, user) => user?.ip || generateRealisticIP(user?.countryCode || 'US')
+  },
+  {
+    priority: 95,
+    category: 'User - Carrier',
+    matcher: (lower) => lower === 'carrier' || lower === 'mobile_carrier',
+    generator: (f, _, __, ___, user) => user?.carrier || getCarrierByCountry(user?.countryCode || 'US')
+  },
+  {
+    priority: 95,
+    category: 'User - OS',
+    matcher: (lower) => lower === 'os' || lower === 'platform',
+    generator: (f, _, __, ___, user) => user?.os || 'iOS'
+  },
+  {
+    priority: 95,
+    category: 'User - Device Model',
+    matcher: (lower) => lower === 'device_model' || (lower === 'model' && !lower.includes('business')),
+    generator: (f, _, __, ___, user) => user?.device_model || 'iPhone 15'
+  },
+  {
+    priority: 95,
+    category: 'User - City',
+    matcher: (lower) => lower === 'city' || lower === 'user_city',
+    generator: (f, _, __, ___, user) => user?.city || getOrCreateLocationContext().city
+  },
+  {
+    priority: 95,
+    category: 'User - State/Province',
+    matcher: (lower) => lower === 'state' || lower === 'province',
+    generator: (f, _, __, ___, user) => user?.state || getOrCreateLocationContext().state
+  },
+
   // === ID 관련 (최고 우선순위) ===
   {
     priority: 90,
@@ -215,18 +278,7 @@ const FALLBACK_RULES: FallbackRule[] = [
     matcher: (lower) => lower.includes('address'),
     generator: (f) => f.location.streetAddress()
   },
-  {
-    priority: 80,
-    category: 'Personal Info - City',
-    matcher: (lower) => lower.includes('city'),
-    generator: (f) => f.location.city()
-  },
-  {
-    priority: 80,
-    category: 'Personal Info - Country',
-    matcher: (lower) => lower.includes('country') && !lower.includes('code'),
-    generator: (f) => f.location.country()
-  },
+  // Note: city, province/state, country, country_code are now handled by contextual location generator
 
   // === 날짜/시간 (높은 우선순위) ===
   {
@@ -516,25 +568,213 @@ const FALLBACK_RULES: FallbackRule[] = [
 FALLBACK_RULES.sort((a, b) => b.priority - a.priority);
 
 /**
+ * 위치 정보 컨텍스트 캐시
+ * 여러 위치 속성이 같은 컨텍스트에서 생성될 때 일관성 유지
+ */
+interface LocationContext {
+  city: string;
+  state: string;
+  country: string;
+  countryCode: string;
+  region?: string;
+  timezone?: string;
+}
+
+let currentLocationContext: LocationContext | null = null;
+
+/**
+ * 국가별 타임존 매핑
+ */
+const COUNTRY_TIMEZONES: Record<string, string> = {
+  KR: 'Asia/Seoul',
+  JP: 'Asia/Tokyo',
+  US: 'America/New_York',
+  CN: 'Asia/Shanghai',
+  GB: 'Europe/London'
+};
+
+/**
+ * 특정 국가 코드 기반으로 일관성 있는 위치 정보 생성
+ */
+export function generateConsistentLocationForCountry(countryCode: string): LocationContext {
+  // 지원하는 국가별 샘플 위치 데이터
+  const LOCATION_DATA: Record<string, { cities: Array<{ city: string; state: string }> }> = {
+    KR: {
+      cities: [
+        { city: '서울', state: '서울특별시' },
+        { city: '부산', state: '부산광역시' },
+        { city: '인천', state: '인천광역시' },
+        { city: '대구', state: '대구광역시' },
+        { city: '대전', state: '대전광역시' },
+        { city: '광주', state: '광주광역시' },
+        { city: '수원', state: '경기도' },
+        { city: '용인', state: '경기도' },
+        { city: '창원', state: '경상남도' },
+        { city: '청주', state: '충청북도' }
+      ]
+    },
+    JP: {
+      cities: [
+        { city: 'Tokyo', state: 'Tokyo' },
+        { city: 'Osaka', state: 'Osaka' },
+        { city: 'Kyoto', state: 'Kyoto' },
+        { city: 'Yokohama', state: 'Kanagawa' },
+        { city: 'Nagoya', state: 'Aichi' },
+        { city: 'Sapporo', state: 'Hokkaido' },
+        { city: 'Fukuoka', state: 'Fukuoka' },
+        { city: 'Kobe', state: 'Hyogo' }
+      ]
+    },
+    US: {
+      cities: [
+        { city: 'New York', state: 'New York' },
+        { city: 'Los Angeles', state: 'California' },
+        { city: 'Chicago', state: 'Illinois' },
+        { city: 'Houston', state: 'Texas' },
+        { city: 'Phoenix', state: 'Arizona' },
+        { city: 'Philadelphia', state: 'Pennsylvania' },
+        { city: 'San Francisco', state: 'California' },
+        { city: 'Seattle', state: 'Washington' },
+        { city: 'Boston', state: 'Massachusetts' },
+        { city: 'Miami', state: 'Florida' }
+      ]
+    },
+    CN: {
+      cities: [
+        { city: 'Beijing', state: 'Beijing' },
+        { city: 'Shanghai', state: 'Shanghai' },
+        { city: 'Guangzhou', state: 'Guangdong' },
+        { city: 'Shenzhen', state: 'Guangdong' },
+        { city: 'Chengdu', state: 'Sichuan' },
+        { city: 'Hangzhou', state: 'Zhejiang' },
+        { city: 'Wuhan', state: 'Hubei' },
+        { city: 'Xi\'an', state: 'Shaanxi' }
+      ]
+    },
+    GB: {
+      cities: [
+        { city: 'London', state: 'England' },
+        { city: 'Manchester', state: 'England' },
+        { city: 'Birmingham', state: 'England' },
+        { city: 'Edinburgh', state: 'Scotland' },
+        { city: 'Glasgow', state: 'Scotland' },
+        { city: 'Liverpool', state: 'England' },
+        { city: 'Bristol', state: 'England' }
+      ]
+    }
+  };
+
+  const COUNTRY_NAMES: Record<string, string> = {
+    KR: 'South Korea',
+    JP: 'Japan',
+    US: 'United States',
+    CN: 'China',
+    GB: 'United Kingdom'
+  };
+
+  // 지정된 국가의 위치 데이터 가져오기
+  const locationList = LOCATION_DATA[countryCode] || LOCATION_DATA['US'];
+  const selectedLocation = randomChoice(locationList.cities);
+
+  return {
+    city: selectedLocation.city,
+    state: selectedLocation.state,
+    country: COUNTRY_NAMES[countryCode] || 'United States',
+    countryCode: countryCode,
+    timezone: COUNTRY_TIMEZONES[countryCode] || 'UTC'
+  };
+}
+
+/**
+ * 랜덤 국가로 위치 정보 생성 (기존 호환성 유지)
+ */
+function generateConsistentLocation(): LocationContext {
+  const LOCATION_DATA_KEYS = ['KR', 'JP', 'US', 'CN', 'GB'];
+  const selectedCode = randomChoice(LOCATION_DATA_KEYS);
+  return generateConsistentLocationForCountry(selectedCode);
+}
+
+/**
+ * 위치 컨텍스트 초기화 (새 이벤트 생성 시 호출)
+ * @deprecated Use clearLocationContext() instead
+ */
+export function resetLocationContext(): void {
+  currentLocationContext = null;
+}
+
+/**
+ * 위치 컨텍스트 클리어 (세션 종료 시 호출)
+ */
+export function clearLocationContext(): void {
+  currentLocationContext = null;
+}
+
+/**
+ * 유저 기반으로 위치 컨텍스트 초기화 (세션 시작 시 호출)
+ */
+export function initializeLocationContext(user: any): void {
+  currentLocationContext = {
+    city: user.city,
+    state: user.state,
+    country: user.country,
+    countryCode: user.countryCode,
+    region: user.region,
+    timezone: user.timezone
+  };
+}
+
+/**
+ * 위치 컨텍스트 가져오기 (lazy 생성)
+ */
+function getOrCreateLocationContext(): LocationContext {
+  if (!currentLocationContext) {
+    currentLocationContext = generateConsistentLocation();
+  }
+  return currentLocationContext;
+}
+
+/**
  * 속성명 기반 폴백 값 생성 (규칙 기반 시스템)
  * AI가 범위를 생성하지 못한 속성들을 위한 스마트 폴백
  *
  * @param propertyName 속성 이름
  * @param locale 로케일
  * @param industry 산업 분류 (game, commerce, finance 등)
+ * @param user 유저 객체 (선택사항, 유저 정보 기반 생성용)
  */
 export function generateFallbackValue(
   propertyName: string,
   locale: string = 'en',
-  industry?: string
+  industry?: string,
+  user?: any
 ): any {
   const fakerInstance = getFakerInstance(locale);
   const lowerName = propertyName.toLowerCase();
 
+  // 위치 관련 속성은 컨텍스트 일관성 유지
+  if (lowerName.includes('city')) {
+    return getOrCreateLocationContext().city;
+  }
+  if (lowerName.includes('province') || lowerName.includes('state')) {
+    return getOrCreateLocationContext().state;
+  }
+  if (lowerName.includes('country') && lowerName.includes('code')) {
+    return getOrCreateLocationContext().countryCode;
+  }
+  if (lowerName.includes('country')) {
+    return getOrCreateLocationContext().country;
+  }
+  if (lowerName.includes('region') && !lowerName.includes('store')) {
+    return getOrCreateLocationContext().region || getOrCreateLocationContext().state;
+  }
+  if (lowerName.includes('timezone') || lowerName.includes('time_zone')) {
+    return getOrCreateLocationContext().timezone || 'UTC';
+  }
+
   // 규칙 기반 평가 (우선순위 순서대로 이미 정렬됨)
   for (const rule of FALLBACK_RULES) {
-    if (rule.matcher(lowerName, propertyName, industry)) {
-      return rule.generator(fakerInstance, propertyName, lowerName, industry);
+    if (rule.matcher(lowerName, propertyName, industry, user)) {
+      return rule.generator(fakerInstance, propertyName, lowerName, industry, user);
     }
   }
 

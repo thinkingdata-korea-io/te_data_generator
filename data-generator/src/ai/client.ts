@@ -460,7 +460,27 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       detail: formatRetentionDetail(lang, retentionCurve.day1Retention, retentionCurve.day7Retention, retentionCurve.day30Retention)
     });
 
-    // Phase 3: 이벤트 순서 분석
+    // Phase 1.5a: 트랜잭션 감지 (새로 추가)
+    this.config.onProgress?.({
+      phase: 'phase2a',
+      progress: 47,
+      message: '🔍 트랜잭션 패턴 감지 중...',
+      detail: '시작-종료 패턴 분석 (reservation_start → reservation_complete 등)'
+    });
+    logger.info('\n🔍 Phase 1.5a: Transaction Detection');
+    const { transactions: detectedTransactions } = await this.analyzeTransactions(schema, userInput);
+    logger.info(`  ✅ Transactions: ${detectedTransactions.length} pattern(s) detected`);
+
+    this.config.onProgress?.({
+      phase: 'phase2a',
+      progress: 49,
+      message: `✅ 트랜잭션 ${detectedTransactions.length}개 감지 완료`,
+      detail: detectedTransactions.length > 0
+        ? `감지된 패턴: ${detectedTransactions.map((t: any) => t.name).join(', ')}`
+        : '트랜잭션 패턴이 없습니다 (일부 도메인에서는 정상)'
+    });
+
+    // Phase 3: 이벤트 순서 분석 (트랜잭션 전달)
     this.config.onProgress?.({
       phase: 'phase3',
       progress: 50,
@@ -468,7 +488,7 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       detail: getMessage(lang, 'phase3_detail')
     });
     logger.info('\n🔗 Phase 1.6: Event Sequencing Analysis');
-    const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput);
+    const { eventSequencing, validationSummary: sequencingSummary } = await this.analyzeEventSequencing(schema, userInput, detectedTransactions);
     logger.info(`  ✅ Event categories: lifecycle=${eventSequencing.eventCategories?.lifecycle?.length || 0}, onboarding=${eventSequencing.eventCategories?.onboarding?.length || 0}, core=${eventSequencing.eventCategories?.core?.length || 0}`);
     logger.info(`  ✅ Strict dependencies: ${Object.keys(eventSequencing.strictDependencies || {}).length} rules`);
     logger.info(`  ✅ Logical sequences: ${eventSequencing.logicalSequences?.length || 0} funnels`);
@@ -725,11 +745,64 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
   }
 
   /**
+   * Phase 1.5a: 트랜잭션 감지 전용 (검증 포함)
+   */
+  private async analyzeTransactions(
+    schema: ParsedSchema,
+    userInput: UserInput
+  ): Promise<{ transactions: any[]; validationSummary: any }> {
+    // 1. Generator: 트랜잭션 감지
+    const lang = this.config.language || 'ko';
+    const { buildTransactionDetectionPrompt } = await import('./prompts');
+    const prompt = buildTransactionDetectionPrompt(schema, userInput, lang);
+    let response: string;
+
+    if (this.config.provider === 'openai') {
+      response = await this.callOpenAI(prompt);
+    } else if (this.config.provider === 'gemini') {
+      response = await this.callGemini(prompt);
+    } else {
+      response = await this.callAnthropic(prompt);
+    }
+
+    const result = this.parseAIResponse(response) as any;
+    let transactions = result.transactions || [];
+
+    // 트랜잭션 초기화 확인
+    if (!Array.isArray(transactions)) {
+      logger.warn('  ⚠️  transactions가 배열이 아닙니다. 빈 배열로 초기화합니다.');
+      transactions = [];
+    }
+
+    logger.info(`  📊 Detected ${transactions.length} transaction(s)`);
+
+    // 트랜잭션 목록 로깅
+    if (transactions.length > 0) {
+      transactions.forEach((t: any, i: number) => {
+        logger.info(`    ${i + 1}. ${t.name}: ${t.startEvents?.join(', ')} → ${t.endEvents?.join(', ')}`);
+      });
+    } else {
+      logger.info('  ℹ️  No transactions detected (this may be normal for certain domains)');
+    }
+
+    // 간단한 검증 요약 (추후 확장 가능)
+    const validationSummary = {
+      ruleBasedPassed: true,
+      aiValidationUsed: false,
+      fixAttempts: 0,
+      warnings: []
+    };
+
+    return { transactions, validationSummary };
+  }
+
+  /**
    * Phase 1.6: 이벤트 순서 분석 (검증 포함)
    */
   private async analyzeEventSequencing(
     schema: ParsedSchema,
-    userInput: UserInput
+    userInput: UserInput,
+    detectedTransactions?: any[]
   ): Promise<any> {
     // 1. Generator: 초안 생성
     const lang = this.config.language || 'ko';
@@ -766,20 +839,26 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
         logger.warn('  ⚠️  Warnings:', summary.warnings.join(', '));
       }
 
-      // 트랜잭션 검증 및 초기화
-      if (!sequencing.transactions) {
-        logger.warn('  ⚠️  트랜잭션 필드가 없습니다. 빈 배열로 초기화합니다.');
-        sequencing.transactions = [];
-      }
-
-      if (sequencing.transactions.length === 0) {
-        logger.warn('  ⚠️  감지된 트랜잭션이 없습니다.');
-        logger.info('  💡 가능한 원인:');
-        logger.info('     1. 이벤트 이름에 start/end 패턴이 없음');
-        logger.info('     2. 트랜잭션이 불필요한 도메인 (뉴스, 콘텐츠 소비 등)');
-        logger.info('     3. AI 감지 실패 → Excel에서 수동 추가 가능');
+      // Phase 1.5a에서 감지된 트랜잭션 사용
+      if (detectedTransactions && detectedTransactions.length > 0) {
+        sequencing.transactions = detectedTransactions;
+        logger.info(`  ✅ Using ${detectedTransactions.length} transaction(s) from Phase 1.5a`);
       } else {
-        logger.info(`  ✅ 트랜잭션 ${sequencing.transactions.length}개 생성됨`);
+        // 트랜잭션 검증 및 초기화
+        if (!sequencing.transactions) {
+          logger.warn('  ⚠️  트랜잭션 필드가 없습니다. 빈 배열로 초기화합니다.');
+          sequencing.transactions = [];
+        }
+
+        if (sequencing.transactions.length === 0) {
+          logger.warn('  ⚠️  감지된 트랜잭션이 없습니다.');
+          logger.info('  💡 가능한 원인:');
+          logger.info('     1. 이벤트 이름에 start/end 패턴이 없음');
+          logger.info('     2. 트랜잭션이 불필요한 도메인 (뉴스, 콘텐츠 소비 등)');
+          logger.info('     3. AI 감지 실패 → Excel에서 수동 추가 가능');
+        } else {
+          logger.info(`  ✅ 트랜잭션 ${sequencing.transactions.length}개 생성됨`);
+        }
       }
 
       return { eventSequencing: sequencing, validationSummary: summary };
@@ -789,6 +868,13 @@ AI는 **비즈니스 로직 중심 속성만** 범위를 정의하세요:
       logger.warn('  🔄 Using fallback event sequencing');
 
       const fallbackSequencing = this.generateFallbackEventSequencing(schema);
+
+      // 🔥 FIX: Preserve detected transactions even in fallback
+      if (detectedTransactions && detectedTransactions.length > 0) {
+        fallbackSequencing.transactions = detectedTransactions;
+        logger.info(`  ✅ Preserving ${detectedTransactions.length} detected transaction(s) in fallback`);
+      }
+
       const fallbackSummary = {
         passed: false,
         ruleBasedPassed: false,

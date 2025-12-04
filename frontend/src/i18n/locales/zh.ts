@@ -53,6 +53,7 @@ export const zh = {
 
     // Sections
     sectionBuild: 'BUILD',
+    sectionDataGenerator: 'DATA GENERATOR',
     sectionSettings: 'SETTINGS',
     sectionAdmin: 'ADMIN',
   },
@@ -93,10 +94,13 @@ export const zh = {
 
     // File Manager
     fileManagement: '文件管理',
+    fileManagementDesc: '管理Excel模板、AI分析结果和生成的数据',
     excelTemplates: 'Excel模板',
+    aiAnalysisExcel: 'AI分析Excel',
     generatedData: '生成的数据',
     loading: '加载中...',
     noExcelFiles: '没有生成的Excel文件。',
+    noAnalysisFiles: '没有AI分析Excel文件',
     noDataFiles: '没有生成的数据。',
     daysRemaining: '天剩余',
     expired: '已过期',
@@ -177,6 +181,12 @@ export const zh = {
     sendStep1: '上传 .jsonl 数据文件',
     sendStep2: '输入 ThinkingEngine APP_ID',
     sendStep3: '开始数据传输',
+
+    fileManagementTitle: '文件管理',
+    fileManagementCardDesc: '管理生成的Excel和数据文件',
+    fileManagementStep1: '下载和删除Excel模板',
+    fileManagementStep2: '下载生成的数据',
+    fileManagementStep3: '管理保留期',
 
     advancedOptions: '高级选项',
     showAdvancedOptions: '显示高级选项',
@@ -458,6 +468,7 @@ export const zh = {
     customValidationModel: '自定义验证模型（可选）',
     customValidationPlaceholder: '例如：claude-haiku-4-5',
     customValidationDesc: '可以直接指定模型，而不使用等级设置。',
+    fileAnalysisModelPlaceholder: '留空则自动选择Haiku（推荐）',
 
     // Platform config
     teAppId: 'ThinkingEngine APP_ID',
@@ -586,6 +597,31 @@ export const zh = {
     notFound: '未找到',
     serverError: '服务器错误',
     validationError: '请检查您的输入',
+  },
+
+  // Validation messages
+  validation: {
+    scenarioRequired: '请输入场景',
+    industryRequired: '请输入行业',
+    notesRequired: '请输入服务特征',
+    startDateRequired: '请输入开始日期',
+    endDateRequired: '请输入结束日期',
+    invalidDateRange: '开始日期必须早于结束日期',
+    scenarioDescRequired: '请输入场景说明',
+    dauRequired: '请输入DAU（1或更多）',
+    appIdRequired: '请输入APP_ID',
+    preparingDataGeneration: '正在准备基于生成的Excel的数据生成...',
+    dataGenerationRequestFailed: '数据生成请求失败',
+    startingDataGenerationWithAnalysis: '正在使用修改后的分析启动数据生成...',
+    dataGenerationStartFailed: '数据生成启动失败',
+    preparingDataTransfer: '正在准备向ThinkingEngine传输数据...',
+    dataTransferFailed: '数据传输失败',
+    errorPrefix: '错误',
+    startingExcelGeneration: '开始生成Excel架构...',
+    initializingAI: '🤖 正在初始化AI引擎...',
+    excelGenerationFailed: 'Excel生成请求失败',
+    noExcelCompletionData: '未收到Excel完成数据',
+    noExcelFilePath: '找不到生成的Excel文件路径',
   },
 
   // Success messages

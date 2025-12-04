@@ -56,11 +56,8 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
   // Settings state
   const [settings, setSettings] = useState<Settings>({
     ANTHROPIC_API_KEY: '',
-    OPENAI_API_KEY: '',
-    GEMINI_API_KEY: '',
-    EXCEL_AI_PROVIDER: 'anthropic',
-    DATA_AI_PROVIDER: 'anthropic',
     DATA_AI_MODEL: '',
+    FILE_ANALYSIS_MODEL: '',
     VALIDATION_MODEL_TIER: 'fast',
     CUSTOM_VALIDATION_MODEL: '',
     TE_APP_ID: '',
@@ -72,6 +69,7 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
 
   // Send state
   const [sendAppId, setSendAppId] = useState<string>('');
+  const [sendSessionId, setSendSessionId] = useState<string>('');
 
   return {
     // Form data
@@ -127,5 +125,7 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
     // Send state
     sendAppId,
     setSendAppId,
+    sendSessionId,
+    setSendSessionId,
   };
 }

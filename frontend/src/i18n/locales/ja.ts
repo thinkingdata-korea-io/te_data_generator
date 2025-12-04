@@ -53,6 +53,7 @@ export const ja = {
 
     // Sections
     sectionBuild: 'BUILD',
+    sectionDataGenerator: 'DATA GENERATOR',
     sectionSettings: 'SETTINGS',
     sectionAdmin: 'ADMIN',
   },
@@ -93,10 +94,13 @@ export const ja = {
 
     // File Manager
     fileManagement: 'ファイル管理',
+    fileManagementDesc: 'Excelテンプレート、AI分析結果、生成データを管理',
     excelTemplates: 'Excelテンプレート',
+    aiAnalysisExcel: 'AI分析Excel',
     generatedData: '生成されたデータ',
     loading: '読み込み中...',
     noExcelFiles: '生成されたExcelファイルがありません。',
+    noAnalysisFiles: 'AI分析Excelファイルがありません',
     noDataFiles: '生成されたデータがありません。',
     daysRemaining: '日残り',
     expired: '期限切れ',
@@ -177,6 +181,12 @@ export const ja = {
     sendStep1: '.jsonl データファイルアップロード',
     sendStep2: 'ThinkingEngine APP_ID 入力',
     sendStep3: 'データ送信開始',
+
+    fileManagementTitle: 'ファイル管理',
+    fileManagementCardDesc: '生成されたExcelとデータファイルを管理',
+    fileManagementStep1: 'Excelテンプレートのダウンロードと削除',
+    fileManagementStep2: '生成データのダウンロード',
+    fileManagementStep3: '保持期限管理',
 
     advancedOptions: '詳細オプション',
     showAdvancedOptions: '詳細オプションを表示',
@@ -458,6 +468,7 @@ export const ja = {
     customValidationModel: 'カスタム検証モデル（オプション）',
     customValidationPlaceholder: '例：claude-haiku-4-5',
     customValidationDesc: '階層設定を使用せず、直接モデルを指定できます。',
+    fileAnalysisModelPlaceholder: '空欄の場合Haikuが自動選択されます（推奨）',
 
     // Platform config
     teAppId: 'ThinkingEngine APP_ID',
@@ -586,6 +597,31 @@ export const ja = {
     notFound: '見つかりません',
     serverError: 'サーバーエラー',
     validationError: '入力内容を確認してください',
+  },
+
+  // Validation messages
+  validation: {
+    scenarioRequired: 'シナリオを入力してください',
+    industryRequired: '業種を入力してください',
+    notesRequired: 'サービスの特徴を入力してください',
+    startDateRequired: '開始日を入力してください',
+    endDateRequired: '終了日を入力してください',
+    invalidDateRange: '開始日は終了日より前である必要があります',
+    scenarioDescRequired: 'シナリオ説明を入力してください',
+    dauRequired: 'DAUを入力してください（1以上）',
+    appIdRequired: 'APP_IDを入力してください',
+    preparingDataGeneration: '生成されたExcelを基にデータ生成準備中...',
+    dataGenerationRequestFailed: 'データ生成リクエスト失敗',
+    startingDataGenerationWithAnalysis: '修正された分析結果でデータ生成開始...',
+    dataGenerationStartFailed: 'データ生成開始失敗',
+    preparingDataTransfer: 'ThinkingEngineへデータ転送準備中...',
+    dataTransferFailed: 'データ転送失敗',
+    errorPrefix: 'エラー',
+    startingExcelGeneration: 'Excelスキーマ生成開始...',
+    initializingAI: '🤖 AIエンジン初期化中...',
+    excelGenerationFailed: 'Excel生成リクエスト失敗',
+    noExcelCompletionData: 'Excel生成完了データを受信できませんでした',
+    noExcelFilePath: '生成されたExcelファイルパスが見つかりません',
   },
 
   // Success messages

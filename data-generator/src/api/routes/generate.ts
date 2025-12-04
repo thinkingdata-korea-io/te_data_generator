@@ -58,7 +58,7 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
       aiProvider,
       outputDataPath,
       outputMetadataPath,
-      fileAnalysisContext
+      contextFilePaths
     } = req.body;
 
     // Validate required fields
@@ -69,11 +69,32 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Add file analysis context to notes
+    // 🔥 FIX: 여기서 파일 분석 수행 (생성 시작 시)
     let enhancedNotes = notes || '';
-    if (fileAnalysisContext) {
-      enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
-      logger.info('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
+    if (contextFilePaths && contextFilePaths.length > 0) {
+      const userId = (req as any).user.userId;
+      const userSettings = await getUserSettings(userId);
+
+      if (userSettings?.anthropicApiKey) {
+        try {
+          const { FileAnalyzer } = await import('../services/file-analyzer');
+          const fileAnalysisModel = userSettings.fileAnalysisModel || undefined;
+          const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
+
+          const analyzer = new FileAnalyzer(userSettings.anthropicApiKey, fileAnalysisModel, fileAnalysisMaxTokens);
+          logger.info(`🤖 AI 파일 분석 시작 (${contextFilePaths.length}개 파일)...`);
+          const analysisResult = await analyzer.analyzeMultipleFiles(contextFilePaths);
+          logger.info('✅ AI 파일 분석 완료');
+
+          if (analysisResult?.combinedInsights) {
+            enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${analysisResult.combinedInsights}`;
+            logger.info('📎 데이터 생성에 파일 분석 컨텍스트가 추가되었습니다.');
+          }
+        } catch (error: any) {
+          logger.error('⚠️  파일 분석 실패:', error.message);
+          // 분석 실패해도 데이터 생성은 계속 진행
+        }
+      }
     }
 
     // Get user settings
@@ -81,20 +102,13 @@ router.post('/start', requireAuth, async (req: Request, res: Response) => {
     const userSettings = await getUserSettings(userId);
 
     // Get AI API Key from user settings ONLY (no environment fallback)
-    let aiApiKey: string | undefined;
-    const requestedProvider = aiProvider || userSettings?.dataAiProvider || 'anthropic';
-
-    if (requestedProvider === 'anthropic') {
-      aiApiKey = userSettings?.anthropicApiKey;
-    } else if (requestedProvider === 'openai') {
-      aiApiKey = userSettings?.openaiApiKey;
-    } else if (requestedProvider === 'gemini') {
-      aiApiKey = userSettings?.geminiApiKey;
-    }
+    // Currently only Anthropic is supported
+    const aiApiKey = userSettings?.anthropicApiKey;
+    const requestedProvider = 'anthropic';  // Fixed to anthropic only
 
     if (!aiApiKey) {
       return res.status(400).json({
-        error: 'AI API key not configured',
+        error: 'Anthropic API key not configured',
         message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
         redirectTo: '/dashboard/settings',
         action: 'configure_api_key',
@@ -175,7 +189,7 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
       dateStart,
       dateEnd,
       aiProvider,
-      fileAnalysisContext,
+      contextFilePaths,
       language = 'ko' // Default to Korean
     } = req.body;
 
@@ -198,10 +212,32 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
       });
     }
 
-    // Add file analysis context to notes
+    // 🔥 FIX: 여기서 파일 분석 수행 (AI 분석 시작 시)
     let enhancedNotes = notes || '';
-    if (fileAnalysisContext) {
-      enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${fileAnalysisContext}`;
+    if (contextFilePaths && contextFilePaths.length > 0) {
+      const userId = (req as any).user.userId;
+      const userSettings = await getUserSettings(userId);
+
+      if (userSettings?.anthropicApiKey) {
+        try {
+          const { FileAnalyzer } = await import('../services/file-analyzer');
+          const fileAnalysisModel = userSettings.fileAnalysisModel || undefined;
+          const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
+
+          const analyzer = new FileAnalyzer(userSettings.anthropicApiKey, fileAnalysisModel, fileAnalysisMaxTokens);
+          logger.info(`🤖 AI 파일 분석 시작 (${contextFilePaths.length}개 파일)...`);
+          const analysisResult = await analyzer.analyzeMultipleFiles(contextFilePaths);
+          logger.info('✅ AI 파일 분석 완료');
+
+          if (analysisResult?.combinedInsights) {
+            enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${analysisResult.combinedInsights}`;
+            logger.info('📎 AI 분석에 파일 분석 컨텍스트가 추가되었습니다.');
+          }
+        } catch (error: any) {
+          logger.error('⚠️  파일 분석 실패:', error.message);
+          // 분석 실패해도 AI 분석은 계속 진행
+        }
+      }
     }
 
     // Get user settings
@@ -209,20 +245,13 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
     const userSettings = await getUserSettings(userId);
 
     // Get AI API Key from user settings ONLY (no environment fallback)
-    let aiApiKey: string | undefined;
-    const requestedProvider = aiProvider || userSettings?.dataAiProvider || 'anthropic';
-
-    if (requestedProvider === 'anthropic') {
-      aiApiKey = userSettings?.anthropicApiKey;
-    } else if (requestedProvider === 'openai') {
-      aiApiKey = userSettings?.openaiApiKey;
-    } else if (requestedProvider === 'gemini') {
-      aiApiKey = userSettings?.geminiApiKey;
-    }
+    // Currently only Anthropic is supported
+    const aiApiKey = userSettings?.anthropicApiKey;
+    const requestedProvider = 'anthropic';  // Fixed to anthropic only
 
     if (!aiApiKey) {
       return res.status(400).json({
-        error: 'AI API key not configured',
+        error: 'Anthropic API key not configured',
         message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
         redirectTo: '/dashboard/settings',
         action: 'configure_api_key',
@@ -332,24 +361,17 @@ router.post('/start-with-analysis', requireAuth, async (req: Request, res: Respo
     const userSettings = await getUserSettings(userId);
 
     // Get AI API Key from user settings ONLY (no environment fallback)
-    let aiApiKey: string | undefined;
-    const requestedProvider = analysis.config.aiProvider || userSettings?.dataAiProvider || 'anthropic';
-
-    if (requestedProvider === 'anthropic') {
-      aiApiKey = userSettings?.anthropicApiKey;
-    } else if (requestedProvider === 'openai') {
-      aiApiKey = userSettings?.openaiApiKey;
-    } else if (requestedProvider === 'gemini') {
-      aiApiKey = userSettings?.geminiApiKey;
-    }
+    // Currently only Anthropic is supported
+    const aiApiKey = userSettings?.anthropicApiKey;
+    const requestedProvider = 'anthropic';  // Fixed to anthropic only
 
     if (!aiApiKey) {
       return res.status(400).json({
-        error: 'AI API key not configured',
-        message: `Please configure ${requestedProvider.toUpperCase()} API key in Settings page`,
+        error: 'Anthropic API key not configured',
+        message: 'Please configure Anthropic API key in Settings page',
         redirectTo: '/dashboard/settings',
         action: 'configure_api_key',
-        provider: requestedProvider
+        provider: 'anthropic'
       });
     }
 
@@ -449,6 +471,39 @@ router.post('/analysis-excel', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/generate/analysis-excel-list
+ * Get list of AI analysis Excel files
+ */
+router.get('/analysis-excel-list', (req: Request, res: Response) => {
+  try {
+    const outputDir = path.resolve(__dirname, '../../../output/analysis-excel');
+
+    if (!fs.existsSync(outputDir)) {
+      return res.json({ files: [] });
+    }
+
+    const files = fs.readdirSync(outputDir)
+      .filter(file => file.endsWith('.xlsx'))
+      .map(file => {
+        const filePath = path.join(outputDir, file);
+        const stats = fs.statSync(filePath);
+        return {
+          name: file,
+          path: filePath,
+          size: stats.size,
+          modified: stats.mtime.toISOString()
+        };
+      })
+      .sort((a, b) => new Date(b.modified).getTime() - new Date(a.modified).getTime());
+
+    res.json({ files });
+  } catch (error: any) {
+    logger.error('Error listing analysis Excel files:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * GET /api/generate/analysis-excel/download/:filename
  * Download AI analysis Excel
  */
@@ -535,7 +590,7 @@ router.get('/analysis-excel/:filename', (req: Request, res: Response) => {
     }
 
     const safeFilename = path.basename(filename);
-    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-results');
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-excel');
     const filePath = path.join(analysisExcelDir, safeFilename);
 
     if (!fs.existsSync(filePath)) {
@@ -720,6 +775,80 @@ router.get('/download-data/:runId', async (req: Request, res: Response) => {
     if (!res.headersSent) {
       res.status(500).json({ error: error.message });
     }
+  }
+});
+
+/**
+ * DELETE /api/generate/analysis-excel/:filename
+ * Delete AI analysis Excel file
+ */
+router.delete('/analysis-excel/:filename', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const safeFilename = path.basename(filename);
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-excel');
+    const filePath = path.join(analysisExcelDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Delete the file
+    fs.unlinkSync(filePath);
+    logger.info(`🗑️  Deleted AI analysis Excel: ${safeFilename}`);
+
+    res.json({
+      success: true,
+      message: 'AI analysis Excel deleted successfully'
+    });
+
+  } catch (error: any) {
+    logger.error('Error deleting AI analysis Excel:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * PUT /api/generate/analysis-excel/:filename/retention
+ * Extend AI analysis Excel file retention period
+ */
+router.put('/analysis-excel/:filename/retention', (req: Request, res: Response) => {
+  try {
+    const { filename } = req.params;
+    const { days } = req.body;
+    const safeFilename = path.basename(filename);
+    const analysisExcelDir = path.resolve(__dirname, '../../../output/analysis-excel');
+    const filePath = path.join(analysisExcelDir, safeFilename);
+
+    if (!fs.existsSync(filePath)) {
+      return res.status(404).json({ error: 'File not found' });
+    }
+
+    // Calculate new modification time
+    const now = new Date();
+    const daysToAdd = parseInt(days);
+
+    if (isNaN(daysToAdd)) {
+      return res.status(400).json({ error: 'Invalid days value' });
+    }
+
+    // Update file modification time to extend/shorten retention
+    // If days is positive, we move the mtime backward (older) to extend retention
+    // If days is negative, we move the mtime forward (newer) to shorten retention
+    const newMtime = new Date(now.getTime() - (daysToAdd * 24 * 60 * 60 * 1000));
+    fs.utimesSync(filePath, newMtime, newMtime);
+
+    logger.info(`⏱️  AI analysis Excel retention ${daysToAdd > 0 ? 'extended' : 'shortened'}: ${safeFilename} (${daysToAdd > 0 ? '+' : ''}${daysToAdd} days)`);
+
+    res.json({
+      success: true,
+      message: `Retention ${daysToAdd > 0 ? 'extended' : 'shortened'} by ${Math.abs(daysToAdd)} days`,
+      newModifiedTime: newMtime.toISOString()
+    });
+
+  } catch (error: any) {
+    logger.error('Error updating AI analysis Excel retention:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 

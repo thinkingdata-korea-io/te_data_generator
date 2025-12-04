@@ -107,13 +107,13 @@ export default function AIAnalysisCompleted({
               <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
                 <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.eventSequenceRules}</p>
                 <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
-                  {aiAnalysisResult.eventSequencing?.transactions?.length ?? 0}{t.generator.sequenceCount}
+                  {aiAnalysisResult.eventSequences?.length ?? aiAnalysisResult.eventSequencing?.logicalSequences?.length ?? 0}{t.generator.sequenceCount}
                 </p>
               </div>
               <div className="bg-[var(--bg-tertiary)] border border-[var(--border)] rounded p-4">
                 <p className="text-xs text-[var(--text-dimmed)] mb-1 font-mono">{t.generator.transactionDefinitions}</p>
                 <p className="text-2xl font-bold text-[var(--accent-cyan)] font-mono">
-                  {aiAnalysisResult.eventSequencing?.transactions?.length ?? 0}{t.generator.transactionsCount}
+                  {aiAnalysisResult.transactions?.length ?? aiAnalysisResult.eventSequencing?.transactions?.length ?? 0}{t.generator.transactionsCount}
                 </p>
               </div>
             </div>
@@ -207,6 +207,7 @@ export default function AIAnalysisCompleted({
             type="file"
             accept=".xlsx"
             onChange={handleFileChange}
+            aria-label="Upload modified Excel file"
             className="hidden"
           />
 

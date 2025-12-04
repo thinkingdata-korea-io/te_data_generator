@@ -5,7 +5,6 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { motion } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileManager } from '@/components/dashboard/FileManager';
 
 /**
  * Dashboard Home Page
@@ -170,14 +169,6 @@ export default function DashboardPage() {
         </div>
       </motion.div>
 
-      {/* File Management */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4 }}
-      >
-        <FileManager retentionDays={retentionDays} />
-      </motion.div>
     </div>
   );
 }

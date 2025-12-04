@@ -1,12 +1,14 @@
 {
+  "push_url": "https://te-receiver-naver.thinkingdata.kr/",
   "datasource": [
     {
+      "type": "file",
       "file_patterns": [
-        "/data/log1/*.txt",
-        "/data/log2/*.log"
+        "/Users/jegaljin-u/workspace/demo_data_gen/data-generator/uploads/data/session_640a5d25b8e7259f/*.jsonl"
       ],
-      "app_id": "app_id"
+      "app_id": "242043cf56e6427f874654b101d30aa3",
+      "http_compress": "gzip"
     }
   ],
-  "push_url": "http://RECEIVER_URL"
+  "cpu_limit": 4
 }

@@ -7,6 +7,8 @@ import * as path from 'path';
 import * as fs from 'fs';
 import { FileAnalyzer } from '../services/file-analyzer';
 import { logger } from '../../utils/logger';
+import { getUserSettings } from '../../db/repositories/user-settings-repository';
+import { requireAuth } from '../middleware';
 
 const router = express.Router();
 
@@ -61,10 +63,11 @@ const upload = multer({
  * POST /api/files/analyze-multi
  * 여러 파일을 업로드하고 AI로 분석
  */
-router.post('/files/analyze-multi', upload.array('files', 5), async (req: Request, res: Response) => {
+router.post('/files/analyze-multi', requireAuth, upload.array('files', 5), async (req: Request, res: Response) => {
   try {
     const files = req.files as Express.Multer.File[];
     const language = req.body.language || 'ko'; // Default to Korean
+    const userId = (req as any).user?.userId;
 
     if (!files || files.length === 0) {
       return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
@@ -89,32 +92,14 @@ router.post('/files/analyze-multi', upload.array('files', 5), async (req: Reques
       type: path.extname(file.originalname).toLowerCase(),
     }));
 
-    // AI 분석 수행 (Anthropic API 키가 있을 경우)
-    const apiKey = process.env.ANTHROPIC_API_KEY;
-    const fileAnalysisModel = process.env.FILE_ANALYSIS_MODEL || 'claude-sonnet-4-5-20250929';
-    const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
-    let analysisResult = null;
-
-    if (apiKey) {
-      try {
-        const analyzer = new FileAnalyzer(apiKey, fileAnalysisModel, fileAnalysisMaxTokens);
-        const filePaths = files.map(f => f.path);
-
-        logger.info(`🤖 AI 파일 분석 시작 (model: ${fileAnalysisModel}, max_tokens: ${fileAnalysisMaxTokens})...`);
-        analysisResult = await analyzer.analyzeMultipleFiles(filePaths);
-        logger.info('✅ AI 파일 분석 완료');
-      } catch (error: any) {
-        logger.error('⚠️  AI 분석 실패:', error.message);
-        // AI 분석 실패해도 파일은 업로드됨
-      }
-    } else {
-      logger.warn('⚠️  ANTHROPIC_API_KEY가 설정되지 않아 AI 분석을 건너뜁니다.');
-    }
+    // 🔥 FIX: 업로드 시에는 분석하지 않음 (API 토큰 절약)
+    // 파일 분석은 "생성 시작" 클릭 시 수행됨
+    logger.info(`✅ ${files.length}개 파일 업로드 완료 (분석은 생성 시작 시 수행)`);
 
     res.json({
       success: true,
       files: fileInfos,
-      analysis: analysisResult,
+      analysis: null, // 업로드 시에는 분석 결과 없음
       message: `${files.length}개 파일이 성공적으로 업로드되었습니다.`,
     });
 

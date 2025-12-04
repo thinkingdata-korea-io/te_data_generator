@@ -21,11 +21,8 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
     // Convert to frontend expected format
     const settings = {
       ANTHROPIC_API_KEY: userSettings.anthropicApiKey || '',
-      OPENAI_API_KEY: userSettings.openaiApiKey || '',
-      GEMINI_API_KEY: userSettings.geminiApiKey || '',
-      EXCEL_AI_PROVIDER: userSettings.excelAiProvider,
-      DATA_AI_PROVIDER: userSettings.dataAiProvider,
       DATA_AI_MODEL: userSettings.dataAiModel || '',
+      FILE_ANALYSIS_MODEL: userSettings.fileAnalysisModel || '',
       VALIDATION_MODEL_TIER: userSettings.validationModelTier,
       CUSTOM_VALIDATION_MODEL: userSettings.customValidationModel || '',
       TE_APP_ID: userSettings.teAppId || '',
@@ -51,11 +48,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const userId = (req as any).user.userId;
     const {
       ANTHROPIC_API_KEY,
-      OPENAI_API_KEY,
-      GEMINI_API_KEY,
-      EXCEL_AI_PROVIDER,
-      DATA_AI_PROVIDER,
       DATA_AI_MODEL,
+      FILE_ANALYSIS_MODEL,
       VALIDATION_MODEL_TIER,
       CUSTOM_VALIDATION_MODEL,
       TE_APP_ID,
@@ -69,11 +63,8 @@ router.post('/', requireAuth, async (req: Request, res: Response) => {
     const settingsData: any = {};
 
     if (ANTHROPIC_API_KEY !== undefined) settingsData.anthropicApiKey = ANTHROPIC_API_KEY;
-    if (OPENAI_API_KEY !== undefined) settingsData.openaiApiKey = OPENAI_API_KEY;
-    if (GEMINI_API_KEY !== undefined) settingsData.geminiApiKey = GEMINI_API_KEY;
-    if (EXCEL_AI_PROVIDER !== undefined) settingsData.excelAiProvider = EXCEL_AI_PROVIDER;
-    if (DATA_AI_PROVIDER !== undefined) settingsData.dataAiProvider = DATA_AI_PROVIDER;
     if (DATA_AI_MODEL !== undefined) settingsData.dataAiModel = DATA_AI_MODEL;
+    if (FILE_ANALYSIS_MODEL !== undefined) settingsData.fileAnalysisModel = FILE_ANALYSIS_MODEL;
     if (VALIDATION_MODEL_TIER !== undefined) settingsData.validationModelTier = VALIDATION_MODEL_TIER;
     if (CUSTOM_VALIDATION_MODEL !== undefined) settingsData.customValidationModel = CUSTOM_VALIDATION_MODEL;
     if (TE_APP_ID !== undefined) settingsData.teAppId = TE_APP_ID;

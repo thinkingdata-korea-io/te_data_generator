@@ -31,11 +31,8 @@ export default function SettingsPage() {
 
   const [settings, setSettings] = useState<Settings>({
     ANTHROPIC_API_KEY: '',
-    OPENAI_API_KEY: '',
-    GEMINI_API_KEY: '',
-    EXCEL_AI_PROVIDER: 'anthropic',
-    DATA_AI_PROVIDER: 'anthropic',
     DATA_AI_MODEL: '',
+    FILE_ANALYSIS_MODEL: '',
     VALIDATION_MODEL_TIER: 'fast',
     CUSTOM_VALIDATION_MODEL: '',
     TE_APP_ID: '',

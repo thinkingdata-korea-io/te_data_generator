@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FormData, ProgressData, Settings, UserSegment, EventSequence, Transaction } from '../types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { api } from '@/lib/api-client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface UseDataGenerationParams {
   onProgressUpdate: (progress: ProgressData | null) => void;
@@ -19,33 +19,34 @@ interface FileAnalysisResult {
  * Handles data generation and sending to ThinkingEngine
  */
 export function useDataGeneration({ onProgressUpdate, onGenerationStart, onError }: UseDataGenerationParams) {
+  const { t } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSending, setIsSending] = useState(false);
 
   const validateDataSettings = (formData: FormData): boolean => {
     if (!formData.scenario || formData.scenario.trim() === '') {
-      alert('시나리오를 입력해주세요');
+      alert(t.validation.scenarioRequired);
       return false;
     }
     if (!formData.industry || formData.industry.trim() === '') {
-      alert('산업 분야를 입력해주세요');
+      alert(t.validation.industryRequired);
       return false;
     }
     const dau = parseInt(formData.dau);
     if (isNaN(dau) || dau < 1) {
-      alert('DAU를 입력해주세요 (1 이상)');
+      alert(t.validation.dauRequired);
       return false;
     }
     if (!formData.dateStart) {
-      alert('시작 날짜를 입력해주세요');
+      alert(t.validation.startDateRequired);
       return false;
     }
     if (!formData.dateEnd) {
-      alert('종료 날짜를 입력해주세요');
+      alert(t.validation.endDateRequired);
       return false;
     }
     if (new Date(formData.dateStart) > new Date(formData.dateEnd)) {
-      alert('시작 날짜는 종료 날짜보다 이전이어야 합니다');
+      alert(t.validation.invalidDateRange);
       return false;
     }
     return true;
@@ -55,42 +56,31 @@ export function useDataGeneration({ onProgressUpdate, onGenerationStart, onError
     excelPath: string,
     formData: FormData,
     settings: Settings,
-    fileAnalysisResult: FileAnalysisResult | null
+    uploadedFiles: Array<{ fileName: string; path: string }> | null
   ) => {
     if (!validateDataSettings(formData)) return;
 
     setIsGenerating(true);
 
-    onProgressUpdate({ status: 'starting', progress: 5, message: '생성된 Excel을 바탕으로 데이터 생성 준비 중...' });
+    onProgressUpdate({ status: 'starting', progress: 5, message: t.validation.preparingDataGeneration });
 
     try {
-      const response = await fetch(`${API_URL}/api/generate/start`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          excelPath,
-          scenario: formData.scenario,
-          dau: formData.dau,
-          industry: formData.industry,
-          notes: formData.notes,
-          dateStart: formData.dateStart,
-          dateEnd: formData.dateEnd,
-          aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
-          fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
-        }),
+      const data = await api.post('/api/generate/start', {
+        excelPath,
+        scenario: formData.scenario,
+        dau: formData.dau,
+        industry: formData.industry,
+        notes: formData.notes,
+        dateStart: formData.dateStart,
+        dateEnd: formData.dateEnd,
+        aiProvider: 'anthropic',
+        contextFilePaths: uploadedFiles?.map(f => f.path) || [], // 🔥 파일 경로 전달
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        onGenerationStart(data.runId);
-      } else {
-        alert(`에러: ${data.error}`);
-        onError('excel-completed');
-      }
-    } catch (error) {
+      onGenerationStart(data.runId);
+    } catch (error: any) {
       console.error('Data generation failed:', error);
-      alert('데이터 생성 요청 실패');
+      alert(`${t.validation.errorPrefix}: ${error.data?.error || t.validation.dataGenerationRequestFailed}`);
       onError('excel-completed');
     } finally {
       setIsGenerating(false);
@@ -107,42 +97,21 @@ export function useDataGeneration({ onProgressUpdate, onGenerationStart, onError
 
     try {
       // First, update the analysis with edited results
-      const updateResponse = await fetch(`${API_URL}/api/generate/analysis/${analysisId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userSegments: editedSegments,
-          eventSequences: editedEventSequences,
-          transactions: editedTransactions
-        })
-      });
-
-      if (!updateResponse.ok) {
-        const errorData = await updateResponse.json();
-        alert(`분석 결과 저장 실패: ${errorData.error}`);
-        return;
-      }
+      await api.post(`/api/generate/analysis/${analysisId}`, {
+        userSegments: editedSegments,
+        eventSequences: editedEventSequences,
+        transactions: editedTransactions
+      }, { method: 'PUT' } as any);
 
       // Now start data generation with the modified analysis
-      const response = await fetch(`${API_URL}/api/generate/start-with-analysis`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ analysisId })
-      });
+      const data = await api.post('/api/generate/start-with-analysis', { analysisId });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        onGenerationStart(data.runId);
-        onProgressUpdate({ status: 'starting', progress: 0, message: '수정된 분석 결과로 데이터 생성 시작...' });
-      } else {
-        alert(`에러: ${data.error}`);
-        // Stay on AI analysis review screen on error
-        onError('ai-analysis-review');
-      }
-    } catch (error) {
+      onGenerationStart(data.runId);
+      onProgressUpdate({ status: 'starting', progress: 0, message: t.validation.startingDataGenerationWithAnalysis });
+    } catch (error: any) {
       console.error('Failed to start data generation with analysis:', error);
-      alert('데이터 생성 시작 실패');
+      const errorMsg = error.data?.error || t.validation.dataGenerationStartFailed;
+      alert(errorMsg);
       // Stay on AI analysis review screen on error
       onError('ai-analysis-review');
     } finally {
@@ -152,34 +121,22 @@ export function useDataGeneration({ onProgressUpdate, onGenerationStart, onError
 
   const sendData = async (runId: string, appId: string) => {
     if (!appId.trim()) {
-      alert('APP_ID를 입력해주세요');
+      alert(t.validation.appIdRequired);
       return;
     }
 
     setIsSending(true);
 
-    onProgressUpdate({ status: 'sending', progress: 0, message: 'ThinkingEngine으로 데이터 전송 준비 중...' });
+    onProgressUpdate({ status: 'sending', progress: 0, message: t.validation.preparingDataTransfer });
 
     try {
-      const response = await fetch(`${API_URL}/api/generate/send-data/${runId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          appId: appId.trim(),
-        }),
+      await api.post(`/api/generate/send-data/${runId}`, {
+        appId: appId.trim(),
       });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to send data');
-      }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Data sending failed:', error);
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      alert(`데이터 전송 실패: ${errorMessage}`);
+      const errorMessage = error.data?.error || error.message || t.validation.dataTransferFailed;
+      alert(`${t.validation.dataTransferFailed}: ${errorMessage}`);
       onError('data-completed');
     } finally {
       setIsSending(false);

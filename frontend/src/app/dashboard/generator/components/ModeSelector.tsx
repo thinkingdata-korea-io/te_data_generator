@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { AnalysisLanguage } from '../types';
 
@@ -209,6 +210,34 @@ export default function ModeSelector({ onSelectMode }: ModeSelectorProps) {
             })}
           </div>
         </div>
+      </div>
+
+      {/* File Management Section */}
+      <div className="mt-8 border border-[var(--border)] rounded overflow-hidden">
+        <Link
+          href="/dashboard/files"
+          className="block p-6 bg-[var(--bg-tertiary)] hover:bg-[var(--bg-secondary)] transition-colors group"
+        >
+          <div className="flex items-center gap-4">
+            <div className="text-4xl">📁</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-bold text-[var(--text-primary)] font-mono mb-2 group-hover:text-blue-500 transition-colors">
+                {t.generator.fileManagementTitle}
+              </h3>
+              <p className="text-[var(--text-secondary)] text-sm font-mono mb-3">
+                {t.generator.fileManagementCardDesc}
+              </p>
+              <div className="flex flex-wrap gap-4 text-xs text-[var(--text-dimmed)] font-mono">
+                <span>→ {t.generator.fileManagementStep1}</span>
+                <span>→ {t.generator.fileManagementStep2}</span>
+                <span>→ {t.generator.fileManagementStep3}</span>
+              </div>
+            </div>
+            <div className="text-2xl text-[var(--text-dimmed)] group-hover:text-blue-500 transition-colors">
+              →
+            </div>
+          </div>
+        </Link>
       </div>
     </div>
   );

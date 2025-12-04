@@ -1,391 +1,380 @@
-# Gemini
+# AI API 설정 가이드 - Anthropic Claude
 
-## Gemini 3 Pro
+## 개요
 
-The best model in the world for multimodal understanding, and our most powerful agentic and vibe-coding model yet, delivering richer visuals and deeper interactivity, all built on a foundation of state-of-the-art reasoning.
+본 시스템은 **Anthropic Claude API**를 사용하여 AI 기반 데이터 분석 및 생성을 수행합니다.
 
-### Expand to learn more
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-3-pro-preview)
-
-#### Model details
-
-### Gemini 3 Pro Preview
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-3-pro-preview`                                                                                                                                                                                                                                                                                                                                                                             |
-| saveSupported data types                                                       | **Inputs** Text, Image, Video, Audio, and PDF **Output** Text                                                                                                                                                                                                                                                                                                                                      |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                      |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - `Preview: gemini-3-pro-preview`                                                                                                                                                                                                                                            |
-| calendar_monthLatest update                                                    | November 2025                                                                                                                                                                                                                                                                                                                                                                                      |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                       |
-
-OUR ADVANCED THINKING MODEL
-
-## Gemini 2.5 Pro
-
-Our state-of-the-art thinking model, capable of reasoning over complex problems in code, math, and STEM, as well as analyzing large datasets, codebases, and documents using long context.
-
-### Expand to learn more
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-2.5-pro)
-
-#### Model details
-
-### Gemini 2.5 Pro
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-pro`                                                                                                                                                                                                                                                                                                                                                                               |
-| saveSupported data types                                                       | **Inputs** Audio, images, video, text, and PDF **Output** Text                                                                                                                                                                                                                                                                                                                                 |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                  |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Supported **Function calling** Supported **Grounding with Google Maps** Supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - `Stable: gemini-2.5-pro`                                                                                                                                                                                                                                               |
-| calendar_monthLatest update                                                    | June 2025                                                                                                                                                                                                                                                                                                                                                                                      |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                   |
-
-### Gemini 2.5 Pro TTS
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| id_cardModel code                                                              | `gemini-2.5-pro-preview-tts`                                                                                                                                                                                                                                                                                                                                                                                                   |
-| saveSupported data types                                                       | **Inputs** Text **Output** Audio                                                                                                                                                                                                                                                                                                                                                                                               |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 8,192 **Output token limit** 16,384                                                                                                                                                                                                                                                                                                                                                                      |
-| handymanCapabilities                                                           | **Audio generation** Supported **Batch API** Not Supported **Caching** Not supported **Code execution** Not supported **File search** Supported **Function calling** Not supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Not supported **Structured outputs** Not supported **Thinking** Not supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - `gemini-2.5-pro-preview-tts`                                                                                                                                                                                                                                                                           |
-| calendar_monthLatest update                                                    | May 2025                                                                                                                                                                                                                                                                                                                                                                                                                       |
-
-FAST AND INTELLIGENT
-
-## Gemini 2.5 Flash
-
-Our best model in terms of price-performance, offering well-rounded capabilities. 2.5 Flash is best for large scale processing, low-latency, high volume tasks that require thinking, and agentic use cases.
-
-### Expand to learn more
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-2.5-flash)
-
-#### Model details
-
-### Gemini 2.5 Flash
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-flash`                                                                                                                                                                                                                                                                                                                                                                             |
-| saveSupported data types                                                       | **Inputs** Text, images, video, audio **Output** Text                                                                                                                                                                                                                                                                                                                                          |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                  |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Supported **Function calling** Supported **Grounding with Google Maps** Supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Stable:`gemini-2.5-flash`                                                                                                                                                                                                                                              |
-| calendar_monthLatest update                                                    | June 2025                                                                                                                                                                                                                                                                                                                                                                                      |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                   |
-
-### Gemini 2.5 Flash Preview
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-flash-preview-09-2025`                                                                                                                                                                                                                                                                                                                                                                 |
-| saveSupported data types                                                       | **Inputs** Text, images, video, audio **Output** Text                                                                                                                                                                                                                                                                                                                                              |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                      |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL Context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Preview:`gemini-2.5-flash-preview-09-2025`                                                                                                                                                                                                                                 |
-| calendar_monthLatest update                                                    | September 2025                                                                                                                                                                                                                                                                                                                                                                                     |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                       |
-
-### Gemini 2.5 Flash Image
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| id_cardModel code                                                              | `gemini-2.5-flash-image`                                                                                                                                                                                                                                                                                                                                                                                           |
-| saveSupported data types                                                       | **Inputs** Images and text **Output** Images and text                                                                                                                                                                                                                                                                                                                                                              |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 65,536 **Output token limit** 32,768                                                                                                                                                                                                                                                                                                                                                         |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Not Supported **File search** Supported **Function calling** Not supported **Grounding with Google Maps** Not supported **Image generation** Supported **Live API** Not Supported **Search grounding** Not Supported **Structured outputs** Supported **Thinking** Not Supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Stable:`gemini-2.5-flash-image` - Preview:`gemini-2.5-flash-image-preview`                                                                                                                                                                                                                 |
-| calendar_monthLatest update                                                    | October 2025                                                                                                                                                                                                                                                                                                                                                                                                       |
-| cognition_2Knowledge cutoff                                                    | June 2025                                                                                                                                                                                                                                                                                                                                                                                                          |
-
-### Gemini 2.5 Flash Live
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-flash-native-audio-preview-09-2025`                                                                                                                                                                                                                                                                                                                                                                |
-| saveSupported data types                                                       | **Inputs** Audio, video, text **Output** Audio and text                                                                                                                                                                                                                                                                                                                                                        |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 131,072 **Output token limit** 8,192                                                                                                                                                                                                                                                                                                                                                     |
-| handymanCapabilities                                                           | **Audio generation** Supported **Batch API** Not supported **Caching** Not supported **Code execution** Not supported **File search** Supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Supported **Search grounding** Supported **Structured outputs** Not supported **Thinking** Supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Preview:`gemini-2.5-flash-native-audio-preview-09-2025` - Preview:`gemini-live-2.5-flash-preview` - gemini-live-2.5-flash-preview will be deprecated on December 09, 2025                                                                                                              |
-| calendar_monthLatest update                                                    | September 2025                                                                                                                                                                                                                                                                                                                                                                                                 |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                                   |
-
-### Gemini 2.5 Flash TTS
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-flash-preview-tts`                                                                                                                                                                                                                                                                                                                                                                                             |
-| saveSupported data types                                                       | **Inputs** Text **Output** Audio                                                                                                                                                                                                                                                                                                                                                                                           |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 8,192 **Output token limit** 16,384                                                                                                                                                                                                                                                                                                                                                                  |
-| handymanCapabilities                                                           | **Audio generation** Supported **Batch API** Supported **Caching** Not supported **Code execution** Not supported **File search** Supported **Function calling** Not supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Not supported **Structured outputs** Not supported **Thinking** Not supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - `gemini-2.5-flash-preview-tts`                                                                                                                                                                                                                                                                     |
-| calendar_monthLatest update                                                    | May 2025                                                                                                                                                                                                                                                                                                                                                                                                                   |
-
-ULTRA FAST
-
-## Gemini 2.5 Flash-Lite
-
-Our fastest flash model optimized for cost-efficiency and high throughput.
-
-### Expand to learn more
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-2.5-flash-lite)
-
-#### Model details
-
-### Gemini 2.5 Flash-Lite
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                        |
-| ------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.5-flash-lite`                                                                                                                                                                                                                                                                                                                                                                            |
-| saveSupported data types                                                       | **Inputs** Text, image, video, audio, PDF **Output** Text                                                                                                                                                                                                                                                                                                                                          |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                      |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Not supported **Function calling** Supported **Grounding with Google Maps** Supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Stable:`gemini-2.5-flash-lite`                                                                                                                                                                                                                                             |
-| calendar_monthLatest update                                                    | July 2025                                                                                                                                                                                                                                                                                                                                                                                          |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                       |
-
-### Gemini 2.5 Flash-Lite Preview
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| id_cardModel code                                                              | `gemini-2.5-flash-lite-preview-09-2025`                                                                                                                                                                                                                                                                                                                                                                |
-| saveSupported data types                                                       | **Inputs** Text, image, video, audio, PDF **Output** Text                                                                                                                                                                                                                                                                                                                                              |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 65,536                                                                                                                                                                                                                                                                                                                                          |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Not supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Preview:`gemini-2.5-flash-lite-preview-09-2025`                                                                                                                                                                                                                                |
-| calendar_monthLatest update                                                    | September 2025                                                                                                                                                                                                                                                                                                                                                                                         |
-| cognition_2Knowledge cutoff                                                    | January 2025                                                                                                                                                                                                                                                                                                                                                                                           |
-
-<br />
-
-## Previous Gemini models
-
-OUR SECOND GENERATION WORKHORSE MODEL
-
-## Gemini 2.0 Flash
-
-Our second generation workhorse model, with a 1 million token context window.
-
-### Expand to learn more
-
-Gemini 2.0 Flash delivers next-gen features and improved capabilities, including superior speed, native tool use, and a 1M token context window.
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-2.0-flash)
-
-#### Model details
-
-### Gemini 2.0 Flash
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.0-flash`                                                                                                                                                                                                                                                                                                                                                                                    |
-| saveSupported data types                                                       | **Inputs** Audio, images, video, and text **Output** Text                                                                                                                                                                                                                                                                                                                                             |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 8,192                                                                                                                                                                                                                                                                                                                                          |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Supported **File search** Not supported **Function calling** Supported **Grounding with Google Maps** Supported **Image generation** Not supported **Live API** Supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Experimental **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Latest:`gemini-2.0-flash` - Stable:`gemini-2.0-flash-001` - Experimental:`gemini-2.0-flash-exp`                                                                                                                                                                               |
-| calendar_monthLatest update                                                    | February 2025                                                                                                                                                                                                                                                                                                                                                                                         |
-| cognition_2Knowledge cutoff                                                    | August 2024                                                                                                                                                                                                                                                                                                                                                                                           |
-
-### Gemini 2.0 Flash Image
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.0-flash-preview-image-generation`                                                                                                                                                                                                                                                                                                                                                                            |
-| saveSupported data types                                                       | **Inputs** Audio, images, video, and text **Output** Text and images                                                                                                                                                                                                                                                                                                                                                   |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 32,768 **Output token limit** 8,192                                                                                                                                                                                                                                                                                                                                                              |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Not Supported **File search** Not supported **Function calling** Not supported **Grounding with Google Maps** Not supported **Image generation** Supported **Live API** Not Supported **Search grounding** Not Supported **Structured outputs** Supported **Thinking** Not Supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Preview:`gemini-2.0-flash-preview-image-generation` - gemini-2.0-flash-preview-image-generation is not currently supported in a number of countries in Europe, Middle East \& Africa                                                                                                           |
-| calendar_monthLatest update                                                    | May 2025                                                                                                                                                                                                                                                                                                                                                                                                               |
-| cognition_2Knowledge cutoff                                                    | August 2024                                                                                                                                                                                                                                                                                                                                                                                                            |
-
-### Gemini 2.0 Flash Live
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.0-flash-live-001` gemini-2.0-flash-live-001 will be deprecated on December 09, 2025                                                                                                                                                                                                                                                                                                              |
-| saveSupported data types                                                       | **Inputs** Audio, video, and text **Output** Text, and audio                                                                                                                                                                                                                                                                                                                                               |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 8,192                                                                                                                                                                                                                                                                                                                                               |
-| handymanCapabilities                                                           | **Audio generation** Supported **Batch API** Not supported **Caching** Not supported **Code execution** Supported **File search** Not supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Supported **Search grounding** Supported **Structured outputs** Supported **Thinking** Not supported **URL context** Supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Preview:`gemini-2.0-flash-live-001`                                                                                                                                                                                                                                                |
-| calendar_monthLatest update                                                    | April 2025                                                                                                                                                                                                                                                                                                                                                                                                 |
-| cognition_2Knowledge cutoff                                                    | August 2024                                                                                                                                                                                                                                                                                                                                                                                                |
-
-OUR SECOND GENERATION FAST MODEL
-
-## Gemini 2.0 Flash-Lite
-
-Our second generation small workhorse model, with a 1 million token context window.
-
-### Expand to learn more
-
-A Gemini 2.0 Flash model optimized for cost efficiency and low latency.
-
-[Try in Google AI Studio](https://aistudio.google.com?model=gemini-2.0-flash-lite)
-
-#### Model details
-
-| Property                                                                       | Description                                                                                                                                                                                                                                                                                                                                                                                                            |
-| ------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| id_cardModel code                                                              | `gemini-2.0-flash-lite`                                                                                                                                                                                                                                                                                                                                                                                                |
-| saveSupported data types                                                       | **Inputs** Audio, images, video, and text **Output** Text                                                                                                                                                                                                                                                                                                                                                              |
-| token_autoToken limits^[\[\*\]](https://ai.google.dev/gemini-api/docs/tokens)^ | **Input token limit** 1,048,576 **Output token limit** 8,192                                                                                                                                                                                                                                                                                                                                                           |
-| handymanCapabilities                                                           | **Audio generation** Not supported **Batch API** Supported **Caching** Supported **Code execution** Not supported **File search** Not supported **Function calling** Supported **Grounding with Google Maps** Not supported **Image generation** Not supported **Live API** Not supported **Search grounding** Not supported **Structured outputs** Supported **Thinking** Not Supported **URL context** Not supported |
-| 123Versions                                                                    | Read the[model version patterns](https://ai.google.dev/gemini-api/docs/models/gemini#model-versions)for more details. - Latest:`gemini-2.0-flash-lite` - Stable:`gemini-2.0-flash-lite-001`                                                                                                                                                                                                                            |
-| calendar_monthLatest update                                                    | February 2025                                                                                                                                                                                                                                                                                                                                                                                                          |
-| cognition_2Knowledge cutoff                                                    | August 2024                                                                                                                                                                                                                                                                                                                                                                                                            |
-
-<br />
-
-## Model version name patterns
-
-Gemini models are available in either*stable* ,_preview_ ,_latest_ , or*experimental*versions.
-| **Note:** The following list refers to the model string naming convention as of September, 2025. Models released prior to that may have different naming conventions. Refer to the exact model string if you are using an older model.
-
-### Stable
-
-Points to a specific stable model. Stable models usually don't change. Most production apps should use a specific stable model.
-
-For example:`gemini-2.5-flash`.
-
-### Preview
-
-Points to a preview model which may be used for production. Preview models will typically have billing enabled, might come with more restrictive rate limits and will be deprecated with at least 2 weeks notice.
-
-For example:`gemini-2.5-flash-preview-09-2025`.
-
-### Latest
-
-Points to the latest release for a specific model variation. This can be a stable, preview or experimental release. This alias will get hot-swapped with every new release of a specific model variation. A**2-week notice**will be provided through email before the version behind latest is changed.
-
-For example:`gemini-flash-latest`.
-
-### Experimental
-
-Points to an experimental model which will typically be not be suitable for production use and come with more restrictive rate limits. We release experimental models to gather feedback and get our latest updates into the hands of developers quickly.
-
-Experimental models are not stable and availability of model endpoints is subject to change.
-
-## Model deprecations
-
-For information about model deprecations, visit the[Gemini deprecations](https://ai.google.dev/gemini-api/docs/deprecations)page.
-
-# Claude
-
-# Models overview
-
-Claude is a family of state-of-the-art large language models developed by Anthropic. This guide introduces our models and compares their performance.
+**주요 용도**:
+- 📄 **파일 분석**: PDF/TXT/Markdown 컨텍스트 이해
+- 🤖 **AI 데이터 전략 분석**: 사용자 세그먼트, 이벤트 시퀀스, 트랜잭션 생성
+- ✅ **검증**: 생성된 데이터 구조 검증
 
 ---
 
-## Choosing a model
+## 빠른 시작
 
-If you're unsure which model to use, we recommend starting with **Claude Sonnet 4.5**. It offers the best balance of intelligence, speed, and cost for most use cases, with exceptional performance in coding and agentic tasks.
+### 1. API 키 발급
 
-All current Claude models support text and image input, text output, multilingual capabilities, and vision. Models are available via the Anthropic API, AWS Bedrock, and Google Vertex AI.
+1. [Anthropic Console](https://console.anthropic.com/) 접속
+2. 로그인 후 "API Keys" 메뉴 클릭
+3. "Create Key" 버튼 클릭
+4. API 키 복사 (예: `sk-ant-api03-...`)
 
-Once you've picked a model, [learn how to make your first API call](/docs/en/get-started).
+### 2. 시스템 설정
 
-### Latest models comparison
+#### 방법 1: 대시보드에서 설정 (권장)
 
-| Feature                                                               | Claude Sonnet 4.5                                                                                                                                                                                      | Claude Haiku 4.5                                                                       | Claude Opus 4.1                                                                        |
-| :-------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- |
-| **Description**                                                       | Our smartest model for complex agents and coding                                                                                                                                                       | Our fastest model with near-frontier intelligence                                      | Exceptional model for specialized reasoning tasks                                      |
-| **Claude API ID**                                                     | claude-sonnet-4-5-20250929                                                                                                                                                                             | claude-haiku-4-5-20251001                                                              | claude-opus-4-1-20250805                                                               |
-| **Claude API alias**<sup>1</sup>                                      | claude-sonnet-4-5                                                                                                                                                                                      | claude-haiku-4-5                                                                       | claude-opus-4-1                                                                        |
-| **AWS Bedrock ID**                                                    | anthropic.claude-sonnet-4-5-20250929-v1:0                                                                                                                                                              | anthropic.claude-haiku-4-5-20251001-v1:0                                               | anthropic.claude-opus-4-1-20250805-v1:0                                                |
-| **GCP Vertex AI ID**                                                  | claude-sonnet-4-5@20250929                                                                                                                                                                             | claude-haiku-4-5@20251001                                                              | claude-opus-4-1@20250805                                                               |
-| **Pricing**<sup>2</sup>                                               | \$3 / input MTok<br/>\$15 / output MTok                                                                                                                                                                | \$1 / input MTok<br/>\$5 / output MTok                                                 | \$15 / input MTok<br/>\$75 / output MTok                                               |
-| **[Extended thinking](/docs/en/build-with-claude/extended-thinking)** | Yes                                                                                                                                                                                                    | Yes                                                                                    | Yes                                                                                    |
-| **[Priority Tier](/docs/en/api/service-tiers)**                       | Yes                                                                                                                                                                                                    | Yes                                                                                    | Yes                                                                                    |
-| **Comparative latency**                                               | Fast                                                                                                                                                                                                   | Fastest                                                                                | Moderate                                                                               |
-| **Context window**                                                    | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> / <br/> <Tooltip tooltipContent="~750K words \ ~3.4M unicode characters">1M tokens</Tooltip> (beta)<sup>3</sup> | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> |
-| **Max output**                                                        | 64K tokens                                                                                                                                                                                             | 64K tokens                                                                             | 32K tokens                                                                             |
-| **Reliable knowledge cutoff**                                         | Jan 2025<sup>4</sup>                                                                                                                                                                                   | Feb 2025                                                                               | Jan 2025<sup>4</sup>                                                                   |
-| **Training data cutoff**                                              | Jul 2025                                                                                                                                                                                               | Jul 2025                                                                               | Mar 2025                                                                               |
+```
+1. 로그인
+   ↓
+2. 설정 페이지 (/dashboard/settings)
+   ↓
+3. "Anthropic API Key" 필드에 붙여넣기
+   ↓
+4. "저장" 버튼 클릭
+```
 
-_<sup>1 - Aliases automatically point to the most recent model snapshot. When we release new model snapshots, we migrate aliases to point to the newest version of a model, typically within a week of the new release. While aliases are useful for experimentation, we recommend using specific model versions (e.g., `claude-sonnet-4-5-20250929`) in production applications to ensure consistent behavior.</sup>_
+#### 방법 2: 환경 변수 설정
 
-_<sup>2 - See our [pricing page](/docs/en/about-claude/pricing) for complete pricing information including batch API discounts, prompt caching rates, extended thinking costs, and vision processing fees.</sup>_
+```bash
+# .env 파일
+ANTHROPIC_API_KEY=sk-ant-api03-...
+```
 
-_<sup>3 - Claude Sonnet 4.5 supports a [1M token context window](/docs/en/build-with-claude/context-windows#1m-token-context-window) when using the `context-1m-2025-08-07` beta header. [Long context pricing](/docs/en/about-claude/pricing#long-context-pricing) applies to requests exceeding 200K tokens.</sup>_
+**주의**: 환경 변수보다 **대시보드 설정이 우선**됩니다.
 
-_<sup>4 - **Reliable knowledge cutoff** indicates the date through which a model's knowledge is most extensive and reliable. **Training data cutoff** is the broader date range of training data used. For example, Claude Sonnet 4.5 was trained on publicly available information through July 2025, but its knowledge is most extensive and reliable through January 2025. For more information, see [Anthropic's Transparency Hub](https://www.anthropic.com/transparency).</sup>_
+---
 
-<Note>Models with the same snapshot date (e.g., 20240620) are identical across all platforms and do not change. The snapshot date in the model name ensures consistency and allows developers to rely on stable performance across different environments.</Note>
+## 지원 모델
 
-<Note>Starting with **Claude Sonnet 4.5 and all future models**, AWS Bedrock and Google Vertex AI offer two endpoint types: **global endpoints** (dynamic routing for maximum availability) and **regional endpoints** (guaranteed data routing through specific geographic regions). For more information, see the [third-party platform pricing section](/docs/en/about-claude/pricing#third-party-platform-pricing).</Note>
+### 데이터 생성용 모델
 
-<section title="Legacy models">
+| 모델 | 설명 | 추천 용도 | 비용 |
+|------|------|----------|------|
+| **claude-sonnet-4-5** | 최신 Sonnet 모델 | 일반 데이터 생성 (권장) | 중간 |
+| **claude-3-5-sonnet-20241022** | Sonnet 3.5 (2024.10 버전) | 안정적인 데이터 생성 | 중간 |
+| **claude-3-5-sonnet-20240620** | Sonnet 3.5 (2024.06 버전) | 이전 버전 호환 | 중간 |
+| **claude-3-opus-20240229** | Opus 3.0 | 복잡한 분석 필요 시 | 높음 |
 
-The following models are still available but we recommend migrating to current models for improved performance:
+### 파일 분석용 모델
 
-| Feature                                                               | Claude Sonnet 4                                                                                                                                                                                        | Claude Sonnet 3.7                                                                      | Claude Opus 4                                                                          | Claude Haiku 3.5                                                                       | Claude Haiku 3                                                                         |
-| :-------------------------------------------------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- | :------------------------------------------------------------------------------------- |
-| **Claude API ID**                                                     | claude-sonnet-4-20250514                                                                                                                                                                               | claude-3-7-sonnet-20250219                                                             | claude-opus-4-20250514                                                                 | claude-3-5-haiku-20241022                                                              | claude-3-haiku-20240307                                                                |
-| **Claude API alias**                                                  | claude-sonnet-4-0                                                                                                                                                                                      | claude-3-7-sonnet-latest                                                               | claude-opus-4-0                                                                        | claude-3-5-haiku-latest                                                                | —                                                                                      |
-| **AWS Bedrock ID**                                                    | anthropic.claude-sonnet-4-20250514-v1:0                                                                                                                                                                | anthropic.claude-3-7-sonnet-20250219-v1:0                                              | anthropic.claude-opus-4-20250514-v1:0                                                  | anthropic.claude-3-5-haiku-20241022-v1:0                                               | anthropic.claude-3-haiku-20240307-v1:0                                                 |
-| **GCP Vertex AI ID**                                                  | claude-sonnet-4@20250514                                                                                                                                                                               | claude-3-7-sonnet@20250219                                                             | claude-opus-4@20250514                                                                 | claude-3-5-haiku@20241022                                                              | claude-3-haiku@20240307                                                                |
-| **Pricing**                                                           | \$3 / input MTok<br/>\$15 / output MTok                                                                                                                                                                | \$3 / input MTok<br/>\$15 / output MTok                                                | \$15 / input MTok<br/>\$75 / output MTok                                               | \$0.80 / input MTok<br/>\$4 / output MTok                                              | \$0.25 / input MTok<br/>\$1.25 / output MTok                                           |
-| **[Extended thinking](/docs/en/build-with-claude/extended-thinking)** | Yes                                                                                                                                                                                                    | Yes                                                                                    | Yes                                                                                    | No                                                                                     | No                                                                                     |
-| **[Priority Tier](/docs/en/api/service-tiers)**                       | Yes                                                                                                                                                                                                    | Yes                                                                                    | Yes                                                                                    | Yes                                                                                    | No                                                                                     |
-| **Comparative latency**                                               | Fast                                                                                                                                                                                                   | Fast                                                                                   | Moderate                                                                               | Fastest                                                                                | Fast                                                                                   |
-| **Context window**                                                    | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> / <br/> <Tooltip tooltipContent="~750K words \ ~3.4M unicode characters">1M tokens</Tooltip> (beta)<sup>1</sup> | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> | <Tooltip tooltipContent="~150K words \ ~215K unicode characters">200K tokens</Tooltip> | <Tooltip tooltipContent="~150K words \ ~680K unicode characters">200K tokens</Tooltip> |
-| **Max output**                                                        | 64K tokens                                                                                                                                                                                             | 64K tokens / 128K tokens (beta)<sup>4</sup>                                            | 32K tokens                                                                             | 8K tokens                                                                              | 4K tokens                                                                              |
-| **Reliable knowledge cutoff**                                         | Jan 2025<sup>2</sup>                                                                                                                                                                                   | Oct 2024<sup>2</sup>                                                                   | Jan 2025<sup>2</sup>                                                                   | <sup>3</sup>                                                                           | <sup>3</sup>                                                                           |
-| **Training data cutoff**                                              | Mar 2025                                                                                                                                                                                               | Nov 2024                                                                               | Mar 2025                                                                               | Jul 2024                                                                               | Aug 2023                                                                               |
+| 모델 | 설명 | 추천 용도 | 비용 |
+|------|------|----------|------|
+| **claude-sonnet-4-5** | 최신 Sonnet 모델 | PDF/문서 분석 (권장) | 중간 |
+| **claude-3-5-sonnet-20241022** | Sonnet 3.5 | 빠른 파일 분석 | 중간 |
+| **claude-3-haiku-20240307** | Haiku 3.0 | 간단한 텍스트 분석 | 낮음 |
 
-_<sup>1 - Claude Sonnet 4 supports a [1M token context window](/docs/en/build-with-claude/context-windows#1m-token-context-window) when using the `context-1m-2025-08-07` beta header. [Long context pricing](/docs/en/about-claude/pricing#long-context-pricing) applies to requests exceeding 200K tokens.</sup>_
+### 검증용 모델
 
-_<sup>2 - **Reliable knowledge cutoff** indicates the date through which a model's knowledge is most extensive and reliable. **Training data cutoff** is the broader date range of training data used.</sup>_
+#### Fast Tier (기본)
+- **claude-3-5-haiku-20241022**: 빠르고 저렴한 검증
 
-_<sup>3 - Some Haiku models have a single training data cutoff date.</sup>_
+#### Balanced Tier
+- **claude-3-5-sonnet-20241022**: 정확한 검증
 
-_<sup>4 - Include the beta header `output-128k-2025-02-19` in your API request to increase the maximum output token length to 128K tokens for Claude Sonnet 3.7. We strongly suggest using our [streaming Messages API](/docs/en/build-with-claude/streaming) to avoid timeouts when generating longer outputs. See our guidance on [long requests](/docs/en/api/errors#long-requests) for more details.</sup>_
+**설정 방법**:
+- 대시보드 → 설정 → "검증 모델 등급" 선택
+- 환경 변수: `VALIDATION_MODEL_TIER=fast` 또는 `balanced`
 
-</section>
+---
 
-## Prompt and output performance
+## 모델 선택 가이드
 
-Claude 4 models excel in:
+### 시나리오별 추천
 
-- **Performance**: Top-tier results in reasoning, coding, multilingual tasks, long-context handling, honesty, and image processing. See the [Claude 4 blog post](http://www.anthropic.com/news/claude-4) for more information.
-- **Engaging responses**: Claude models are ideal for applications that require rich, human-like interactions.
+#### 1. 일반적인 데이터 생성
+```
+데이터 생성: claude-sonnet-4-5
+파일 분석: claude-sonnet-4-5
+검증: Fast (Haiku)
+```
+**예상 비용**: 1회 분석 약 $0.50 ~ $2.00
 
-  - If you prefer more concise responses, you can adjust your prompts to guide the model toward the desired output length. Refer to our [prompt engineering guides](/docs/en/build-with-claude/prompt-engineering) for details.
-  - For specific Claude 4 prompting best practices, see our [Claude 4 best practices guide](/docs/en/build-with-claude/prompt-engineering/claude-4-best-practices).
+#### 2. 비용 최적화
+```
+데이터 생성: claude-3-5-sonnet-20241022
+파일 분석: claude-3-haiku-20240307
+검증: Fast (Haiku)
+```
+**예상 비용**: 1회 분석 약 $0.30 ~ $1.00
 
-- **Output quality**: When migrating from previous model generations to Claude 4, you may notice larger improvements in overall performance.
+#### 3. 최고 품질
+```
+데이터 생성: claude-3-opus-20240229
+파일 분석: claude-sonnet-4-5
+검증: Balanced (Sonnet)
+```
+**예상 비용**: 1회 분석 약 $2.00 ~ $5.00
 
-## Migrating to Claude 4.5
+---
 
-If you're currently using Claude 3 models, we recommend migrating to Claude 4.5 to take advantage of improved intelligence and enhanced capabilities. For detailed migration instructions, see [Migrating to Claude 4.5](/docs/en/about-claude/models/migrating-to-claude-4).
+## 가격 정보
 
-## Get started with Claude
+### Input/Output 토큰 가격 (2024년 12월 기준)
 
-If you're ready to start exploring what Claude can do for you, let's dive in! Whether you're a developer looking to integrate Claude into your applications or a user wanting to experience the power of AI firsthand, we've got you covered.
+| 모델 | Input (per 1M tokens) | Output (per 1M tokens) |
+|------|----------------------|------------------------|
+| claude-sonnet-4-5 | $3.00 | $15.00 |
+| claude-3-5-sonnet | $3.00 | $15.00 |
+| claude-3-5-haiku | $0.80 | $4.00 |
+| claude-3-opus | $15.00 | $75.00 |
 
-<Note>Looking to chat with Claude? Visit [claude.ai](http://www.claude.ai)!</Note>
+**참고**: [공식 가격 페이지](https://www.anthropic.com/pricing#anthropic-api)
 
-<CardGroup cols={3}>
-  <Card title="Intro to Claude" icon="check" href="/docs/en/intro">
-    Explore Claude's capabilities and development flow.
-  </Card>
-  <Card title="Quickstart" icon="lightning" href="/docs/en/get-started">
-    Learn how to make your first API call in minutes.
-  </Card>
-  <Card title="Claude Console" icon="code" href="https://console.anthropic.com">
-    Craft and test powerful prompts directly in your browser.
-  </Card>
-</CardGroup>
+### 예상 사용량
 
-If you have any questions or need assistance, don't hesitate to reach out to our [support team](https://support.claude.com/) or consult the [Discord community](https://www.anthropic.com/discord).
+#### AI 데이터 분석 1회
+- **Input**: ~10,000 ~ 50,000 tokens
+  - Excel 스키마 (2,000 ~ 10,000)
+  - 사용자 입력 (500)
+  - 시스템 프롬프트 (5,000 ~ 30,000)
+- **Output**: ~5,000 ~ 20,000 tokens
+  - 사용자 세그먼트, 이벤트 시퀀스, 트랜잭션 정의
 
-# GPT
+**계산 예시** (claude-sonnet-4-5):
+```
+Input:  30,000 tokens × $3.00 / 1M = $0.09
+Output: 10,000 tokens × $15.00 / 1M = $0.15
+Total: $0.24
+```
+
+#### 파일 분석 1회
+- **Input**: ~5,000 ~ 20,000 tokens (PDF/문서 내용)
+- **Output**: ~1,000 ~ 3,000 tokens (요약)
+
+**계산 예시** (claude-sonnet-4-5):
+```
+Input:  10,000 tokens × $3.00 / 1M = $0.03
+Output: 2,000 tokens × $15.00 / 1M = $0.03
+Total: $0.06
+```
+
+---
+
+## 고급 설정
+
+### 1. 커스텀 검증 모델 지정
+
+**대시보드 설정**:
+```
+설정 → "고급 설정" → "커스텀 검증 모델"
+입력: claude-3-5-sonnet-20241022
+```
+
+**환경 변수**:
+```bash
+CUSTOM_VALIDATION_MODEL=claude-3-5-sonnet-20241022
+```
+
+### 2. 모델별 컨텍스트 크기
+
+| 모델 | 최대 컨텍스트 | 권장 사용 |
+|------|--------------|----------|
+| claude-sonnet-4-5 | 200K tokens | 대용량 문서 분석 |
+| claude-3-5-sonnet | 200K tokens | 일반 분석 |
+| claude-3-5-haiku | 200K tokens | 빠른 검증 |
+| claude-3-opus | 200K tokens | 복잡한 추론 |
+
+**주의**: 컨텍스트가 클수록 비용 증가
+
+---
+
+## 환경 변수 정리
+
+```bash
+# 필수
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# 선택 (기본값 사용 가능)
+DATA_AI_MODEL=claude-sonnet-4-5           # 데이터 생성 모델
+FILE_ANALYSIS_MODEL=claude-sonnet-4-5     # 파일 분석 모델
+VALIDATION_MODEL_TIER=fast                # fast | balanced
+CUSTOM_VALIDATION_MODEL=                  # 비워두면 자동 선택
+
+# 파일 분석 토큰 제한
+FILE_ANALYSIS_MAX_TOKENS=4000             # 출력 토큰 제한
+```
+
+**우선순위**:
+```
+1. 대시보드 사용자 설정 (최우선)
+2. 환경 변수
+3. 시스템 기본값
+```
+
+---
+
+## 모니터링 및 비용 관리
+
+### 1. API 사용량 확인
+
+[Anthropic Console](https://console.anthropic.com/) → "Usage" 메뉴
+
+**확인 가능 정보**:
+- 일별/월별 사용량
+- 모델별 토큰 소비
+- 예상 비용
+
+### 2. 비용 최적화 팁
+
+✅ **파일 분석에 Haiku 사용**
+```
+FILE_ANALYSIS_MODEL=claude-3-haiku-20240307
+```
+→ 비용 75% 절감
+
+✅ **검증 모델 Fast 사용**
+```
+VALIDATION_MODEL_TIER=fast
+```
+→ 검증 비용 80% 절감
+
+✅ **불필요한 파일 분석 최소화**
+- 업로드 시 분석하지 않음 (현재 구현됨)
+- "생성 시작" 클릭 시에만 분석
+
+✅ **캐싱 활용** (향후 구현 예정)
+- 동일한 Excel 스키마 재사용 시 캐싱
+
+### 3. Rate Limit
+
+| 모델 | RPM (Requests/min) | TPM (Tokens/min) |
+|------|-------------------|------------------|
+| claude-sonnet-4-5 | 50 | 100,000 |
+| claude-3-5-sonnet | 50 | 100,000 |
+| claude-3-5-haiku | 50 | 100,000 |
+
+**대응 방법**:
+- 시스템이 자동으로 재시도 (최대 3회)
+- Rate Limit 초과 시 대기 후 재시도
+
+---
+
+## 트러블슈팅
+
+### 문제 1: "Anthropic API key not configured"
+
+**원인**: API 키 미설정
+
+**해결**:
+```
+1. 대시보드 → 설정 → "Anthropic API Key" 입력
+2. 저장 버튼 클릭
+3. 페이지 새로고침
+```
+
+---
+
+### 문제 2: "Invalid API key"
+
+**원인**:
+- API 키 오타
+- 만료된 API 키
+- 권한 없는 API 키
+
+**해결**:
+```bash
+# API 키 확인
+curl https://api.anthropic.com/v1/messages \
+  -H "x-api-key: $ANTHROPIC_API_KEY" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-3-5-haiku-20241022",
+    "max_tokens": 10,
+    "messages": [{"role": "user", "content": "Hi"}]
+  }'
+
+# 정상 응답: {"id":"msg_...","content":[...],...}
+# 오류 응답: {"error":{"message":"invalid x-api-key"}}
+```
+
+→ 오류 시 새 API 키 발급
+
+---
+
+### 문제 3: Rate Limit 초과
+
+**증상**: `rate_limit_error`
+
+**해결**:
+- 대기 후 자동 재시도 (시스템 구현됨)
+- 여러 API 키 로테이션 (향후 지원 예정)
+
+---
+
+### 문제 4: 비용이 너무 높음
+
+**진단**:
+```bash
+# 로그에서 토큰 사용량 확인
+grep "Total tokens" api.log
+
+# 예시 출력:
+# [INFO] Total tokens: input=45000, output=12000
+```
+
+**해결**:
+1. **모델 다운그레이드**:
+   - Opus → Sonnet: 비용 80% 절감
+   - Sonnet → Haiku (파일 분석): 비용 75% 절감
+
+2. **검증 Fast 모드**:
+   ```
+   VALIDATION_MODEL_TIER=fast
+   ```
+
+3. **파일 크기 제한**:
+   - PDF: 10MB 이하
+   - 텍스트: 50,000자 이하
+
+---
+
+## 보안 모범 사례
+
+### ❌ 하지 말 것
+
+```bash
+# Git에 API 키 커밋 금지
+git add .env  # ❌
+```
+
+### ✅ 해야 할 것
+
+```bash
+# .gitignore 확인
+cat .gitignore | grep .env
+# 출력: .env
+
+# Kubernetes Secret 사용
+kubectl create secret generic te-data-generator-secrets \
+  --from-literal=anthropic-api-key='sk-ant-...' \
+  -n korea
+```
+
+---
+
+## 참고 자료
+
+- [Anthropic 공식 문서](https://docs.anthropic.com/)
+- [Claude API Reference](https://docs.anthropic.com/en/api)
+- [모델 가격 정보](https://www.anthropic.com/pricing)
+- [Rate Limits](https://docs.anthropic.com/en/api/rate-limits)
+- [프로젝트 아키텍처](./ARCHITECTURE.md)
+
+---
+
+## 요약
+
+| 항목 | 권장 설정 |
+|------|----------|
+| **데이터 생성 모델** | `claude-sonnet-4-5` |
+| **파일 분석 모델** | `claude-sonnet-4-5` (또는 `claude-3-haiku` 비용 절감) |
+| **검증 모델 등급** | `fast` (Haiku) |
+| **예상 비용 (1회 분석)** | $0.30 ~ $0.50 |
+| **API 키 설정** | 대시보드 → 설정 |
+
+**핵심 포인트**:
+- ✅ Anthropic Claude만 사용
+- ✅ 사용자별 API 키 관리
+- ✅ 대시보드에서 모델 변경 가능
+- ✅ Fast/Balanced 검증 모드 선택 가능

@@ -157,6 +157,9 @@ export class DataGenerator {
     const aiAnalysis = await this.analyzeWithAI(schema);
     logger.info(`✅ Generated ${aiAnalysis.userSegments.length} user segments`);
 
+    // 🆕 AI 분석 결과를 사용해 MarketingGenerator 재생성
+    this.marketingGenerator = new MarketingGenerator(this.config.userInput.industry, aiAnalysis);
+
     // AI 분석 결과 상세 로깅
     logger.info('\n📊 AI Analysis Summary:');
     logger.info(`  - User Segments: ${aiAnalysis.userSegments.length}`);
@@ -525,12 +528,22 @@ export class DataGenerator {
     // 세그먼트별 평균 세션 시간
     const avgDuration = aiAnalysis.sessionPatterns.avgSessionDuration[user.segment] || 300000;
 
-    // 산업 및 세그먼트별 접속 시간대 결정 (AI 정의 우선)
-    const peakHours = this.getPeakHours(user.segment, aiAnalysis);
+    // 🆕 시간 분포 사용 여부 확인
+    const timingDist = aiAnalysis.timingDistribution;
+    const useTimingDist = timingDist?.hourlyWeights && timingDist.hourlyWeights.length === 24;
 
     let currentTime = new Date(date);
-    currentTime.setHours(peakHours.start + Math.floor(Math.random() * (peakHours.end - peakHours.start)));
-    currentTime.setMinutes(Math.floor(Math.random() * 60));
+
+    if (useTimingDist) {
+      // 🆕 hourlyWeights 기반 시간 선택
+      const { adjustTimeByWeights } = require('../utils/timing-utils');
+      currentTime = adjustTimeByWeights(currentTime, timingDist!.hourlyWeights);
+    } else {
+      // 폴백: 기존 피크타임 로직
+      const peakHours = this.getPeakHours(user.segment, aiAnalysis);
+      currentTime.setHours(peakHours.start + Math.floor(Math.random() * (peakHours.end - peakHours.start)));
+      currentTime.setMinutes(Math.floor(Math.random() * 60));
+    }
 
     for (let i = 0; i < sessionCount; i++) {
       const duration = Math.floor(avgDuration * (0.5 + Math.random()));
@@ -551,12 +564,20 @@ export class DataGenerator {
       const intervalHours = this.getSessionInterval(user.segment);
       currentTime = addMilliseconds(currentTime, intervalHours * 60 * 60 * 1000);
 
-      // 24시간 넘어가면 다음날 피크타임으로 리셋
+      // 24시간 넘어가면 다음 세션 시간 재선택
       if (currentTime.getDate() !== date.getDate()) {
         currentTime = new Date(date);
         currentTime.setDate(currentTime.getDate() + 1);
-        currentTime.setHours(peakHours.start + Math.floor(Math.random() * 3));
-        currentTime.setMinutes(Math.floor(Math.random() * 60));
+
+        if (useTimingDist) {
+          // 🆕 hourlyWeights 기반 시간 재선택
+          const { adjustTimeByWeights } = require('../utils/timing-utils');
+          currentTime = adjustTimeByWeights(currentTime, timingDist!.hourlyWeights);
+        } else {
+          const peakHours = this.getPeakHours(user.segment, aiAnalysis);
+          currentTime.setHours(peakHours.start + Math.floor(Math.random() * 3));
+          currentTime.setMinutes(Math.floor(Math.random() * 60));
+        }
       }
     }
 

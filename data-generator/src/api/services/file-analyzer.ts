@@ -33,11 +33,21 @@ export class FileAnalyzer {
   private model: string;
   private maxTokens: number;
 
-  constructor(apiKey?: string, model: string = 'claude-sonnet-4-5-20250929', maxTokens: number = 4000) {
+  constructor(apiKey?: string, model?: string, maxTokens: number = 4000) {
     if (apiKey) {
       this.anthropic = new Anthropic({ apiKey });
     }
-    this.model = model;
+
+    // 모델이 지정되지 않으면 저가 모델(Haiku) 자동 선택
+    // 비용 최적화: Haiku는 Sonnet 4.5 대비 약 80% 저렴
+    if (!model) {
+      this.model = 'claude-3-5-haiku-20241022';
+      logger.info(`💰 Auto-selected cost-optimized model: ${this.model}`);
+    } else {
+      this.model = model;
+      logger.info(`📄 Using custom model: ${this.model}`);
+    }
+
     this.maxTokens = maxTokens;
   }
 
@@ -98,7 +108,32 @@ export class FileAnalyzer {
     const fileType = path.extname(filePath).toLowerCase();
 
     try {
-      // 이미지 파일
+      const analysisPrompt = `이 파일의 내용을 분석하여 요약해주세요.
+
+다음 관점에서 파일 내용을 파악하고 정리해주세요:
+1. **문서/파일 유형**: 무엇에 관한 자료인가? (예: 기획서, 화면설계서, API 명세, 데이터 스키마, 가이드라인 등)
+2. **주요 내용 요약**: 핵심적으로 다루는 내용이 무엇인가?
+3. **중요 키워드/개념**: 반복적으로 나오거나 중요한 용어, 기능명, 데이터 항목 등
+4. **추가 컨텍스트**: Taxonomy 설계나 데이터 생성 시 참고할 만한 특징이나 제약사항
+
+**🆕 5. 데이터 일관성 그룹** (매우 중요!):
+서로 일치해야 하는 속성들을 그룹으로 묶어주세요. 예시:
+- **위치 그룹**: country, country_code, city, state, carrier, ip, store_region, timezone
+  → 한국 유저는 한국 도시, 한국 통신사, 한국 IP를 가져야 함
+- **거래 그룹**: order_id, payment_id, transaction_id, invoice_id
+  → 같은 거래의 모든 이벤트에서 동일한 ID 유지
+- **시간 그룹**: created_at, updated_at, timestamp, event_time
+  → 이벤트 발생 시각과 논리적으로 일치해야 함
+- **세션 그룹**: session_id, visit_id, interaction_id
+  → 같은 세션의 모든 이벤트에서 동일한 ID 유지
+- **디바이스 그룹**: os, device_model, os_version
+  → Android는 Android 모델만, iOS는 iPhone/iPad만
+
+간결하고 명확하게 한국어로 답변해주세요.`;
+
+      let analysis = '';
+
+      // 이미지 파일 처리
       if (this.isImageFile(filePath)) {
         const fileData = fs.readFileSync(filePath);
         const base64Data = fileData.toString('base64');
@@ -107,102 +142,53 @@ export class FileAnalyzer {
         const message = await this.anthropic.messages.create({
           model: this.model,
           max_tokens: this.maxTokens,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'image',
-                  source: {
-                    type: 'base64',
-                    media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
-                    data: base64Data,
-                  },
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: {
+                  type: 'base64',
+                  media_type: mediaType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp',
+                  data: base64Data,
                 },
-                {
-                  type: 'text',
-                  text: `이 파일의 내용을 분석하여 요약해주세요.
-
-다음 관점에서 파일 내용을 파악하고 정리해주세요:
-1. **문서/파일 유형**: 무엇에 관한 자료인가? (예: 기획서, 화면설계서, API 명세, 데이터 스키마, 가이드라인 등)
-2. **주요 내용 요약**: 핵심적으로 다루는 내용이 무엇인가?
-3. **중요 키워드/개념**: 반복적으로 나오거나 중요한 용어, 기능명, 데이터 항목 등
-4. **추가 컨텍스트**: Taxonomy 설계나 데이터 생성 시 참고할 만한 특징이나 제약사항
-
-간결하고 명확하게 한국어로 답변해주세요.`,
-                },
-              ],
-            },
-          ],
+              },
+              { type: 'text', text: analysisPrompt },
+            ],
+          }],
         });
-
-        const analysis = message.content[0].type === 'text' ? message.content[0].text : '';
-
-        return {
-          fileName,
-          fileType,
-          analysis,
-          insights: this.extractInsights(analysis),
-        };
+        analysis = message.content[0].type === 'text' ? message.content[0].text : '';
       }
-
-      // PDF 문서 파일
-      if (this.isPDFFile(filePath)) {
+      // PDF 파일 처리
+      else if (this.isPDFFile(filePath)) {
         const fileData = fs.readFileSync(filePath);
         const base64Data = fileData.toString('base64');
 
         const message = await this.anthropic.messages.create({
           model: this.model,
           max_tokens: this.maxTokens,
-          messages: [
-            {
-              role: 'user',
-              content: [
-                {
-                  type: 'document',
-                  source: {
-                    type: 'base64',
-                    media_type: 'application/pdf',
-                    data: base64Data,
-                  },
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: 'application/pdf',
+                  data: base64Data,
                 },
-                {
-                  type: 'text',
-                  text: `이 문서의 내용을 분석하여 요약해주세요.
-
-다음 관점에서 파일 내용을 파악하고 정리해주세요:
-1. **문서/파일 유형**: 무엇에 관한 자료인가? (예: 기획서, 화면설계서, API 명세, 데이터 스키마, 가이드라인 등)
-2. **주요 내용 요약**: 핵심적으로 다루는 내용이 무엇인가?
-3. **중요 키워드/개념**: 반복적으로 나오거나 중요한 용어, 기능명, 데이터 항목 등
-4. **추가 컨텍스트**: Taxonomy 설계나 데이터 생성 시 참고할 만한 특징이나 제약사항
-
-간결하고 명확하게 한국어로 답변해주세요.`,
-                },
-              ],
-            },
-          ],
+              },
+              { type: 'text', text: analysisPrompt },
+            ],
+          }],
         });
-
-        const analysis = message.content[0].type === 'text' ? message.content[0].text : '';
-
-        return {
-          fileName,
-          fileType,
-          analysis,
-          insights: this.extractInsights(analysis),
-        };
+        analysis = message.content[0].type === 'text' ? message.content[0].text : '';
       }
-
-      // 텍스트 파일
-      const textContent = await this.readTextFile(filePath);
-      if (textContent) {
-        const message = await this.anthropic.messages.create({
-          model: this.model,
-          max_tokens: this.maxTokens,
-          messages: [
-            {
-              role: 'user',
-              content: `다음 파일의 내용을 분석하여 요약해주세요:
+      // 텍스트 파일 처리
+      else {
+        const textContent = await this.readTextFile(filePath);
+        if (textContent) {
+          const prompt = `다음 파일의 내용을 분석하여 요약해주세요:
 
 파일명: ${fileName}
 
@@ -215,27 +201,37 @@ ${textContent.substring(0, 8000)}
 3. **중요 키워드/개념**: 반복적으로 나오거나 중요한 용어, 기능명, 데이터 항목, 변수명 등
 4. **추가 컨텍스트**: Taxonomy 설계나 데이터 생성 시 참고할 만한 특징이나 제약사항
 
-간결하고 명확하게 한국어로 답변해주세요.`,
-            },
-          ],
-        });
+**🆕 5. 데이터 일관성 그룹** (매우 중요!):
+서로 일치해야 하는 속성들을 그룹으로 묶어주세요. 예시:
+- **위치 그룹**: country, country_code, city, state, carrier, ip, store_region, timezone
+  → 한국 유저는 한국 도시, 한국 통신사, 한국 IP를 가져야 함
+- **거래 그룹**: order_id, payment_id, transaction_id, invoice_id
+  → 같은 거래의 모든 이벤트에서 동일한 ID 유지
+- **시간 그룹**: created_at, updated_at, timestamp, event_time
+  → 이벤트 발생 시각과 논리적으로 일치해야 함
+- **세션 그룹**: session_id, visit_id, interaction_id
+  → 같은 세션의 모든 이벤트에서 동일한 ID 유지
+- **디바이스 그룹**: os, device_model, os_version
+  → Android는 Android 모델만, iOS는 iPhone/iPad만
 
-        const analysis = message.content[0].type === 'text' ? message.content[0].text : '';
+간결하고 명확하게 한국어로 답변해주세요.`;
 
-        return {
-          fileName,
-          fileType,
-          analysis,
-          insights: this.extractInsights(analysis),
-        };
+          const message = await this.anthropic.messages.create({
+            model: this.model,
+            max_tokens: this.maxTokens,
+            messages: [{ role: 'user', content: prompt }],
+          });
+          analysis = message.content[0].type === 'text' ? message.content[0].text : '';
+        } else {
+          analysis = '이 파일 타입은 직접 분석할 수 없습니다. 파일명과 확장자만 참고됩니다.';
+        }
       }
 
-      // 지원하지 않는 파일 타입
       return {
         fileName,
         fileType,
-        analysis: '이 파일 타입은 직접 분석할 수 없습니다. 파일명과 확장자만 참고됩니다.',
-        insights: {},
+        analysis,
+        insights: this.extractInsights(analysis),
       };
     } catch (error: any) {
       logger.error(`파일 분석 실패 (${fileName}):`, error);
@@ -269,10 +265,9 @@ ${textContent.substring(0, 8000)}
     const message = await this.anthropic.messages.create({
       model: this.model,
       max_tokens: Math.floor(this.maxTokens * 0.75), // 다중 파일은 75% 토큰 사용
-      messages: [
-        {
-          role: 'user',
-          content: `다음은 사용자가 업로드한 여러 파일들의 분석 결과입니다. 이 정보를 종합하여 전체 컨텍스트를 요약해주세요:
+      messages: [{
+        role: 'user',
+        content: `다음은 사용자가 업로드한 여러 파일들의 분석 결과입니다. 이 정보를 종합하여 전체 컨텍스트를 요약해주세요:
 
 ${combinedAnalysisText}
 
@@ -283,8 +278,7 @@ ${combinedAnalysisText}
 **추가 참고사항**: (Taxonomy 설계나 데이터 생성 시 고려할 특징, 제약사항, 기술 스택 등)
 
 각 항목은 간결하고 명확하게 한국어로 작성해주세요.`,
-        },
-      ],
+      }],
     });
 
     const combinedInsights = message.content[0].type === 'text' ? message.content[0].text : '';

@@ -10,6 +10,8 @@
     "dev": "tsx src/cli.ts",
     "start": "node dist/cli.js",
     "api": "tsx src/api/server.ts",
+    "dev:setup": "./scripts/dev-setup.sh",
+    "dev:api": "./scripts/start-api.sh",
     "type-check": "tsc --noEmit",
     "db:migrate": "tsx src/db/migrate.ts"
   },

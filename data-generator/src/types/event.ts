@@ -242,6 +242,12 @@ export interface AIAnalysisResult {
 
   // 🆕 시간 분포 패턴 (AI 분석)
   timingDistribution?: TimingDistribution;
+
+  // 🆕 일관성 그룹 (시스템 프리셋 + 엑셀 통합)
+  consistencyGroups?: ConsistencyGroup[];
+
+  // 🆕 속성 일관성 정의 (개별 속성 매핑)
+  propertyConsistency?: PropertyConsistencyDefinition[];
 }
 
 /**
@@ -266,20 +272,58 @@ export interface TimingDistribution {
 
 /**
  * 속성 간 상관관계 정의
+ * 🆕 formula, identity, consistent_random 타입 추가
  */
 export interface PropertyCorrelation {
-  sourceProperty: string;          // 기준 속성 (예: "price")
-  targetProperty: string;           // 영향받는 속성 (예: "discount_rate")
-  correlationType: 'positive' | 'negative' | 'conditional';
-  strength: number;                 // 0.0 ~ 1.0 (상관 강도)
-  description?: string;             // 설명
+  sourceProperty: string | string[];  // 🆕 기준 속성 (단일 or 배열)
+  targetProperty: string;              // 영향받는 속성 (예: "discount_rate")
+  correlationType: 'positive' | 'negative' | 'conditional' | 'formula' | 'identity' | 'consistent_random';
+  strength?: number;                   // 0.0 ~ 1.0 (상관 강도, formula에서는 미사용)
+  description?: string;                // 설명
 
-  // conditional일 때 사용
+  // conditional: 조건부 매핑
   conditions?: Array<{
-    sourceValue: any;               // 조건 값
+    sourceValue: any;                  // 조건 값
     targetRange?: { min: number; max: number };
     targetValues?: any[];
   }>;
+
+  // 🆕 formula: 수식 관계 (예: "quantity * unit_price")
+  formula?: string;                    // JavaScript 수식 문자열
+  formulaType?: 'multiply' | 'divide' | 'add' | 'subtract' | 'custom';  // 수식 타입
+
+  // 🆕 identity: 고정 매핑 (예: 상품명 → 가격)
+  identityMap?: Record<string, any>;   // 소스값 → 타겟값 매핑
+
+  // 🆕 consistent_random: 같은 소스값 → 같은 랜덤값 유지
+  consistentRandomRange?: { min: number; max: number };  // 랜덤 범위
+  consistentRandomValues?: any[];                         // 랜덤 선택 후보
+}
+
+/**
+ * 🆕 일관성 그룹 정의 (AI 분석 결과)
+ * 서로 일치해야 하는 속성들을 그룹으로 정의
+ */
+export interface ConsistencyGroup {
+  groupName: string;                // 그룹 이름 (예: "location", "transaction")
+  level: 'user' | 'session' | 'transaction' | 'event';  // 일관성 유지 레벨
+  properties: string[];             // 그룹에 속한 속성들
+  basedOn?: string;                 // 기준 속성 (예: "countryCode")
+  dependencies?: Record<string, string[]>;  // 속성 의존성 (예: countryCode -> [city, ip])
+  strategy: 'preset' | 'ai_range' | 'faker' | 'uuid';  // 생성 전략
+  description: string;              // 설명
+  source: 'system' | 'excel' | 'integrated';  // 출처 (시스템/엑셀/통합)
+}
+
+/**
+ * 🆕 속성 일관성 정의 (개별 속성)
+ */
+export interface PropertyConsistencyDefinition {
+  propertyName: string;             // 속성 이름
+  level: 'user' | 'session' | 'transaction' | 'event';  // 일관성 레벨
+  consistencyGroup?: string;        // 속한 일관성 그룹
+  isPreset: boolean;                // 시스템 프리셋 여부
+  source: 'system' | 'excel';       // 출처
 }
 
 /**

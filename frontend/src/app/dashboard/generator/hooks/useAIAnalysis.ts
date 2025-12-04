@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { FormData, ProgressData, Settings } from '../types';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
+import { api } from '@/lib/api-client';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 interface UseAIAnalysisParams {
   onProgressUpdate: (progress: ProgressData | null) => void;
@@ -19,32 +19,33 @@ interface FileAnalysisResult {
  * Handles AI-powered data strategy analysis
  */
 export function useAIAnalysis({ onProgressUpdate, onAnalysisStart, onError }: UseAIAnalysisParams) {
+  const { t } = useLanguage();
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
   const validateDataSettings = (formData: FormData): boolean => {
     if (!formData.scenario || formData.scenario.trim() === '') {
-      alert('시나리오를 입력해주세요');
+      alert(t.validation.scenarioRequired);
       return false;
     }
     if (!formData.industry || formData.industry.trim() === '') {
-      alert('산업 분야를 입력해주세요');
+      alert(t.validation.industryRequired);
       return false;
     }
     const dau = parseInt(formData.dau);
     if (isNaN(dau) || dau < 1) {
-      alert('DAU를 입력해주세요 (1 이상)');
+      alert(t.validation.dauRequired);
       return false;
     }
     if (!formData.dateStart) {
-      alert('시작 날짜를 입력해주세요');
+      alert(t.validation.startDateRequired);
       return false;
     }
     if (!formData.dateEnd) {
-      alert('종료 날짜를 입력해주세요');
+      alert(t.validation.endDateRequired);
       return false;
     }
     if (new Date(formData.dateStart) > new Date(formData.dateEnd)) {
-      alert('시작 날짜는 종료 날짜보다 이전이어야 합니다');
+      alert(t.validation.invalidDateRange);
       return false;
     }
     return true;
@@ -54,7 +55,7 @@ export function useAIAnalysis({ onProgressUpdate, onAnalysisStart, onError }: Us
     excelPath: string,
     formData: FormData,
     settings: Settings,
-    fileAnalysisResult: FileAnalysisResult | null
+    uploadedFiles: Array<{ fileName: string; path: string }> | null
   ) => {
     // Validate Excel path
     console.log('[DEBUG] uploadedExcelPath:', excelPath);
@@ -79,36 +80,25 @@ export function useAIAnalysis({ onProgressUpdate, onAnalysisStart, onError }: Us
     });
 
     try {
-      const response = await fetch(`${API_URL}/api/generate/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          excelPath,
-          scenario: formData.scenario,
-          dau: formData.dau,
-          industry: formData.industry,
-          notes: formData.notes,
-          dateStart: formData.dateStart,
-          dateEnd: formData.dateEnd,
-          aiProvider: settings.DATA_AI_PROVIDER || 'anthropic',
-          fileAnalysisContext: fileAnalysisResult?.combinedInsights || null,
-        }),
+      const data = await api.post('/api/generate/analyze', {
+        excelPath,
+        scenario: formData.scenario,
+        dau: formData.dau,
+        industry: formData.industry,
+        notes: formData.notes,
+        dateStart: formData.dateStart,
+        dateEnd: formData.dateEnd,
+        aiProvider: 'anthropic',
+        contextFilePaths: uploadedFiles?.map(f => f.path) || [], // 🔥 파일 경로 전달
       });
 
-      const data = await response.json();
-
-      if (response.ok) {
-        onAnalysisStart(data.analysisId);
-      } else {
-        const errorMsg = data.missing
-          ? `${data.error}\n누락된 필드: ${data.missing.join(', ')}`
-          : data.error;
-        alert(`에러: ${errorMsg}`);
-        onError();
-      }
-    } catch (error) {
+      onAnalysisStart(data.analysisId);
+    } catch (error: any) {
       console.error('AI analysis failed:', error);
-      alert('AI 분석 요청 실패');
+      const errorMsg = error.data?.missing
+        ? `${error.data.error}\n누락된 필드: ${error.data.missing.join(', ')}`
+        : error.data?.error || 'AI 분석 요청 실패';
+      alert(`에러: ${errorMsg}`);
       onError();
     } finally {
       setIsAnalyzing(false);

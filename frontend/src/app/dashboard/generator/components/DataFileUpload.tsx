@@ -2,13 +2,14 @@
 
 import { useState, useRef } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 interface DataFileUploadProps {
   onComplete: () => void;
   onCancel: () => void;
-  onSendStart?: () => void;
+  onSendStart?: (sessionId: string) => void;
   sendAppId: string;
   onSendAppIdChange: (appId: string) => void;
 }
@@ -22,6 +23,7 @@ interface UploadedDataFile {
 
 export default function DataFileUpload({ onComplete, onCancel, onSendStart, sendAppId, onSendAppIdChange }: DataFileUploadProps) {
   const { t } = useLanguage();
+  const { handleUnauthorized } = useAuth();
 
   const [uploadedFiles, setUploadedFiles] = useState<UploadedDataFile[]>([]);
   const [uploadError, setUploadError] = useState<string>('');
@@ -62,6 +64,10 @@ export default function DataFileUpload({ onComplete, onCancel, onSendStart, send
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleUnauthorized();
+          return;
+        }
         const error = await response.json();
         throw new Error(error.error || '파일 업로드 실패');
       }
@@ -103,11 +109,6 @@ export default function DataFileUpload({ onComplete, onCancel, onSendStart, send
     setIsSending(true);
     setUploadError('');
 
-    // Notify parent that sending has started
-    if (onSendStart) {
-      onSendStart();
-    }
-
     try {
       const token = localStorage.getItem('auth_token');
       if (!token) {
@@ -129,14 +130,21 @@ export default function DataFileUpload({ onComplete, onCancel, onSendStart, send
       });
 
       if (!response.ok) {
+        if (response.status === 401) {
+          handleUnauthorized();
+          return;
+        }
         const error = await response.json();
         throw new Error(error.error || '데이터 전송 실패');
       }
 
       const data = await response.json();
-      console.log('전송 완료:', data);
+      console.log('전송 시작:', data);
 
-      onComplete();
+      // Notify parent that sending has started with sessionId
+      if (onSendStart && data.sessionId) {
+        onSendStart(data.sessionId);
+      }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       setUploadError(errorMessage);

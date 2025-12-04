@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { FormData, ExcelGenerationResult, ProgressData, ExcelPreviewSummary } from '../types';
+import { useLanguage } from '@/contexts/LanguageContext';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
@@ -14,19 +15,20 @@ interface UseExcelGenerationParams {
  * Handles Excel schema generation with SSE progress streaming
  */
 export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: UseExcelGenerationParams) {
+  const { t } = useLanguage();
   const [isGenerating, setIsGenerating] = useState(false);
 
   const validateServiceInfo = (formData: FormData): boolean => {
     if (!formData.scenario.trim()) {
-      alert('시나리오 설명을 입력해주세요');
+      alert(t.validation.scenarioDescRequired);
       return false;
     }
     if (!formData.industry.trim()) {
-      alert('산업을 입력해주세요');
+      alert(t.validation.industryRequired);
       return false;
     }
     if (!formData.notes.trim()) {
-      alert('서비스 특징을 입력해주세요');
+      alert(t.validation.notesRequired);
       return false;
     }
     return true;
@@ -41,15 +43,24 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
     onProgressUpdate({
       status: 'generating-excel',
       progress: 5,
-      message: 'Excel 스키마 생성 시작...',
-      details: ['🤖 AI 엔진 초기화 중...']
+      message: t.validation.startingExcelGeneration,
+      details: [t.validation.initializingAI]
     });
 
     try {
+      // Get auth token for SSE streaming request
+      const token = localStorage.getItem('auth_token');
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
       // Use SSE endpoint for real-time progress
       const response = await fetch(`${API_URL}/api/excel/generate-stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           scenario: formData.scenario,
           industry: formData.industry,
@@ -58,8 +69,17 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
         })
       });
 
+      if (response.status === 401) {
+        console.warn('Unauthorized request detected. Clearing token and redirecting to login...');
+        localStorage.removeItem('auth_token');
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        throw new Error('Authentication required');
+      }
+
       if (!response.ok) {
-        throw new Error('Excel 생성 요청 실패');
+        throw new Error(t.validation.excelGenerationFailed);
       }
 
       const reader = response.body?.getReader();
@@ -113,13 +133,13 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
       }
 
       if (!finalResult) {
-        throw new Error('Excel 생성 완료 데이터를 받지 못했습니다');
+        throw new Error(t.validation.noExcelCompletionData);
       }
 
       const data = finalResult;
 
       if (!data.file?.path) {
-        throw new Error('생성된 Excel 파일 경로를 찾을 수 없습니다');
+        throw new Error(t.validation.noExcelFilePath);
       }
 
       const preview: ExcelPreviewSummary = {
@@ -136,7 +156,7 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
 
     } catch (error) {
       console.error('Excel generation failed:', error);
-      const message = error instanceof Error ? error.message : 'Excel 생성 요청 실패';
+      const message = error instanceof Error ? error.message : t.validation.excelGenerationFailed;
       alert(message);
       onError();
     } finally {
