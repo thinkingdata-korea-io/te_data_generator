@@ -47,6 +47,7 @@ export const zh = {
   nav: {
     dashboard: '仪表板',
     dataGenerator: '数据生成器',
+    fileManagement: '文件管理',
     settings: '设置',
     userManagement: '用户管理',
     auditLogs: '审计日志',

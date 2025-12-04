@@ -47,6 +47,7 @@ export const ja = {
   nav: {
     dashboard: 'ダッシュボード',
     dataGenerator: 'データジェネレーター',
+    fileManagement: 'ファイル管理',
     settings: '設定',
     userManagement: 'ユーザー管理',
     auditLogs: '監査ログ',
