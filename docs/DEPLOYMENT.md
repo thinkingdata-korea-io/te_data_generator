@@ -267,7 +267,36 @@ kubectl create secret generic te-data-generator-secrets \
 
 ---
 
-### 문제 4: Kubernetes Pod 시작 실패
+### 문제 4: Jenkins 배포 실패 - "deployment not found"
+
+**증상**:
+```
+kubectl delete deployment te-data-generator-frontend -n korea
+Error from server (NotFound): deployments.apps "te-data-generator-frontend" not found
+script returned exit code 1
+```
+
+**원인**: 첫 배포 시 deployment가 존재하지 않아서 delete 실패
+
+**해결**:
+이것은 **정상적인 첫 배포 에러**입니다. Jenkins 스크립트가 다음과 같이 진행됩니다:
+1. `kubectl delete deployment` (deployment 없으면 실패 - 정상)
+2. `kubectl apply -f k8s/deployment.yaml` (새로 생성)
+
+**대응 방법**:
+```bash
+# 서버에서 수동으로 deployment 생성 (첫 배포 시에만)
+kubectl apply -f k8s/deployment.yaml -n korea
+
+# 또는 Jenkins 스크립트에서 에러 무시하도록 수정 (|| true 추가)
+kubectl delete deployment te-data-generator-frontend -n korea || true
+```
+
+**중요**: 이 에러는 무시해도 됩니다. 다음 단계인 `kubectl apply`가 실행되면 deployment가 정상적으로 생성됩니다.
+
+---
+
+### 문제 5: Kubernetes Pod 시작 실패
 
 **증상**: Pod가 CrashLoopBackOff 또는 ImagePullBackOff 상태
 
