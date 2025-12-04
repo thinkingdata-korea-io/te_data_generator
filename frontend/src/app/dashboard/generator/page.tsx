@@ -301,7 +301,7 @@ export default function Home() {
     const analysisSuccess = await analyzeFilesIfNeeded();
     if (!analysisSuccess) {
       // 파일 분석 실패 시 초기 화면으로 복귀
-      setCurrentStep('initial');
+      setCurrentStep('select-mode');
       return;
     }
 
