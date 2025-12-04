@@ -50,6 +50,7 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
 
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFileInfo[]>([]);
+  const [uploadedFilePaths, setUploadedFilePaths] = useState<Array<{ fileName: string; path: string }>>([]);
   const [fileAnalysisResult, setFileAnalysisResult] = useState<any>(null);
   const [isUploadingFiles, setIsUploadingFiles] = useState(false);
 
@@ -113,6 +114,8 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
     // File upload state
     uploadedFiles,
     setUploadedFiles,
+    uploadedFilePaths,
+    setUploadedFilePaths,
     fileAnalysisResult,
     setFileAnalysisResult,
     isUploadingFiles,

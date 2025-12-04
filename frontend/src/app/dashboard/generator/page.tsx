@@ -68,6 +68,8 @@ export default function Home() {
     setSettings,
     uploadedFiles,
     setUploadedFiles,
+    uploadedFilePaths,
+    setUploadedFilePaths,
     fileAnalysisResult,
     setFileAnalysisResult,
     isUploadingFiles,
@@ -260,6 +262,14 @@ export default function Home() {
       const result = await api.upload('/api/files/analyze-multi', uploadFormData);
       setFileAnalysisResult(result.analysis);
 
+      // 서버에서 반환된 파일 경로 정보 저장
+      if (result.files && Array.isArray(result.files)) {
+        setUploadedFilePaths(result.files.map((f: any) => ({
+          fileName: f.fileName,
+          path: f.path
+        })));
+      }
+
       console.log('📊 파일 분석 완료:', result);
 
       // 분석 완료 표시
@@ -278,7 +288,7 @@ export default function Home() {
     } finally {
       setIsUploadingFiles(false);
     }
-  }, [uploadedFiles, fileAnalysisResult, formData.language, setFileAnalysisResult, setIsUploadingFiles, setProgress]);
+  }, [uploadedFiles, fileAnalysisResult, formData.language, setFileAnalysisResult, setUploadedFilePaths, setIsUploadingFiles, setProgress]);
 
   // Handlers using new hooks
   const handleStartExcelGeneration = async () => {
@@ -314,8 +324,8 @@ export default function Home() {
       return; // Validation failed, don't proceed
     }
 
-    // 🔥 FIX: uploadedFiles를 직접 전달 (파일 분석은 백엔드에서 수행)
-    await dataGeneration.startGeneration(generatedExcelPath, formData, settings, uploadedFiles);
+    // 🔥 FIX: uploadedFilePaths를 전달 (파일 분석은 백엔드에서 수행)
+    await dataGeneration.startGeneration(generatedExcelPath, formData, settings, uploadedFilePaths.length > 0 ? uploadedFilePaths : null);
   };
 
   const handleSendData = async () => {
