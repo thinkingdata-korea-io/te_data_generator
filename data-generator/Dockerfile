@@ -12,6 +12,7 @@ WORKDIR /workspace
 # 전체 모노레포 복사 (상위 디렉토리에서 실행하므로 컨텍스트 조정 필요)
 COPY excel-schema-generator ./excel-schema-generator
 COPY data-generator ./data-generator
+COPY logbus ./logbus
 
 # excel-schema-generator 먼저 빌드
 WORKDIR /workspace/excel-schema-generator
