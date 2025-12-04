@@ -48,8 +48,8 @@ spec:
     spec:
       containers:
         - name: backend
-          image: docker-ta-inner.thinkingdata.cn/korea/data-generator-backend:latest
-          imagePullPolicy: Always
+          image: te-data-generator-backend:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3001
               name: http
@@ -75,11 +75,11 @@ spec:
                   key: anthropic-api-key
           resources:
             requests:
-              memory: "512Mi"
-              cpu: "500m"
+              memory: "256Mi"
+              cpu: "250m"
             limits:
-              memory: "2Gi"
-              cpu: "2000m"
+              memory: "1Gi"
+              cpu: "1000m"
           volumeMounts:
             - name: data
               mountPath: /app/output
@@ -123,8 +123,8 @@ spec:
     spec:
       containers:
         - name: frontend
-          image: docker-ta-inner.thinkingdata.cn/korea/data-generator-frontend:latest
-          imagePullPolicy: Always
+          image: te-data-generator-frontend:latest
+          imagePullPolicy: Never
           ports:
             - containerPort: 3000
               name: http
