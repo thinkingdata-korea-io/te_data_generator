@@ -20,7 +20,7 @@ import { cleanupOldFiles } from './services/cleanup.service';
 import { logger } from '../utils/logger';
 
 // Import routers
-import filesRouter from './routes/files';
+// import filesRouter from './routes/files';
 import excelRouter from './routes/excel';
 import generateRouter from './routes/generate';
 import runsRouter from './routes/runs';
@@ -44,7 +44,7 @@ app.use(cors());
 app.use(express.json());
 
 // Register routers
-app.use('/api', filesRouter);
+// app.use('/api', filesRouter);
 app.use('/api', excelRouter);
 app.use('/api/generate', generateRouter);
 app.use('/api/runs', runsRouter);

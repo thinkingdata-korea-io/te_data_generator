@@ -47,7 +47,63 @@ export async function analyzeOnlyAsync(analysisId: string, config: any): Promise
 
     progressDetails.push('AI 전략 분석 시작...');
 
+    // 🆕 파일 분석 수행 (contextFilePaths가 있는 경우)
+    let enhancedNotes = config.notes || '';
+    if (config.contextFilePaths && config.contextFilePaths.length > 0) {
+      analysisMap.set(analysisId, {
+        ...analysisMap.get(analysisId)!,
+        progress: 15,
+        message: '업로드된 파일 분석 중...',
+        details: [...progressDetails]
+      });
+      progressDetails.push(`📁 업로드된 파일 분석 중 (${config.contextFilePaths.length}개)...`);
+
+      try {
+        const { FileAnalyzer } = await import('../services/file-analyzer');
+        const fileAnalysisModel = config.fileAnalysisModel || undefined;
+        const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
+
+        const analyzer = new FileAnalyzer(
+          config.aiApiKey,
+          fileAnalysisModel,
+          fileAnalysisMaxTokens,
+          (message: string) => {
+            // 파일 분석 진행 상황을 실시간으로 업데이트
+            progressDetails.push(message);
+            analysisMap.set(analysisId, {
+              ...analysisMap.get(analysisId)!,
+              progress: 20,
+              message: message,
+              details: [...progressDetails]
+            });
+          }
+        );
+
+        const analysisResult = await analyzer.analyzeMultipleFiles(config.contextFilePaths);
+
+        if (analysisResult?.combinedInsights) {
+          enhancedNotes = `${config.notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${analysisResult.combinedInsights}`;
+          progressDetails.push('✅ 파일 분석 완료');
+        }
+      } catch (error: any) {
+        logger.error('⚠️  파일 분석 실패:', error.message);
+        progressDetails.push(`⚠️  파일 분석 실패: ${error.message}`);
+        // 분석 실패해도 계속 진행
+      }
+
+      // notes를 enhancedNotes로 업데이트
+      config.notes = enhancedNotes;
+    }
+
     // Parse Excel
+    analysisMap.set(analysisId, {
+      ...analysisMap.get(analysisId)!,
+      progress: 25,
+      message: 'Excel 파싱 중...',
+      details: [...progressDetails]
+    });
+    progressDetails.push('Excel 파싱 중...');
+
     const parser = new ExcelParser();
     const schema = await parser.parseExcelFile(config.excelPath);
 

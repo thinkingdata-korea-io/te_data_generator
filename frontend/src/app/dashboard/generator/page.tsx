@@ -27,6 +27,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
 
 export default function Home() {
   const { t, language: uiLanguage } = useLanguage();
+  const [isExcelDetailsExpanded, setIsExcelDetailsExpanded] = useState(false);
 
   // Helper function to replace "..." with LoadingDots component
   const renderMessageWithDots = (message: string) => {
@@ -378,6 +379,8 @@ export default function Home() {
       dateStart: '2025-01-01',
       dateEnd: '2025-01-03',
       language: uiLanguage as AnalysisLanguage, // Use system/UI language
+      eventCountMin: 20, // 기본값: 표준 범위
+      eventCountMax: 40,
     });
   };
 
@@ -486,10 +489,10 @@ export default function Home() {
             {/* Current Stage Badge */}
             <div className="mb-4 flex items-center gap-3">
               <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border">
-                {progress.progress < 30 ? '🔹 Stage 1: 이벤트 구조 분석' :
-                 progress.progress < 70 ? '🔹 Stage 2: 속성 범위 생성' :
-                 progress.progress < 90 ? '🔹 Stage 3: 유저 데이터 생성' :
-                 '📝 Excel 파일 작성'}
+                {progress.progress < 30 ? <>🔹 Stage 1: 이벤트 구조 분석<LoadingDots /></> :
+                 progress.progress < 70 ? <>🔹 Stage 2: 속성 범위 생성<LoadingDots /></> :
+                 progress.progress < 90 ? <>🔹 Stage 3: 유저 데이터 생성<LoadingDots /></> :
+                 <>📝 Excel 파일 작성<LoadingDots /></>}
               </span>
               <div className="flex gap-1">
                 <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
@@ -520,22 +523,37 @@ export default function Home() {
               <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {renderMessageWithDots(progress.message)}</p>
             </div>
 
-            {/* Detailed Progress Log */}
+            {/* Detailed Progress Log - Collapsible */}
             {progress.details && progress.details.length > 0 && (
               <div className="mt-4">
-                <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-2 font-mono">실시간 진행 상황</h3>
-                <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-64 overflow-y-auto terminal-scrollbar">
-                  <div className="space-y-1">
-                    {progress.details.map((detail: string, idx: number) => (
-                      <div key={idx} className="text-xs font-mono text-[var(--text-secondary)] animate-fade-in">
-                        {renderMessageWithDots(detail)}
+                <button
+                  onClick={() => setIsExcelDetailsExpanded(!isExcelDetailsExpanded)}
+                  className="w-full flex items-center justify-between px-4 py-3 text-sm font-semibold text-[var(--text-primary)] bg-[var(--bg-tertiary)] hover:bg-[var(--bg-primary)] border border-[var(--border)] hover:border-[var(--accent-cyan)] rounded font-mono transition-all cursor-pointer"
+                >
+                  <span className="flex items-center gap-2">
+                    <span className="text-[var(--accent-cyan)] text-xl">{isExcelDetailsExpanded ? '▼' : '▶'}</span>
+                    실시간 진행 상황
+                  </span>
+                  <span className="text-xs text-[var(--text-dimmed)]">
+                    {isExcelDetailsExpanded ? '접기' : '펼치기'}
+                  </span>
+                </button>
+                {isExcelDetailsExpanded && (
+                  <>
+                    <div className="bg-[var(--bg-primary)] rounded border border-[var(--border)] p-4 max-h-96 overflow-y-auto terminal-scrollbar">
+                      <div className="space-y-0.5">
+                        {progress.details.map((detail: string, idx: number) => (
+                          <div key={idx} className="text-xs font-mono text-[var(--text-secondary)] animate-fade-in">
+                            {renderMessageWithDots(detail)}
+                          </div>
+                        ))}
                       </div>
-                    ))}
-                  </div>
-                </div>
-                <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
-                  {progress.details.length}개 작업 진행 중 (자동 업데이트)
-                </p>
+                    </div>
+                    <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+                      {progress.details.length}개 작업 진행 중 (자동 업데이트)
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -869,6 +887,7 @@ export default function Home() {
             uploadedFiles={uploadedFiles}
             fileAnalysisResult={fileAnalysisResult}
             isUploadingFiles={isUploadingFiles}
+            showEventCountRange={startMode === 'full-process'} // 전체 프로세스 모드에서만 표시
           />
         )}
 
@@ -990,7 +1009,7 @@ export default function Home() {
               </div>
             </div>
             <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
-              <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
+              <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {renderMessageWithDots(progress.message)}</p>
             </div>
 
             {/* LogBus2 실시간 로그 */}

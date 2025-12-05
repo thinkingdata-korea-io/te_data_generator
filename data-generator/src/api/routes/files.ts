@@ -121,10 +121,51 @@ router.post('/files/analyze-multi', requireAuth, upload.array('files', 5), async
 });
 
 /**
+ * GET /api/files/list
+ * 업로드된 컨텍스트 파일 목록 조회
+ */
+router.get('/files/list', requireAuth, (req: Request, res: Response) => {
+  try {
+    if (!fs.existsSync(uploadDir)) {
+      return res.json({ files: [] });
+    }
+
+    const files = fs.readdirSync(uploadDir);
+    const fileInfos = files.map(filename => {
+      const filePath = path.join(uploadDir, filename);
+      const stats = fs.statSync(filePath);
+
+      // 타임스탬프와 랜덤 문자열 제거하여 원본 파일명 추출
+      // 형식: 1764801955366_y3oxpa_원본파일명.pdf
+      const parts = filename.split('_');
+      const originalName = parts.length >= 3 ? parts.slice(2).join('_') : filename;
+
+      return {
+        fileName: filename,
+        originalName: originalName,
+        path: filePath,
+        size: stats.size,
+        type: path.extname(filename).toLowerCase(),
+        uploadedAt: stats.birthtime.toISOString(),
+        modifiedAt: stats.mtime.toISOString()
+      };
+    });
+
+    // 최신 파일 먼저 정렬
+    fileInfos.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime());
+
+    res.json({ files: fileInfos });
+  } catch (error: any) {
+    logger.error('파일 목록 조회 실패:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
  * DELETE /api/files/:filename
  * 업로드된 파일 삭제
  */
-router.delete('/files/:filename', (req: Request, res: Response) => {
+router.delete('/files/:filename', requireAuth, (req: Request, res: Response) => {
   try {
     const { filename } = req.params;
     const safeFilename = path.basename(filename);

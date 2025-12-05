@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ProgressData } from '../types';
+import LoadingDots from './LoadingDots';
 
 interface DataGenerationProgressProps {
   progress: ProgressData | null;
@@ -11,6 +12,18 @@ interface DataGenerationProgressProps {
 export default function DataGenerationProgress({ progress }: DataGenerationProgressProps) {
   const { t } = useLanguage();
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(false);
+
+  // Helper function to replace "..." with LoadingDots component
+  const renderMessageWithDots = (message: string) => {
+    if (!message) return message;
+    const parts = message.split('...');
+    return parts.map((part, idx) => (
+      <span key={idx}>
+        {part}
+        {idx < parts.length - 1 && <LoadingDots />}
+      </span>
+    ));
+  };
 
   if (!progress || progress.status === 'error') {
     return null;
@@ -25,11 +38,11 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
       {/* Current Phase Badge */}
       <div className="mb-4 flex items-center gap-3">
         <span className={`inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border`}>
-          {progress.status === 'parsing' ? '📋 Excel 파싱 중' :
-           progress.status === 'analyzing' ? '🤖 AI 분석 중' :
-           progress.status === 'generating' ? '📊 데이터 생성 중' :
-           progress.status === 'saving' ? '💾 저장 중' :
-           progress.step || `⋯ ${t.generator.processing}`}
+          {progress.status === 'parsing' ? <>📋 Excel 파싱 중<LoadingDots /></> :
+           progress.status === 'analyzing' ? <>🤖 AI 분석 중<LoadingDots /></> :
+           progress.status === 'generating' ? <>📊 데이터 생성 중<LoadingDots /></> :
+           progress.status === 'saving' ? <>💾 저장 중<LoadingDots /></> :
+           progress.step ? <>{progress.step}<LoadingDots /></> : <>{`⋯ ${t.generator.processing}`}<LoadingDots /></>}
         </span>
         <div className="flex gap-1">
           <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>
@@ -57,7 +70,7 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
 
       {/* Current Message */}
       <div className="p-4 bg-[var(--bg-tertiary)] rounded border border-[var(--border)] mb-4">
-        <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {progress.message}</p>
+        <p className="text-[var(--text-primary)] font-mono text-sm">&gt; {renderMessageWithDots(progress.message)}</p>
       </div>
 
       {/* Detailed Progress Logs */}
@@ -90,7 +103,7 @@ export default function DataGenerationProgress({ progress }: DataGenerationProgr
                         detail.startsWith('  ') ? 'text-[var(--text-dimmed)]' :
                         'text-[var(--text-secondary)]'
                       }`}>
-                        {detail}
+                        {renderMessageWithDots(detail)}
                       </span>
                     </div>
                   ))}

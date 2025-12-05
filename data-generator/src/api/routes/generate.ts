@@ -194,51 +194,15 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
     } = req.body;
 
     // Validate required fields
-    const missing = [];
-    if (!excelPath || excelPath.trim() === '') missing.push('excelPath');
-    if (!scenario || scenario.trim() === '') missing.push('scenario');
-    if (!dau) missing.push('dau');
-    if (!industry || industry.trim() === '') missing.push('industry');
-    if (!dateStart) missing.push('dateStart');
-    if (!dateEnd) missing.push('dateEnd');
-
-    if (missing.length > 0) {
-      logger.error('❌ Missing required fields:', missing);
-      logger.error('Received body:', { excelPath, scenario, dau, industry, dateStart, dateEnd });
+    if (!excelPath || !scenario || !dau || !industry || !dateStart || !dateEnd) {
       return res.status(400).json({
         error: 'Missing required fields',
-        missing,
         required: ['excelPath', 'scenario', 'dau', 'industry', 'dateStart', 'dateEnd']
       });
     }
 
-    // 🔥 FIX: 여기서 파일 분석 수행 (AI 분석 시작 시)
-    let enhancedNotes = notes || '';
-    if (contextFilePaths && contextFilePaths.length > 0) {
-      const userId = (req as any).user.userId;
-      const userSettings = await getUserSettings(userId);
-
-      if (userSettings?.anthropicApiKey) {
-        try {
-          const { FileAnalyzer } = await import('../services/file-analyzer');
-          const fileAnalysisModel = userSettings.fileAnalysisModel || undefined;
-          const fileAnalysisMaxTokens = parseInt(process.env.FILE_ANALYSIS_MAX_TOKENS || '4000', 10);
-
-          const analyzer = new FileAnalyzer(userSettings.anthropicApiKey, fileAnalysisModel, fileAnalysisMaxTokens);
-          logger.info(`🤖 AI 파일 분석 시작 (${contextFilePaths.length}개 파일)...`);
-          const analysisResult = await analyzer.analyzeMultipleFiles(contextFilePaths);
-          logger.info('✅ AI 파일 분석 완료');
-
-          if (analysisResult?.combinedInsights) {
-            enhancedNotes = `${notes || ''}\n\n[추가 참고 자료]\n업로드된 파일에서 분석된 내용:\n${analysisResult.combinedInsights}`;
-            logger.info('📎 AI 분석에 파일 분석 컨텍스트가 추가되었습니다.');
-          }
-        } catch (error: any) {
-          logger.error('⚠️  파일 분석 실패:', error.message);
-          // 분석 실패해도 AI 분석은 계속 진행
-        }
-      }
-    }
+    // 🔥 FIX: 파일 분석은 analyzeOnlyAsync 내부에서 진행 (진행 상황 추적을 위해)
+    // contextFilePaths를 analyzeOnlyAsync에 전달하면 내부에서 처리됨
 
     // Get user settings
     const userId = (req as any).user.userId;
@@ -272,12 +236,14 @@ router.post('/analyze', requireAuth, async (req: Request, res: Response) => {
       scenario,
       dau: parseInt(dau),
       industry,
-      notes: enhancedNotes,
+      notes,  // 🔥 FIX: enhancedNotes 대신 원본 notes 전달 (analyzeOnlyAsync에서 파일 분석 수행)
       dateStart,
       dateEnd,
       aiProvider: requestedProvider as 'openai' | 'anthropic' | 'gemini',
       aiApiKey,
-      language
+      language,
+      contextFilePaths,  // 🆕 파일 경로 전달
+      fileAnalysisModel: userSettings?.fileAnalysisModel
     });
 
     // Immediate response

@@ -182,10 +182,15 @@ export class TaxonomyBuilderV2 {
    * Stage 1: Events + Common Properties + User ID System
    */
   private async runStage1(request: ExcelGenerationRequest): Promise<Stage1Output> {
+    const eventCountMin = request.eventCountMin || 20;
+    const eventCountMax = request.eventCountMax || 40;
+
     const prompt = this.stage1Prompt
       .replace(/\{industry\}/g, request.industry)
       .replace(/\{scenario\}/g, request.scenario)
-      .replace(/\{notes\}/g, request.notes);
+      .replace(/\{notes\}/g, request.notes)
+      .replace(/\{eventCountMin\}/g, eventCountMin.toString())
+      .replace(/\{eventCountMax\}/g, eventCountMax.toString());
 
     const responseText = await this.callAI(prompt);
     const parsed = this.parseJSON(responseText);

@@ -25,6 +25,8 @@ export function useGeneratorState(initialLanguage: AnalysisLanguage = 'ko') {
     dateStart: '2025-01-01',
     dateEnd: '2025-01-03',
     language: initialLanguage,
+    eventCountMin: 20, // 기본값: 표준 범위 (20-40개)
+    eventCountMax: 40,
   });
 
   // Workflow state

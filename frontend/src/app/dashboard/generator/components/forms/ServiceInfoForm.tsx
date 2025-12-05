@@ -34,25 +34,14 @@ export default function ServiceInfoForm({
   return (
     <div className="bg-[var(--bg-secondary)] border border-[var(--border)] rounded p-8 mb-6 terminal-glow">
       <h2 className="text-2xl font-bold mb-6 text-terminal-cyan font-mono flex items-center gap-2">
-        <span>▦</span> {t.generator.serviceInfo}
+        <span>▦</span> 서비스 기본 정보
       </h2>
 
-      <div className="space-y-6">
-        <div>
-          <label htmlFor="scenario-input-new" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
-            {t.generator.scenario} <span className="text-[var(--error-red)]">*</span>
-          </label>
-          <textarea
-            id="scenario-input-new"
-            value={formData.scenario}
-            onChange={(e) => onFormDataChange({ ...formData, scenario: e.target.value })}
-            className="w-full p-4 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm terminal-scrollbar"
-            rows={4}
-            placeholder={t.generator.scenarioPlaceholder}
-            aria-required="true"
-          />
-        </div>
+      <p className="text-sm text-[var(--text-secondary)] mb-6 font-mono">
+        💡 이벤트 Taxonomy 생성에 필요한 기본 정보를 입력하세요
+      </p>
 
+      <div className="space-y-6">
         <div className="grid grid-cols-2 gap-6">
           <div>
             <label htmlFor="industry-input-new" className="block text-sm font-semibold mb-2 text-[var(--text-primary)] font-mono">
@@ -82,6 +71,100 @@ export default function ServiceInfoForm({
               aria-required="true"
             />
           </div>
+        </div>
+
+        {/* Event Count Range Section */}
+        <div className="mt-6 pt-6 border-t border-[var(--border)]">
+          <label className="block text-sm font-semibold mb-4 text-[var(--text-primary)] font-mono">
+            📊 이벤트 Taxonomy 복잡도
+          </label>
+
+          {/* Preset Buttons */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+            <button
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, eventCountMin: 10, eventCountMax: 20 })}
+              className={`p-3 rounded border transition-all font-mono text-sm ${
+                formData.eventCountMin === 10 && formData.eventCountMax === 20
+                  ? 'bg-[var(--accent-cyan)]/20 border-[var(--accent-cyan)] text-[var(--accent-cyan)]'
+                  : 'bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cyan)]'
+              }`}
+            >
+              <div className="font-semibold">간단</div>
+              <div className="text-xs mt-1">10-20개</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, eventCountMin: 20, eventCountMax: 40 })}
+              className={`p-3 rounded border transition-all font-mono text-sm ${
+                formData.eventCountMin === 20 && formData.eventCountMax === 40
+                  ? 'bg-[var(--accent-cyan)]/20 border-[var(--accent-cyan)] text-[var(--accent-cyan)]'
+                  : 'bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cyan)]'
+              }`}
+            >
+              <div className="font-semibold">표준</div>
+              <div className="text-xs mt-1">20-40개</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, eventCountMin: 40, eventCountMax: 60 })}
+              className={`p-3 rounded border transition-all font-mono text-sm ${
+                formData.eventCountMin === 40 && formData.eventCountMax === 60
+                  ? 'bg-[var(--accent-cyan)]/20 border-[var(--accent-cyan)] text-[var(--accent-cyan)]'
+                  : 'bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cyan)]'
+              }`}
+            >
+              <div className="font-semibold">상세</div>
+              <div className="text-xs mt-1">40-60개</div>
+            </button>
+            <button
+              type="button"
+              onClick={() => onFormDataChange({ ...formData, eventCountMin: 60, eventCountMax: 100 })}
+              className={`p-3 rounded border transition-all font-mono text-sm ${
+                formData.eventCountMin === 60 && formData.eventCountMax === 100
+                  ? 'bg-[var(--accent-cyan)]/20 border-[var(--accent-cyan)] text-[var(--accent-cyan)]'
+                  : 'bg-[var(--bg-tertiary)] border-[var(--border)] text-[var(--text-secondary)] hover:border-[var(--accent-cyan)]'
+              }`}
+            >
+              <div className="font-semibold">매우 상세</div>
+              <div className="text-xs mt-1">60-100개</div>
+            </button>
+          </div>
+
+          {/* Custom Range Inputs */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label htmlFor="event-count-min" className="block text-xs font-semibold mb-2 text-[var(--text-secondary)] font-mono">
+                최소 이벤트 수
+              </label>
+              <input
+                id="event-count-min"
+                type="number"
+                min="5"
+                max="200"
+                value={formData.eventCountMin || 20}
+                onChange={(e) => onFormDataChange({ ...formData, eventCountMin: parseInt(e.target.value) || 20 })}
+                className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
+              />
+            </div>
+            <div>
+              <label htmlFor="event-count-max" className="block text-xs font-semibold mb-2 text-[var(--text-secondary)] font-mono">
+                최대 이벤트 수
+              </label>
+              <input
+                id="event-count-max"
+                type="number"
+                min="5"
+                max="200"
+                value={formData.eventCountMax || 40}
+                onChange={(e) => onFormDataChange({ ...formData, eventCountMax: parseInt(e.target.value) || 40 })}
+                className="w-full p-3 bg-[var(--bg-tertiary)] border border-[var(--border)] rounded text-[var(--text-primary)] focus:border-[var(--accent-cyan)] focus:outline-none transition-all font-mono text-sm"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-[var(--text-dimmed)] mt-2 font-mono">
+            💡 AI가 시나리오 복잡도에 맞춰 이 범위 내에서 최적의 이벤트 수를 결정합니다
+          </p>
         </div>
       </div>
 

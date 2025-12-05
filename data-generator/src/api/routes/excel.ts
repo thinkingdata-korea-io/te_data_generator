@@ -6,6 +6,8 @@ import * as fs from 'fs';
 import { ExcelParser } from '../../excel/parser';
 import { ExcelSchemaGenerator } from '@excel-schema-generator/schema-generator';
 import { logger } from '../../utils/logger';
+import { requireAuth } from '../middleware';
+import { getUserSettings } from '../../db/repositories/user-settings-repository';
 
 const router = express.Router();
 
@@ -107,19 +109,32 @@ router.post('/excel/parse', async (req: Request, res: Response) => {
  * POST /api/excel/generate-stream (SSE)
  * 사용자 입력 기반으로 Excel 텍소노미 생성 (실시간 진행 상황 스트리밍)
  */
-router.post('/excel/generate-stream', async (req: Request, res: Response) => {
+router.post('/excel/generate-stream', requireAuth, async (req: Request, res: Response) => {
   const {
-    scenario,
+    scenario = '', // Optional for taxonomy-only mode
     industry,
     notes,
     language = 'ko', // Default to Korean
+    eventCountMin = 20, // 기본값: 표준 범위
+    eventCountMax = 40,
   } = req.body;
 
-  if (!scenario || !industry || !notes) {
-    return res.status(400).json({ error: 'scenario, industry, and notes are required' });
+  // Taxonomy generation only requires industry and notes
+  if (!industry || !notes) {
+    return res.status(400).json({ error: 'industry and notes are required' });
   }
 
   logger.info(`📝 Excel generation requested with language: ${language}`);
+
+  // Get user settings for API key
+  const userId = (req as any).user.userId;
+  const userSettings = await getUserSettings(userId);
+
+  if (!userSettings?.anthropicApiKey) {
+    return res.status(400).json({
+      error: 'Anthropic API key not configured. Please set it in Settings.'
+    });
+  }
 
   // Set up SSE
   res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
@@ -146,8 +161,8 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
     const generator = new ExcelSchemaGenerator({
       outputDir: EXCEL_OUTPUT_DIR,
       preferredProvider: 'anthropic',
-      anthropicKey: process.env.ANTHROPIC_API_KEY,
-      anthropicModel: process.env.EXCEL_ANTHROPIC_MODEL,
+      anthropicKey: userSettings.anthropicApiKey, // 🔥 FIX: Use user's API key
+      anthropicModel: userSettings.excelModel || process.env.EXCEL_ANTHROPIC_MODEL,
       onProgress: (progress) => {
         sendProgress({
           type: 'progress',
@@ -159,10 +174,15 @@ router.post('/excel/generate-stream', async (req: Request, res: Response) => {
       }
     });
 
+    // Combine scenario and notes if scenario is provided
+    const combinedNotes = scenario ? `${notes}\n\n시나리오: ${scenario}` : notes;
+
     const result = await generator.generate({
-      scenario,
+      scenario: combinedNotes, // Use combined notes as scenario
       industry,
-      notes
+      notes: combinedNotes,
+      eventCountMin,
+      eventCountMax
     });
 
     // Parse generated Excel to get preview data

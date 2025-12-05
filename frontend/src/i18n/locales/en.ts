@@ -330,6 +330,8 @@ export const en = {
     logsDisplay: 'displayed (auto-update)',
     analyzing: 'AI Analyzing',
     parsingExcel: 'Parsing Excel',
+    creatingUserSegments: 'Creating user segments',
+    finalizingAnalysis: 'Finalizing analysis',
     processing: 'Processing',
 
     // Error messages

@@ -19,10 +19,7 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
   const [isGenerating, setIsGenerating] = useState(false);
 
   const validateServiceInfo = (formData: FormData): boolean => {
-    if (!formData.scenario.trim()) {
-      alert(t.validation.scenarioDescRequired);
-      return false;
-    }
+    // Taxonomy generation only needs industry and notes (no scenario required)
     if (!formData.industry.trim()) {
       alert(t.validation.industryRequired);
       return false;
@@ -66,6 +63,8 @@ export function useExcelGeneration({ onProgressUpdate, onComplete, onError }: Us
           industry: formData.industry,
           notes: formData.notes,
           language: formData.language || 'ko',
+          eventCountMin: formData.eventCountMin || 20,
+          eventCountMax: formData.eventCountMax || 40,
         })
       });
 

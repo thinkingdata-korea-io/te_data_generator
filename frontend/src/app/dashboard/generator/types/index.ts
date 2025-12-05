@@ -64,6 +64,8 @@ export interface FormData {
   dateStart: string;
   dateEnd: string;
   language?: AnalysisLanguage;
+  eventCountMin?: number;
+  eventCountMax?: number;
 }
 
 export interface ProgressData {

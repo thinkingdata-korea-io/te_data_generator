@@ -1,4 +1,5 @@
 import * as path from 'path';
+import * as fs from 'fs';
 import { DataGenerator, DataGeneratorConfig } from '../../data-generator';
 import { logger } from '../../utils/logger';
 
@@ -57,7 +58,7 @@ export async function generateDataAsync(runId: string, config: DataGeneratorConf
     const result = await generator.generate();
 
     // Complete
-    progressMap.set(runId, {
+    const finalProgress = {
       status: 'completed',
       progress: 100,
       message: '✅ 데이터 생성 완료!',
@@ -72,18 +73,46 @@ export async function generateDataAsync(runId: string, config: DataGeneratorConf
       industry: config.userInput.industry,
       scenario: config.userInput.scenario,
       excelFile: path.basename(config.excelFilePath),
-      completedAt: new Date().toISOString()
-    });
+      createdAt: new Date().toISOString() // Use createdAt to match runs.ts sorting
+    };
+    progressMap.set(runId, finalProgress);
+
+    // Write metadata to file for persistence
+    try {
+      const runsDir = path.resolve(__dirname, '../../../output/runs', runId);
+      if (!fs.existsSync(runsDir)) {
+        fs.mkdirSync(runsDir, { recursive: true });
+      }
+      const metadataPath = path.join(runsDir, 'metadata.json');
+      fs.writeFileSync(metadataPath, JSON.stringify(finalProgress, null, 2));
+      logger.info(`📝 Run metadata saved to ${metadataPath}`);
+    } catch (fileError: any) {
+      logger.error(`Failed to write run metadata for ${runId}:`, fileError);
+    }
 
   } catch (error: any) {
     logger.error('Error during data generation:', error);
-    progressMap.set(runId, {
+    const errorProgress = {
       status: 'error',
       progress: 0,
       message: `❌ 오류: ${error.message}`,
       error: error.stack,
       failedAt: new Date().toISOString()
-    });
+    };
+    progressMap.set(runId, errorProgress);
+
+    // Write error metadata to file for persistence
+    try {
+      const runsDir = path.resolve(__dirname, '../../../output/runs', runId);
+      if (!fs.existsSync(runsDir)) {
+        fs.mkdirSync(runsDir, { recursive: true });
+      }
+      const metadataPath = path.join(runsDir, 'metadata.json');
+      fs.writeFileSync(metadataPath, JSON.stringify(errorProgress, null, 2));
+      logger.info(`📝 Error metadata saved to ${metadataPath}`);
+    } catch (fileError: any) {
+      logger.error(`Failed to write error metadata for ${runId}:`, fileError);
+    }
   }
 }
 

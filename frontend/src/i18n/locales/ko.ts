@@ -312,6 +312,8 @@ export const ko = {
     logsDisplay: '개 표시 (자동 업데이트)',
     analyzing: 'AI 분석 중',
     parsingExcel: 'Excel 파싱 중',
+    creatingUserSegments: '사용자 세그먼트 생성 중',
+    finalizingAnalysis: '분석 완료 중',
     processing: '처리 중',
 
     // Error messages

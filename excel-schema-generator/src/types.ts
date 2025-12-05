@@ -10,6 +10,8 @@ export interface ExcelGenerationRequest {
   industry: string;    // 산업/카테고리 (예: 게임, 커머스, 금융)
   scenario: string;    // 서비스 시나리오 설명
   notes: string;       // 서비스 특징
+  eventCountMin?: number;  // 최소 이벤트 수 (기본값: 20)
+  eventCountMax?: number;  // 최대 이벤트 수 (기본값: 40)
 }
 
 // ============================================================================

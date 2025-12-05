@@ -38,10 +38,10 @@ export default function AIAnalysisProgress({ progress }: AIAnalysisProgressProps
       {/* Current Phase Badge */}
       <div className="mb-4 flex items-center gap-3">
         <span className="inline-block px-4 py-2 rounded text-sm font-semibold bg-[var(--accent-cyan)]/10 text-[var(--accent-cyan)] border border-[var(--accent-cyan)] font-mono animate-pulse-border">
-          {progress.progress < 30 ? <>📋 Excel 파싱 중<LoadingDots /></> :
-           progress.progress < 60 ? <>🤖 AI 전략 분석 중<LoadingDots /></> :
-           progress.progress < 90 ? <>🎯 사용자 세그먼트 생성 중<LoadingDots /></> :
-           <>⚡ 분석 완료 중<LoadingDots /></>}
+          {progress.progress < 30 ? <>📋 {t.generator.parsingExcel}<LoadingDots /></> :
+           progress.progress < 60 ? <>🤖 {t.generator.aiAnalysisInProgress}<LoadingDots /></> :
+           progress.progress < 90 ? <>🎯 {t.generator.creatingUserSegments}<LoadingDots /></> :
+           <>⚡ {t.generator.finalizingAnalysis}<LoadingDots /></>}
         </span>
         <div className="flex gap-1">
           <span className="w-2 h-2 bg-[var(--accent-cyan)] rounded-full animate-bounce-dot" style={{ animationDelay: '0ms' }}></span>

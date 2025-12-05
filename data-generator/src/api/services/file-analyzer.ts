@@ -32,8 +32,9 @@ export class FileAnalyzer {
   private anthropic: Anthropic | null = null;
   private model: string;
   private maxTokens: number;
+  private onProgress?: (message: string) => void;
 
-  constructor(apiKey?: string, model?: string, maxTokens: number = 4000) {
+  constructor(apiKey?: string, model?: string, maxTokens: number = 4000, onProgress?: (message: string) => void) {
     if (apiKey) {
       this.anthropic = new Anthropic({ apiKey });
     }
@@ -49,6 +50,7 @@ export class FileAnalyzer {
     }
 
     this.maxTokens = maxTokens;
+    this.onProgress = onProgress;
   }
 
   /**
@@ -106,6 +108,17 @@ export class FileAnalyzer {
 
     const fileName = path.basename(filePath);
     const fileType = path.extname(filePath).toLowerCase();
+
+    // 진행 상황 업데이트
+    if (this.onProgress) {
+      if (this.isPDFFile(filePath)) {
+        this.onProgress(`📄 PDF 파일 분석 중: ${fileName}`);
+      } else if (this.isImageFile(filePath)) {
+        this.onProgress(`🖼️  이미지 파일 분석 중: ${fileName}`);
+      } else {
+        this.onProgress(`📝 텍스트 파일 분석 중: ${fileName}`);
+      }
+    }
 
     try {
       const analysisPrompt = `이 파일의 내용을 분석하여 요약해주세요.
@@ -252,12 +265,33 @@ ${textContent.substring(0, 8000)}
       throw new Error('Anthropic API key not configured');
     }
 
-    // 각 파일 개별 분석
-    const fileAnalyses = await Promise.all(
-      filePaths.map(filePath => this.analyzeFile(filePath))
-    );
+    if (this.onProgress) {
+      this.onProgress(`📁 ${filePaths.length}개 파일 분석 시작...`);
+    }
+
+    // 각 파일 개별 분석 (순차적으로 처리하여 진행 상황 추적)
+    const fileAnalyses: FileAnalysisResult[] = [];
+    for (let i = 0; i < filePaths.length; i++) {
+      const filePath = filePaths[i];
+      const fileName = path.basename(filePath);
+
+      if (this.onProgress) {
+        this.onProgress(`  분석 중 (${i + 1}/${filePaths.length}): ${fileName}`);
+      }
+
+      const result = await this.analyzeFile(filePath);
+      fileAnalyses.push(result);
+
+      if (this.onProgress) {
+        this.onProgress(`  ✅ 완료 (${i + 1}/${filePaths.length}): ${fileName}`);
+      }
+    }
 
     // 모든 분석 결과를 통합해서 최종 컨텍스트 생성
+    if (this.onProgress) {
+      this.onProgress(`🔄 분석 결과 통합 중...`);
+    }
+
     const combinedAnalysisText = fileAnalyses
       .map(fa => `[${fa.fileName}]\n${fa.analysis}`)
       .join('\n\n---\n\n');
@@ -285,6 +319,10 @@ ${combinedAnalysisText}
 
     // 권장 컨텍스트 추출
     const recommendedContext = this.extractRecommendedContext(combinedInsights);
+
+    if (this.onProgress) {
+      this.onProgress(`✅ 전체 파일 분석 완료`);
+    }
 
     return {
       files: fileAnalyses,
